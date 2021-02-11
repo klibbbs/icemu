@@ -46,8 +46,8 @@ typedef enum {
   PIN_VSS  = 558
 } mos6502_pin_t;
 
-const size_t MOS6502_ON = PIN_VSS;
-const size_t MOS6502_OFF = PIN_VCC;
+const size_t MOS6502_ON = PIN_VCC;
+const size_t MOS6502_OFF = PIN_VSS;
 const size_t MOS6502_CLOCK = PIN_CLK;
 
 const pull_t MOS6502_NODE_DEFS[] = {
