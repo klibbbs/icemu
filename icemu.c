@@ -15,13 +15,13 @@ static void icemu_network_resolve(icemu_t * ic);
 
 static void icemu_transistor_resolve(icemu_t * ic, tx_t t);
 
-enum {ICEMU_RESOLVE_LIMIT = 10};
+enum {ICEMU_RESOLVE_LIMIT = 20};
 
 typedef enum {
-  LEVEL_FLOAT  = 0,
-  LEVEL_CAP    = 1,
-  LEVEL_PULL   = 2,
-  LEVEL_SOURCE = 3
+  LEVEL_FLOAT = 0,
+  LEVEL_CAP   = 1,
+  LEVEL_PULL  = 2,
+  LEVEL_POWER = 3
 } level_t;
 
 /*
@@ -121,8 +121,6 @@ icemu_t * icemu_init(const icemu_def_t * def) {
   ic->network_nodes = malloc(sizeof(*ic->network_nodes) * ic->nodes_count);
   ic->network_nodes_count = 0;
 
-  debug(("Init: %zd nodes\t%zd transistors\n", ic->nodes_count, ic->transistors_count));
-
   /* Initialize circuit */
   icemu_resolve(ic);
 
@@ -149,14 +147,14 @@ void icemu_destroy(icemu_t * ic) {
 bit_t icemu_read_node(const icemu_t * ic, nx_t n, pull_t pull) {
   bit_t state = ic->nodes[n].state;
 
-  if (state == BIT_Z) {
+  if (state == BIT_Z || state == BIT_META) {
     switch (pull) {
       case PULL_DOWN:
         return BIT_ZERO;
-      case PULL_FLOAT:
-        return BIT_Z;
       case PULL_UP:
         return BIT_ONE;
+      case PULL_FLOAT:
+        return state;
     }
   }
 
@@ -195,10 +193,6 @@ void icemu_resolve(icemu_t * ic) {
       if (ic->nodes[n].dirty) {
         dirty_nodes++;
 
-        if (i > 3) {
-          debug(("N %4zd: pull %d state %d\n", n, ic->nodes[n].pull, ic->nodes[n].state));
-        }
-
         /* Find the network of all connected nodes */
         icemu_network_add(ic, n);
 
@@ -215,15 +209,10 @@ void icemu_resolve(icemu_t * ic) {
       if (ic->transistors[t].dirty) {
         dirty_transistors++;
 
-        if (i > 3) {
-          debug(("T %4zd: %4zd | %4zd  %4zd\n", t, ic->transistors[t].gate, ic->transistors[t].c1, ic->transistors[t].c2));
-        }
-
         /* Resolve this transistor and propagate changes to affected nodes */
         icemu_transistor_resolve(ic, t);
       }
     }
-
     debug(("Iteration %d: %zd nodes\t%zd transistors\n", i, dirty_nodes, dirty_transistors));
   }
 }
@@ -246,7 +235,7 @@ void icemu_network_add(icemu_t * ic, nx_t n) {
   /* Append this node to the network */
   ic->network_nodes[ic->network_nodes_count++] = n;
 
-  /* Stop here if this node is a voltage source */
+  /* Stop here if this node is a power rail */
   if (n == ic->on || n == ic->off) {
     return;
   }
@@ -280,17 +269,17 @@ void icemu_network_resolve(icemu_t * ic) {
     node_t * node = &ic->nodes[n];
 
     if (n == ic->off) {
-      level_down = LEVEL_SOURCE;
+      level_down = LEVEL_POWER;
     } else if (n == ic->on) {
-      level_up = LEVEL_SOURCE;
-    } else if (node->pull == PULL_DOWN) {
-      level_down = LEVEL_PULL > level_down ? LEVEL_PULL : level_down;
-    } else if (node->pull == PULL_UP) {
-      level_up = LEVEL_PULL > level_up ? LEVEL_PULL : level_up;
-    } else if (node->state == BIT_ZERO) {
-      level_down = LEVEL_CAP > level_down ? LEVEL_CAP : level_down;
-    } else if (node->state == BIT_ONE) {
-      level_up = LEVEL_CAP > level_up ? LEVEL_CAP : level_down;
+      level_up = LEVEL_POWER;
+    } else if (node->pull == PULL_DOWN && LEVEL_PULL > level_down) {
+      level_down = LEVEL_PULL;
+    } else if (node->pull == PULL_UP && LEVEL_PULL > level_up) {
+      level_up = LEVEL_PULL;
+    } else if (node->state == BIT_ZERO && LEVEL_CAP > level_down) {
+      level_down = LEVEL_CAP;
+    } else if (node->state == BIT_ONE && LEVEL_CAP > level_up) {
+      level_up = LEVEL_CAP;
     }
   }
 
@@ -298,15 +287,12 @@ void icemu_network_resolve(icemu_t * ic) {
     state = BIT_ONE;
   } else if (level_down > level_up) {
     state = BIT_ZERO;
-  } else {
-    if (level_up == LEVEL_SOURCE) {
-      debug(("VSS <-> VCC: "));
-      for (nn = 0; nn < ic->network_nodes_count; nn++) {
-        debug(("%4zd ", ic->network_nodes[nn]));
-      }
-      debug(("\n"));
-    }
+  } else if (level_up < LEVEL_PULL) {
+    /* Ambiguous node levels with no connection to power are high-impedance */
     state = BIT_Z;
+  } else {
+    /* Ambiguous node levels with connection to power are metastable */
+    state = BIT_META;
   }
 
   /* Propagate the strongest signal to all nodes in the network */
@@ -315,8 +301,7 @@ void icemu_network_resolve(icemu_t * ic) {
     node_t * node = &ic->nodes[n];
 
     /* Update dirty flags for affected transistors */
-    if (node->state != state) {
-      debug(("FLIP %4zd from %d to %d\n", n, node->state, state));
+    if (state != node->state) {
       for (t = 0; t < ic->node_gates_counts[n]; t++) {
         ic->transistors[ic->node_gates[n][t]].dirty = true;
       }
