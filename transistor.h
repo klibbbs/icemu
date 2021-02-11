@@ -20,4 +20,6 @@ typedef struct {
   bool dirty;
 } transistor_t;
 
+bool transistor_is_open(const transistor_t * transistor, const node_t * gate);
+
 #endif /* INCLUDE_TRANSISTOR_H */

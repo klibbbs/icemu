@@ -4,9 +4,9 @@
 #include <stdio.h>
 
 #ifdef DEBUG
-#define debug(msg) fprintf(stderr, msg)
+#define debug(args) printf args
 #else
-#define debug(msg)
+#define debug(args)
 #endif
 
 #endif /* INCLUDE_DEBUG_H */

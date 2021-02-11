@@ -3642,3 +3642,4 @@ const transistor_t MOS6502_TRANSISTOR_DEFS[] = {
 };
 
 #endif /* INCLUDE_MOS6502_DEFS_H */
+

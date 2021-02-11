@@ -41,9 +41,9 @@ typedef struct {
 } icemu_t;
 
 icemu_t * icemu_init(const icemu_def_t * def);
-void      icemu_destroy(icemu_t * ic);
+void icemu_destroy(icemu_t * ic);
 
-bit_t     icemu_read_node(const icemu_t * ic, nx_t node, pull_t pull);
-void      icemu_write_node(icemu_t * ic, nx_t node, bit_t state);
+bit_t icemu_read_node(const icemu_t * ic, nx_t n, pull_t pull);
+void icemu_write_node(icemu_t * ic, nx_t n, bit_t state);
 
 #endif /* INCLUDE_ICEMU_H */
