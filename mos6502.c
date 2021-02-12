@@ -1,5 +1,6 @@
 #include "mos6502.h"
 #include "mos6502_defs.h"
+
 #include "icemu.h"
 
 #include <stdlib.h>
@@ -49,14 +50,17 @@ void mos6502_reset(mos6502_t * mos6502) {
   int i;
 
   /* Set RES low */
-  mos6502_set_res(mos6502, BIT_ZERO);
+  icemu_write_node_async(mos6502->ic, PIN_RES, BIT_ZERO);
 
   /* Set neutral inputs */
-  mos6502_set_clk(mos6502, BIT_ONE);
-  mos6502_set_rdy(mos6502, BIT_ONE);
-  mos6502_set_so(mos6502, BIT_ZERO);
-  mos6502_set_irq(mos6502, BIT_ONE);
-  mos6502_set_nmi(mos6502, BIT_ONE);
+  icemu_write_node_async(mos6502->ic, PIN_CLK, BIT_ONE);
+  icemu_write_node_async(mos6502->ic, PIN_RDY, BIT_ONE);
+  icemu_write_node_async(mos6502->ic, PIN_SO, BIT_ZERO);
+  icemu_write_node_async(mos6502->ic, PIN_IRQ, BIT_ONE);
+  icemu_write_node_async(mos6502->ic, PIN_NMI, BIT_ONE);
+
+  /* Sync chip */
+  icemu_sync(mos6502->ic);
 
   /* Wait 8 cycles */
   for (i = 0; i < 16; i++) {
@@ -64,7 +68,7 @@ void mos6502_reset(mos6502_t * mos6502) {
   }
 
   /* Set RES high */
-  mos6502_set_res(mos6502, BIT_ONE);
+  icemu_write_node_sync(mos6502->ic, PIN_RES, BIT_ONE);
 }
 
 void mos6502_step(mos6502_t * mos6502) {
@@ -169,5 +173,5 @@ static bit_t mos6502_get_pin(const mos6502_t * mos6502, mos6502_pin_t pin, pull_
 }
 
 static void mos6502_set_pin(mos6502_t * mos6502, mos6502_pin_t pin, bit_t state) {
-  icemu_write_node(mos6502->ic, pin, state);
+  icemu_write_node_sync(mos6502->ic, pin, state);
 }

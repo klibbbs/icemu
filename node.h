@@ -21,7 +21,7 @@ typedef enum {
 } pull_t;
 
 typedef struct {
-  pull_t pull;
+  pull_t load;
   bit_t state;
   bool dirty;
 } node_t;

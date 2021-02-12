@@ -20,7 +20,7 @@ enum {ICEMU_RESOLVE_LIMIT = 20};
 typedef enum {
   LEVEL_FLOAT = 0,
   LEVEL_CAP   = 1,
-  LEVEL_PULL  = 2,
+  LEVEL_LOAD  = 2,
   LEVEL_POWER = 3
 } level_t;
 
@@ -44,7 +44,7 @@ icemu_t * icemu_init(const icemu_def_t * def) {
   ic->nodes = malloc(sizeof(node_t) * ic->nodes_count);
 
   for (n = 0; n < ic->nodes_count; n++) {
-    ic->nodes[n].pull  = def->nodes[n];
+    ic->nodes[n].load  = def->nodes[n];
     ic->nodes[n].state = BIT_Z;
     ic->nodes[n].dirty = true;
   }
@@ -144,11 +144,15 @@ void icemu_destroy(icemu_t * ic) {
   free(ic);
 }
 
-bit_t icemu_read_node(const icemu_t * ic, nx_t n, pull_t pull) {
+void icemu_sync(icemu_t * ic) {
+  icemu_resolve(ic);
+}
+
+bit_t icemu_read_node(const icemu_t * ic, nx_t n, pull_t load) {
   bit_t state = ic->nodes[n].state;
 
   if (state == BIT_Z || state == BIT_META) {
-    switch (pull) {
+    switch (load) {
       case PULL_DOWN:
         return BIT_ZERO;
       case PULL_UP:
@@ -161,14 +165,22 @@ bit_t icemu_read_node(const icemu_t * ic, nx_t n, pull_t pull) {
   return state;
 }
 
-void icemu_write_node(icemu_t * ic, nx_t n, bit_t state) {
+void icemu_write_node_sync(icemu_t * ic, nx_t n, bit_t state) {
+  icemu_write_node_async(ic, n, state);
+  icemu_sync(ic);
+}
+
+void icemu_write_node_async(icemu_t * ic, nx_t n, bit_t state) {
+
+  /* Apply a load to the node in the desired direction */
   if (state == BIT_ZERO) {
-    ic->nodes[n].pull = PULL_DOWN;
+    ic->nodes[n].load = PULL_DOWN;
   } else if (state == BIT_ONE) {
-    ic->nodes[n].pull = PULL_UP;
+    ic->nodes[n].load = PULL_UP;
   }
 
-  /* TODO */
+  /* Flag the node as dirty so it will be reevaluated */
+  ic->nodes[n].dirty = true;
 }
 
 /*
@@ -272,10 +284,10 @@ void icemu_network_resolve(icemu_t * ic) {
       level_down = LEVEL_POWER;
     } else if (n == ic->on) {
       level_up = LEVEL_POWER;
-    } else if (node->pull == PULL_DOWN && LEVEL_PULL > level_down) {
-      level_down = LEVEL_PULL;
-    } else if (node->pull == PULL_UP && LEVEL_PULL > level_up) {
-      level_up = LEVEL_PULL;
+    } else if (node->load == PULL_DOWN && LEVEL_LOAD > level_down) {
+      level_down = LEVEL_LOAD;
+    } else if (node->load == PULL_UP && LEVEL_LOAD > level_up) {
+      level_up = LEVEL_LOAD;
     } else if (node->state == BIT_ZERO && LEVEL_CAP > level_down) {
       level_down = LEVEL_CAP;
     } else if (node->state == BIT_ONE && LEVEL_CAP > level_up) {
@@ -287,7 +299,7 @@ void icemu_network_resolve(icemu_t * ic) {
     state = BIT_ONE;
   } else if (level_down > level_up) {
     state = BIT_ZERO;
-  } else if (level_up < LEVEL_PULL) {
+  } else if (level_up < LEVEL_LOAD) {
     /* Ambiguous node levels with no connection to power are high-impedance */
     state = BIT_Z;
   } else {
