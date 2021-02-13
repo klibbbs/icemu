@@ -6,7 +6,8 @@
 static unsigned char memory[65536]; /* 16-bit address space */
 
 void step(mos6502_t * cpu) {
-  static bit_t clk = BIT_ZERO;
+  static unsigned int cycle = 1;
+  static bit_t clk = BIT_ONE;
 
   /* Invert CLK signal */
   clk = (clk == BIT_ONE) ? BIT_ZERO : BIT_ONE;
@@ -20,6 +21,19 @@ void step(mos6502_t * cpu) {
   } else {
     mos6502_set_db(cpu, memory[mos6502_get_ab(cpu)], true);
   }
+
+  /* Print outputs */
+  printf("%5u: %c [ab] $%04X [db] $%02X [rw] %x [res] %x [sync] %x\n",
+         cycle,
+         (mos6502_get_clk(cpu) == BIT_ONE) ? '+' : '-',
+         mos6502_get_ab(cpu),
+         mos6502_get_db(cpu),
+         mos6502_get_rw(cpu),
+         mos6502_get_res(cpu),
+         mos6502_get_sync(cpu));
+
+  /* Count total cycles */
+  cycle += (clk == BIT_ONE) ? 1 : 0;
 }
 
 void reset(mos6502_t * cpu) {
@@ -48,6 +62,7 @@ void reset(mos6502_t * cpu) {
 }
 
 int main(int argc, char *  argv[]) {
+  unsigned int i;
   mos6502_t * cpu;
 
   /* Initialize devices */
@@ -56,7 +71,10 @@ int main(int argc, char *  argv[]) {
   /* Reset all devices */
   reset(cpu);
 
-  /* TODO */
+  /* Main loop */
+  for (i = 0; i < 16; i++) {
+    step(cpu);
+  }
 
   /* Cleanup */
   mos6502_destroy(cpu);

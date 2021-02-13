@@ -3,6 +3,7 @@
 #include "debug.h"
 #include "types.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 
 /* --- Private declarations --- */
@@ -229,13 +230,12 @@ void icemu_resolve(icemu_t * ic) {
 
     /* If no transistors were marked dirty, resolution is complete */
     if (dirty_transistors == 0) {
-      debug(("RESOLVED (%u)\n", i + 1));
       return;
     }
   }
 
   /* Resolution is incomplete */
-  debug(("UNRESOLVED (%zu N, %zu T)\n", dirty_nodes, dirty_transistors));
+  fprintf(stderr, "[WARNING] Resolution incomplete after %d iterations\n", i);
 }
 
 void icemu_network_reset(icemu_t * ic) {
