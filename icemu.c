@@ -1,19 +1,18 @@
 #include "icemu.h"
 
 #include "debug.h"
-#include "types.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
 /* --- Private declarations --- */
 
-static void icemu_resolve(icemu_t * ic);
+static bool transistor_is_open(const transistor_t * transistor, bit_t gate);
 
+static void icemu_resolve(icemu_t * ic);
 static void icemu_network_reset(icemu_t * ic);
 static void icemu_network_add(icemu_t * ic, nx_t n);
 static void icemu_network_resolve(icemu_t * ic);
-
 static void icemu_transistor_resolve(icemu_t * ic, tx_t t);
 
 enum { ICEMU_RESOLVE_LIMIT = 50 };
@@ -26,10 +25,31 @@ typedef enum {
 } level_t;
 
 /*
-======================
-   Public functions
-======================
+================
+   Transistor
+================
 */
+
+/* --- Private functions --- */
+
+bool transistor_is_open(const transistor_t * transistor, bit_t gate) {
+  switch (transistor->type) {
+    case TRANSISTOR_NMOS:
+      return gate == BIT_ONE;
+    case TRANSISTOR_PMOS:
+      return gate == BIT_ZERO;
+  }
+
+  return false;
+}
+
+/*
+========
+   IC
+========
+*/
+
+/* --- Public functions  --- */
 
 icemu_t * icemu_init(const icemu_def_t * def) {
   nx_t n;
@@ -185,11 +205,7 @@ void icemu_write_node(icemu_t * ic, nx_t n, bit_t state, bool sync) {
   }
 }
 
-/*
-=======================
-   Private functions
-=======================
-*/
+/* --- Private functions --- */
 
 void icemu_resolve(icemu_t * ic) {
   unsigned int i;
@@ -267,7 +283,7 @@ void icemu_network_add(icemu_t * ic, nx_t n) {
     const node_t * gate = &ic->nodes[transistor->gate];
 
     /* If the transistor is enabled, recursively expand the network to the other terminal */
-    if (transistor_is_open(transistor, gate)) {
+    if (transistor_is_open(transistor, gate->state)) {
       if (transistor->c1 == n) {
         icemu_network_add(ic, transistor->c2);
       } else if (transistor->c2 == n) {

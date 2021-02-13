@@ -1,10 +1,56 @@
 #ifndef INCLUDE_ICEMU_H
 #define INCLUDE_ICEMU_H
 
-#include "node.h"
-#include "transistor.h"
-
 #include <stddef.h>
+
+/* --- Types --- */
+
+typedef enum {
+  false,
+  true
+} bool;
+
+/* --- Node --- */
+
+typedef size_t nx_t;
+
+typedef enum {
+  BIT_ZERO = 0,
+  BIT_ONE  = 1,
+  BIT_Z    = -1,
+  BIT_META = -2
+} bit_t;
+
+typedef enum {
+  PULL_DOWN  = -1,
+  PULL_FLOAT = 0,
+  PULL_UP    = 1
+} pull_t;
+
+typedef struct {
+  pull_t load;
+  bit_t state;
+  bool dirty;
+} node_t;
+
+/* --- Transistor --- */
+
+typedef size_t tx_t;
+
+typedef enum {
+  TRANSISTOR_NMOS = 1,
+  TRANSISTOR_PMOS = 2
+} transistor_type_t;
+
+typedef struct {
+  transistor_type_t type;
+  nx_t gate;
+  nx_t c1;
+  nx_t c2;
+  bool dirty;
+} transistor_t;
+
+/* --- IC --- */
 
 typedef struct {
   nx_t on;

@@ -2,7 +2,6 @@
 #define INCLUDE_MOS6502_H
 
 #include "icemu.h"
-#include "types.h"
 
 typedef struct {
   icemu_t * ic;

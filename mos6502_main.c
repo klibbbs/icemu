@@ -1,7 +1,6 @@
 #include "mos6502.h"
 
 #include "debug.h"
-#include "types.h"
 
 static unsigned char memory[65536]; /* 16-bit address space */
 
