@@ -8,13 +8,6 @@
 typedef size_t nx_t;
 
 typedef enum {
-  BIT_ZERO = 0,
-  BIT_ONE  = 1,
-  BIT_Z    = -1,
-  BIT_META = -2
-} bit_t;
-
-typedef enum {
   PULL_DOWN  = -1,
   PULL_FLOAT = 0,
   PULL_UP    = 1

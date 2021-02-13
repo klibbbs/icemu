@@ -15,7 +15,7 @@ static void icemu_network_resolve(icemu_t * ic);
 
 static void icemu_transistor_resolve(icemu_t * ic, tx_t t);
 
-enum {ICEMU_RESOLVE_LIMIT = 20};
+enum { ICEMU_RESOLVE_LIMIT = 50 };
 
 typedef enum {
   LEVEL_FLOAT = 0,
@@ -36,6 +36,7 @@ icemu_t * icemu_init(const icemu_def_t * def) {
 
   icemu_t * ic = malloc(sizeof(icemu_t));
 
+  ic->synced = false;
   ic->on = def->on;
   ic->off = def->off;
 
@@ -165,12 +166,7 @@ bit_t icemu_read_node(const icemu_t * ic, nx_t n, pull_t load) {
   return state;
 }
 
-void icemu_write_node_sync(icemu_t * ic, nx_t n, bit_t state) {
-  icemu_write_node_async(ic, n, state);
-  icemu_sync(ic);
-}
-
-void icemu_write_node_async(icemu_t * ic, nx_t n, bit_t state) {
+void icemu_write_node(icemu_t * ic, nx_t n, bit_t state, bool sync) {
 
   /* Apply a load to the node in the desired direction */
   if (state == BIT_ZERO) {
@@ -181,6 +177,11 @@ void icemu_write_node_async(icemu_t * ic, nx_t n, bit_t state) {
 
   /* Flag the node as dirty so it will be reevaluated */
   ic->nodes[n].dirty = true;
+
+  /* Synchronize the chip if requested */
+  if (sync) {
+    icemu_sync(ic);
+  }
 }
 
 /*
@@ -190,7 +191,7 @@ void icemu_write_node_async(icemu_t * ic, nx_t n, bit_t state) {
 */
 
 void icemu_resolve(icemu_t * ic) {
-  int i;
+  unsigned int i;
   nx_t n, dirty_nodes;
   tx_t t, dirty_transistors;
 
@@ -225,8 +226,16 @@ void icemu_resolve(icemu_t * ic) {
         icemu_transistor_resolve(ic, t);
       }
     }
-    debug(("Iteration %d: %zd nodes\t%zd transistors\n", i, dirty_nodes, dirty_transistors));
+
+    /* If no transistors were marked dirty, resolution is complete */
+    if (dirty_transistors == 0) {
+      debug(("RESOLVED (%u)\n", i + 1));
+      return;
+    }
   }
+
+  /* Resolution is incomplete */
+  debug(("UNRESOLVED (%zu N, %zu T)\n", dirty_nodes, dirty_transistors));
 }
 
 void icemu_network_reset(icemu_t * ic) {
