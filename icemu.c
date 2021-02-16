@@ -25,6 +25,29 @@ typedef enum {
 } level_t;
 
 /*
+===========
+   Types
+===========
+*/
+
+/* --- Public functions --- */
+
+char bit_char(bit_t bit) {
+  switch (bit) {
+    case BIT_ZERO:
+      return '0';
+    case BIT_ONE:
+      return '1';
+    case BIT_Z:
+      return 'Z';
+    case BIT_META:
+      return 'M';
+  }
+
+  return '?';
+}
+
+/*
 ================
    Transistor
 ================

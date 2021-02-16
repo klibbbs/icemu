@@ -10,16 +10,18 @@ typedef enum {
   true
 } bool;
 
-/* --- Node --- */
-
-typedef size_t nx_t;
-
 typedef enum {
   BIT_ZERO = 0,
   BIT_ONE  = 1,
   BIT_Z    = -1,
   BIT_META = -2
 } bit_t;
+
+char bit_char(bit_t bit);
+
+/* --- Node --- */
+
+typedef size_t nx_t;
 
 typedef enum {
   PULL_DOWN  = -1,
