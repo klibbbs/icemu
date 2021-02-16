@@ -84,7 +84,7 @@ icemu_t * icemu_init(const icemu_def_t * def) {
   for (n = 0; n < ic->nodes_count; n++) {
     ic->nodes[n].load  = def->nodes[n];
     ic->nodes[n].state = BIT_Z;
-    ic->nodes[n].dirty = true;
+    ic->nodes[n].dirty = false;
   }
 
   /* Allocate and initialize transistors */
@@ -96,7 +96,7 @@ icemu_t * icemu_init(const icemu_def_t * def) {
     ic->transistors[t].gate  = def->transistors[t].gate;
     ic->transistors[t].c1    = def->transistors[t].c1;
     ic->transistors[t].c2    = def->transistors[t].c2;
-    ic->transistors[t].dirty = true;
+    ic->transistors[t].dirty = false;
   }
 
   /* Allocate and initialize map of nodes to transistor gates */
@@ -160,9 +160,6 @@ icemu_t * icemu_init(const icemu_def_t * def) {
   ic->network_nodes_count = 0;
   ic->network_level_down = LEVEL_FLOAT;
   ic->network_level_up = LEVEL_FLOAT;
-
-  /* Initialize circuit */
-  icemu_resolve(ic);
 
   return ic;
 }
