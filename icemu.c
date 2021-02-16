@@ -17,13 +17,6 @@ static void icemu_transistor_resolve(icemu_t * ic, tx_t t);
 
 enum { ICEMU_RESOLVE_LIMIT = 50 };
 
-typedef enum {
-  LEVEL_FLOAT = 0,
-  LEVEL_CAP   = 1,
-  LEVEL_LOAD  = 2,
-  LEVEL_POWER = 3
-} level_t;
-
 /*
 ===========
    Types
@@ -165,6 +158,8 @@ icemu_t * icemu_init(const icemu_def_t * def) {
   /* Allocate network node list */
   ic->network_nodes = malloc(sizeof(*ic->network_nodes) * ic->nodes_count);
   ic->network_nodes_count = 0;
+  ic->network_level_down = LEVEL_FLOAT;
+  ic->network_level_up = LEVEL_FLOAT;
 
   /* Initialize circuit */
   icemu_resolve(ic);
@@ -279,11 +274,25 @@ void icemu_resolve(icemu_t * ic) {
 
 void icemu_network_reset(icemu_t * ic) {
   ic->network_nodes_count = 0;
+  ic->network_level_down = LEVEL_FLOAT;
+  ic->network_level_up = LEVEL_FLOAT;
 }
 
 void icemu_network_add(icemu_t * ic, nx_t n) {
+  node_t * node;
   nx_t nn;
   tx_t t;
+
+  /* Stop here if this node is a power rail */
+  if (n == ic->off) {
+    ic->network_level_down = LEVEL_POWER;
+    return;
+  }
+
+  if (n == ic->on) {
+    ic->network_level_up = LEVEL_POWER;
+    return;
+  }
 
   /* Check if this node has already been added to the network */
   for (nn = 0; nn < ic->network_nodes_count; nn++) {
@@ -295,9 +304,17 @@ void icemu_network_add(icemu_t * ic, nx_t n) {
   /* Append this node to the network */
   ic->network_nodes[ic->network_nodes_count++] = n;
 
-  /* Stop here if this node is a power rail */
-  if (n == ic->on || n == ic->off) {
-    return;
+  /* Update network signal level */
+  node = &ic->nodes[n];
+
+  if (node->load == PULL_DOWN && LEVEL_LOAD > ic->network_level_down) {
+    ic->network_level_down = LEVEL_LOAD;
+  } else if (node->load == PULL_UP && LEVEL_LOAD > ic->network_level_up) {
+    ic->network_level_up = LEVEL_LOAD;
+  } else if (node->state == BIT_ZERO && LEVEL_CAP > ic->network_level_down) {
+    ic->network_level_down = LEVEL_CAP;
+  } else if (node->state == BIT_ONE && LEVEL_CAP > ic->network_level_up) {
+    ic->network_level_up = LEVEL_CAP;
   }
 
   /* Search for transistor channels connected to this node */
@@ -319,35 +336,15 @@ void icemu_network_add(icemu_t * ic, nx_t n) {
 void icemu_network_resolve(icemu_t * ic) {
   nx_t nn;
   tx_t t;
-  level_t level_down = LEVEL_FLOAT;
-  level_t level_up = LEVEL_FLOAT;
   bit_t state = BIT_Z;
 
+
   /* Find the strongest signal pulling the network up or down */
-  for (nn = 0; nn < ic->network_nodes_count; nn++) {
-    nx_t n = ic->network_nodes[nn];
-    node_t * node = &ic->nodes[n];
-
-    if (n == ic->off) {
-      level_down = LEVEL_POWER;
-    } else if (n == ic->on) {
-      level_up = LEVEL_POWER;
-    } else if (node->load == PULL_DOWN && LEVEL_LOAD > level_down) {
-      level_down = LEVEL_LOAD;
-    } else if (node->load == PULL_UP && LEVEL_LOAD > level_up) {
-      level_up = LEVEL_LOAD;
-    } else if (node->state == BIT_ZERO && LEVEL_CAP > level_down) {
-      level_down = LEVEL_CAP;
-    } else if (node->state == BIT_ONE && LEVEL_CAP > level_up) {
-      level_up = LEVEL_CAP;
-    }
-  }
-
-  if (level_up > level_down) {
+  if (ic->network_level_up > ic->network_level_down) {
     state = BIT_ONE;
-  } else if (level_down > level_up) {
+  } else if (ic->network_level_down > ic->network_level_up) {
     state = BIT_ZERO;
-  } else if (level_up < LEVEL_LOAD) {
+  } else if (ic->network_level_up < LEVEL_LOAD) {
     /* Ambiguous node levels with no connection to power are high-impedance */
     state = BIT_Z;
   } else {

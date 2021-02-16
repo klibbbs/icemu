@@ -54,6 +54,13 @@ typedef struct {
 
 /* --- IC --- */
 
+typedef enum {
+  LEVEL_FLOAT = 0,
+  LEVEL_CAP   = 1,
+  LEVEL_LOAD  = 2,
+  LEVEL_POWER = 3
+} level_t;
+
 typedef struct {
   nx_t on;
   nx_t off;
@@ -88,6 +95,8 @@ typedef struct {
 
   nx_t * network_nodes;
   size_t network_nodes_count;
+  level_t network_level_down;
+  level_t network_level_up;
 } icemu_t;
 
 icemu_t * icemu_init(const icemu_def_t * def);
