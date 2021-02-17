@@ -9,6 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define RED  "\033[0;91m"
+#define NORM "\033[0;0m"
+
 extern BOOL netlist_6502_node_is_pullup[];
 extern netlist_transdefs netlist_6502_transdefs[];
 
@@ -188,7 +191,8 @@ void step_icemu(mos6502_t * icemu) {
 void compare(const char * msg, state_t * bench, mos6502_t * icemu) {
   char bench_buf[BUF_LEN] = {0};
   char icemu_buf[BUF_LEN] = {0};
-  int i;
+  int i, c;
+  bool red = false;
 
   get_bench_state(bench, bench_buf);
   get_icemu_state(icemu, icemu_buf);
@@ -204,14 +208,45 @@ void compare(const char * msg, state_t * bench, mos6502_t * icemu) {
   }
 
   printf("\n");
-  printf("  ICEMU: %s", icemu_buf);
+  printf("  ICEMU: ");
+  printf(NORM);
+
+  for (c = 0; c < strlen(icemu_buf); c++) {
+    if (icemu_buf[c] == bench_buf[c]) {
+      if (red) {
+        printf(NORM);
+      }
+      red = false;
+    } else {
+      if (!red) {
+        printf(RED);
+      }
+      red = true;
+    }
+
+    printf("%c", icemu_buf[c]);
+  }
+
+  printf(NORM);
 
   for (i = 0; i < debug_nodes_len; i++) {
     int node = debug_nodes[i];
+    bit_t icemu_bit = get_icemu_node(icemu, node);
 
-    printf(" %d[%c]", node, bit_char(get_icemu_node(icemu, node)));
+    printf(" %d[", node);
+
+    if (icemu_bit == get_bench_node(bench, node)) {
+      printf("%c", bit_char(icemu_bit));
+    } else {
+      printf(RED);
+      printf("%c", bit_char(icemu_bit));
+      printf(NORM);
+    }
+
+    printf("]");
   }
 
+  printf(NORM);
   printf("\n");
 }
 
