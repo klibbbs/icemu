@@ -7,7 +7,7 @@
 
 /* --- Private declarations --- */
 
-static bool transistor_is_open(const transistor_t * transistor, bit_t gate);
+static bool transistor_is_open(const transistor_t * transistor);
 
 static void icemu_resolve(icemu_t * ic);
 static void icemu_network_reset(icemu_t * ic);
@@ -48,12 +48,12 @@ char bit_char(bit_t bit) {
 
 /* --- Private functions --- */
 
-bool transistor_is_open(const transistor_t * transistor, bit_t gate) {
+bool transistor_is_open(const transistor_t * transistor) {
   switch (transistor->type) {
     case TRANSISTOR_NMOS:
-      return gate == BIT_ONE;
+      return transistor->state == BIT_ONE;
     case TRANSISTOR_PMOS:
-      return gate == BIT_ZERO;
+      return transistor->state == BIT_ZERO;
   }
 
   return false;
@@ -96,6 +96,7 @@ icemu_t * icemu_init(const icemu_def_t * def) {
     ic->transistors[t].gate  = def->transistors[t].gate;
     ic->transistors[t].c1    = def->transistors[t].c1;
     ic->transistors[t].c2    = def->transistors[t].c2;
+    ic->transistors[t].state = BIT_Z;
     ic->transistors[t].dirty = false;
   }
 
@@ -317,10 +318,9 @@ void icemu_network_add(icemu_t * ic, nx_t n) {
   /* Search for transistor channels connected to this node */
   for (t = 0; t < ic->node_channels_counts[n]; t++) {
     const transistor_t * transistor = &ic->transistors[ic->node_channels[n][t]];
-    const node_t * gate = &ic->nodes[transistor->gate];
 
     /* If the transistor is enabled, recursively expand the network to the other terminal */
-    if (transistor_is_open(transistor, gate->state)) {
+    if (transistor_is_open(transistor)) {
       if (transistor->c1 == n) {
         icemu_network_add(ic, transistor->c2);
       } else if (transistor->c2 == n) {
@@ -354,10 +354,13 @@ void icemu_network_resolve(icemu_t * ic) {
     nx_t n = ic->network_nodes[nn];
     node_t * node = &ic->nodes[n];
 
-    /* Update dirty flags for affected transistors */
-    if (state != node->state) {
-      for (t = 0; t < ic->node_gates_counts[n]; t++) {
-        ic->transistors[ic->node_gates[n][t]].dirty = true;
+    /* Update dirty flags for transistors switching states deterministically */
+    for (t = 0; t < ic->node_gates_counts[n]; t++) {
+      transistor_t * transistor = &ic->transistors[ic->node_gates[n][t]];
+
+      if (state != transistor->state && state != BIT_Z && state != BIT_META) {
+        transistor->state = state;
+        transistor->dirty = true;
       }
     }
 

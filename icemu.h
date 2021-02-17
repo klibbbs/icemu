@@ -49,6 +49,7 @@ typedef struct {
   nx_t gate;
   nx_t c1;
   nx_t c2;
+  bit_t state;
   bool dirty;
 } transistor_t;
 
