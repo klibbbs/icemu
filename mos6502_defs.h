@@ -93,7 +93,7 @@ typedef enum {
   PIN_DB3  = 650,
   PIN_DB4  = 1393,
   PIN_DB5  = 175,
-  PIN_DB6  = 1592,
+  PIN_DB6  = 1591,
   PIN_DB7  = 1349,
   PIN_IRQ  = 103,
   PIN_NMI  = 1297,
