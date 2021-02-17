@@ -164,27 +164,37 @@ void step_bench(state_t * bench) {
 
   setNode(bench, 1171, !clk);
   recalcNodeList(bench);
-
-  if (!clk) {
-    if (isNodeHigh(bench, 1156)) {
-      writeDataBus(bench, bench_memory[readAddressBus(bench)]);
-    } else {
-      memory[readAddressBus(bench)] = readDataBus(bench);
-    }
-  }
 }
 
 void step_icemu(mos6502_t * icemu) {
   static bit_t clk;
 
-  clk = mos6502_get_clk(icemu);
+  clk = !mos6502_get_clk(icemu);
 
-  mos6502_set_clk(icemu, !clk, true);
+  mos6502_set_clk(icemu, clk, true);
+}
 
-  if (mos6502_get_rw(icemu) == BIT_ZERO) {
-    icemu_memory[mos6502_get_ab(icemu)] = mos6502_get_db(icemu);
-  } else {
-    mos6502_set_db(icemu, icemu_memory[mos6502_get_ab(icemu)], true);
+void memory_bench(state_t * bench) {
+  if (isNodeHigh(bench, 1171 /* CLK */)) {
+    if (isNodeHigh(bench, 1156 /* RW */)) {
+      /* Read */
+      writeDataBus(bench, bench_memory[readAddressBus(bench)]);
+    } else {
+      /* Write */
+      memory[readAddressBus(bench)] = readDataBus(bench);
+    }
+  }
+}
+
+void memory_icemu(mos6502_t * icemu) {
+  if (mos6502_get_clk(icemu)) {
+    if (mos6502_get_rw(icemu) == BIT_ZERO) {
+      /* Write */
+      icemu_memory[mos6502_get_ab(icemu)] = mos6502_get_db(icemu);
+    } else {
+      /* Read */
+      mos6502_set_db(icemu, icemu_memory[mos6502_get_ab(icemu)], true);
+    }
   }
 }
 
@@ -200,6 +210,10 @@ void compare(const char * msg, state_t * bench, mos6502_t * icemu) {
   printf("%s\n", msg);
 
   printf("  BENCH: %s", bench_buf);
+
+  if (debug_nodes_len) {
+    printf(" |");
+  }
 
   for (i = 0; i < debug_nodes_len; i++) {
     int node = debug_nodes[i];
@@ -228,6 +242,10 @@ void compare(const char * msg, state_t * bench, mos6502_t * icemu) {
   }
 
   printf(NORM);
+
+  if (debug_nodes_len) {
+    printf(" |");
+  }
 
   for (i = 0; i < debug_nodes_len; i++) {
     int node = debug_nodes[i];
@@ -307,11 +325,11 @@ int main(int argc, char * argv[]) {
   mos6502_set_nmi(icemu, BIT_ONE, false);
   mos6502_sync(icemu);
 
-  setNode(bench, 159 /* RES */, 0);
+  setNode(bench, 159  /* RES */, 0);
   setNode(bench, 1171 /* CLK */, 1);
-  setNode(bench, 89 /* RDY */, 1);
-  setNode(bench, 1672 /* SO */, 0);
-  setNode(bench, 103 /* IRQ */, 1);
+  setNode(bench, 89   /* RDY */, 1);
+  setNode(bench, 1672 /* SO  */, 0);
+  setNode(bench, 103  /* IRQ */, 1);
   setNode(bench, 1297 /* NMI */, 1);
   stabilizeChip(bench);
 
@@ -333,8 +351,19 @@ int main(int argc, char * argv[]) {
 
   compare("RES HI", bench, icemu);
   */
-  /* TODO: Loop and compare */
+  /*
+  for (i = 0; i < 18; i++) {
+    sprintf(buf, "STEP %d", i / 2 + 1);
 
+    step_bench(bench);
+    memory_bench(bench);
+
+    step_icemu(icemu);
+    memory_icemu(icemu);
+
+    compare(buf, bench, icemu);
+  }
+  */
   /* Cleanup */
   destroy_bench(bench);
   destroy_icemu(icemu);
