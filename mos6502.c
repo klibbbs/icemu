@@ -124,6 +124,18 @@ unsigned char mos6502_get_reg_sp(const mos6502_t * mos6502) {
     icemu_read_node(mos6502->ic, REG_SP7, PULL_DOWN) << 7;
 }
 
+unsigned char mos6502_get_reg_i(const mos6502_t * mos6502) {
+  return 0x0 |
+    icemu_read_node(mos6502->ic, REG_I0, PULL_DOWN) << 0 |
+    icemu_read_node(mos6502->ic, REG_I1, PULL_DOWN) << 1 |
+    icemu_read_node(mos6502->ic, REG_I2, PULL_DOWN) << 2 |
+    icemu_read_node(mos6502->ic, REG_I3, PULL_DOWN) << 3 |
+    icemu_read_node(mos6502->ic, REG_I4, PULL_DOWN) << 4 |
+    icemu_read_node(mos6502->ic, REG_I5, PULL_DOWN) << 5 |
+    icemu_read_node(mos6502->ic, REG_I6, PULL_DOWN) << 6 |
+    icemu_read_node(mos6502->ic, REG_I7, PULL_DOWN) << 7;
+}
+
 /* --- Pin accessors --- */
 
 unsigned short mos6502_get_ab(const mos6502_t * mos6502) {

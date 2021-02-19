@@ -18,6 +18,7 @@ unsigned char mos6502_get_reg_a(const mos6502_t * mos6502);
 unsigned char mos6502_get_reg_x(const mos6502_t * mos6502);
 unsigned char mos6502_get_reg_y(const mos6502_t * mos6502);
 unsigned char mos6502_get_reg_sp(const mos6502_t * mos6502);
+unsigned char mos6502_get_reg_i(const mos6502_t * mos6502);
 
 /* --- Pin accessors ---*/
 

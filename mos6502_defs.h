@@ -63,7 +63,15 @@ typedef enum {
   REG_SP4  = 1702,
   REG_SP5  = 1098,
   REG_SP6  = 1212,
-  REG_SP7  = 1435
+  REG_SP7  = 1435,
+  REG_I0   = 328,
+  REG_I1   = 1626,
+  REG_I2   = 1384,
+  REG_I3   = 1576,
+  REG_I4   = 1112,
+  REG_I5   = 1329,
+  REG_I6   = 337,
+  REG_I7   = 1328
 } mos6502_reg_t;
 
 /* Pin nodes */
