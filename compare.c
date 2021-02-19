@@ -20,13 +20,55 @@ enum { NUM_BENCH_NODES = 1725 };
 enum { NUM_BENCH_TRANS = 3510 };
 
 const char FMT_STATE[] =
-  "(%c) Ab[%04X] Db[%02X] Res[%c] RW[%c] Sy[%c] PC[%04X] P[%02X] A[%02X] X[%02X] Y[%02X] SP[%02X]";
+  "(%c) Ab[%04X] Db[%02X] Res[%c] RW[%c] Sy[%c] "
+  "PC[%04X] P[%02X] A[%02X] X[%02X] Y[%02X] SP[%02X] I[%02X]";
 
 static unsigned char bench_memory[65536];
 static unsigned char icemu_memory[65536];
 
 static unsigned int debug_nodes[NUM_BENCH_NODES];
 static size_t debug_nodes_len = 0;
+
+static unsigned short DATA_ADDR = 0x0200;
+static unsigned short PROG_ADDR = 0x8000;
+
+static unsigned char DATA[] = {
+  0x77
+};
+
+static unsigned char PROG[] = {
+  0xA9, /* LDA #$66 */
+  0x66,
+  0x8D, /* STA $0300 */
+  0x00,
+  0x03,
+  0xAD, /* LDA $0200 */
+  0x00,
+  0x02,
+  0x8D, /* STA $0301 */
+  0x01,
+  0x03
+};
+
+void load_memory(unsigned char * memory) {
+  size_t data_len = sizeof(DATA) / sizeof(*DATA);
+  size_t prog_len = sizeof(PROG) / sizeof(*PROG);
+  int i;
+
+  /* Set RESET vector */
+  memory[0xFFFC] = PROG_ADDR & 0x00FF;
+  memory[0xFFFD] = PROG_ADDR >> 8;
+
+  /* Load data into memory */
+  for (i = 0; i < data_len; i++) {
+    memory[DATA_ADDR + i] = DATA[i];
+  }
+
+  /* Load program into memory */
+  for (i = 0; i < prog_len; i++) {
+    memory[PROG_ADDR + i] = PROG[i];
+  }
+}
 
 char bool_char(BOOL b) {
   return b ? '1' : '0';
@@ -51,6 +93,8 @@ bit_t get_icemu_node(mos6502_t * icemu, unsigned int node) {
 }
 
 void get_bench_state(state_t * bench, char * buf) {
+  nodenum_t ir_nodes[] = {328, 1626, 1384, 1576, 1112, 1329, 337, 1328};
+
   unsigned short pin_ab = readAddressBus(bench);
   unsigned char pin_db = readDataBus(bench);
 
@@ -71,6 +115,7 @@ void get_bench_state(state_t * bench, char * buf) {
   unsigned char reg_x = readX(bench);
   unsigned char reg_y = readY(bench);
   unsigned char reg_sp = readSP(bench);
+  unsigned char reg_i = readNodes(bench, 8, ir_nodes);
 
   sprintf(buf,
           FMT_STATE,
@@ -85,7 +130,8 @@ void get_bench_state(state_t * bench, char * buf) {
           reg_a,
           reg_x,
           reg_y,
-          reg_sp);
+          reg_sp,
+          reg_i);
 }
 
 void get_icemu_state(mos6502_t * icemu, char * buf) {
@@ -109,6 +155,7 @@ void get_icemu_state(mos6502_t * icemu, char * buf) {
   unsigned char reg_x = mos6502_get_reg_x(icemu);
   unsigned char reg_y = mos6502_get_reg_y(icemu);
   unsigned char reg_sp = mos6502_get_reg_sp(icemu);
+  unsigned char reg_i  = mos6502_get_reg_i(icemu);
 
   sprintf(buf,
           FMT_STATE,
@@ -123,7 +170,8 @@ void get_icemu_state(mos6502_t * icemu, char * buf) {
           reg_a,
           reg_x,
           reg_y,
-          reg_sp);
+          reg_sp,
+          reg_i);
 }
 
 state_t * init_bench() {
@@ -222,6 +270,7 @@ void compare(const char * msg, state_t * bench, mos6502_t * icemu) {
   }
 
   printf("\n");
+
   printf("  ICEMU: ");
   printf(NORM);
 
@@ -309,6 +358,10 @@ int main(int argc, char * argv[]) {
     printf("\n");
   }
 
+  /* Initialize memory */
+  load_memory(bench_memory);
+  load_memory(icemu_memory);
+
   /* Initialize emulators */
   bench = init_bench();
   icemu = init_icemu();
@@ -334,7 +387,7 @@ int main(int argc, char * argv[]) {
   stabilizeChip(bench);
 
   compare("RES LOW", bench, icemu);
-  /*
+
   for (i = 0; i < 16; i++) {
     sprintf(buf, "WAIT %d", i / 2 + 1);
 
@@ -350,10 +403,9 @@ int main(int argc, char * argv[]) {
   recalcNodeList(bench);
 
   compare("RES HI", bench, icemu);
-  */
-  /*
-  for (i = 0; i < 18; i++) {
-    sprintf(buf, "STEP %d", i / 2 + 1);
+
+  for (i = 0; i < 46; i++) {
+    sprintf(buf, "%d", i / 2 + 1);
 
     step_bench(bench);
     memory_bench(bench);
@@ -363,7 +415,7 @@ int main(int argc, char * argv[]) {
 
     compare(buf, bench, icemu);
   }
-  */
+
   /* Cleanup */
   destroy_bench(bench);
   destroy_icemu(icemu);
