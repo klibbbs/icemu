@@ -217,14 +217,14 @@ void mos6502_set_clk(mos6502_t * mos6502, bit_t state, bool sync) {
 }
 
 void mos6502_set_db(mos6502_t * mos6502, unsigned char data, bool sync) {
-  icemu_write_node(mos6502->ic, PIN_DB0, data & 0x01, false);
-  icemu_write_node(mos6502->ic, PIN_DB1, data & 0x02, false);
-  icemu_write_node(mos6502->ic, PIN_DB2, data & 0x04, false);
-  icemu_write_node(mos6502->ic, PIN_DB3, data & 0x08, false);
-  icemu_write_node(mos6502->ic, PIN_DB4, data & 0x10, false);
-  icemu_write_node(mos6502->ic, PIN_DB5, data & 0x20, false);
-  icemu_write_node(mos6502->ic, PIN_DB6, data & 0x40, false);
-  icemu_write_node(mos6502->ic, PIN_DB7, data & 0x80, false);
+  icemu_write_node(mos6502->ic, PIN_DB0, data >> 0 & 0x01, false);
+  icemu_write_node(mos6502->ic, PIN_DB1, data >> 1 & 0x01, false);
+  icemu_write_node(mos6502->ic, PIN_DB2, data >> 2 & 0x01, false);
+  icemu_write_node(mos6502->ic, PIN_DB3, data >> 3 & 0x01, false);
+  icemu_write_node(mos6502->ic, PIN_DB4, data >> 4 & 0x01, false);
+  icemu_write_node(mos6502->ic, PIN_DB5, data >> 5 & 0x01, false);
+  icemu_write_node(mos6502->ic, PIN_DB6, data >> 6 & 0x01, false);
+  icemu_write_node(mos6502->ic, PIN_DB7, data >> 7 & 0x01, false);
 
   if (sync) {
     icemu_sync(mos6502->ic);
