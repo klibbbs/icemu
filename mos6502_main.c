@@ -1,24 +1,30 @@
 #include "mos6502.h"
 
-#include "debug.h"
+#include <stdio.h>
 
 static unsigned char memory[65536]; /* 16-bit address space */
 
 void step(mos6502_t * cpu) {
   static unsigned int cycle = 1;
-  static bit_t clk = BIT_ONE;
+  static bit_t clk;
 
   /* Invert CLK signal */
-  clk = (clk == BIT_ONE) ? BIT_ZERO : BIT_ONE;
+  clk = !mos6502_get_clk(cpu);
 
   /* Write pin synchronously */
   mos6502_set_clk(cpu, clk, true);
 
   /* Handle memory access */
-  if (mos6502_get_rw(cpu) == BIT_ZERO) {
-    memory[mos6502_get_ab(cpu)] = mos6502_get_db(cpu);
-  } else {
-    mos6502_set_db(cpu, memory[mos6502_get_ab(cpu)], true);
+  if (clk == BIT_ONE) {
+    if (mos6502_get_rw(cpu) == BIT_ZERO) {
+
+      /* Write */
+      memory[mos6502_get_ab(cpu)] = mos6502_get_db(cpu);
+    } else {
+
+      /* Read */
+      mos6502_set_db(cpu, memory[mos6502_get_ab(cpu)], true);
+    }
   }
 
   /* Print outputs */
