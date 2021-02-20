@@ -1,5 +1,6 @@
-#include "mos6502.h"
+#include "debug.h"
 #include "icemu.h"
+#include "mos6502.h"
 
 #include "../perfect6502/perfect6502.h"
 #include "../perfect6502/types.h"
@@ -25,9 +26,6 @@ const char FMT_STATE[] =
 
 static unsigned char bench_memory[65536];
 static unsigned char icemu_memory[65536];
-
-static unsigned int debug_nodes[NUM_BENCH_NODES];
-static size_t debug_nodes_len = 0;
 
 static unsigned short DATA_ADDR = 0x0200;
 static unsigned short PROG_ADDR = 0x8000;
@@ -249,6 +247,7 @@ void memory_icemu(mos6502_t * icemu) {
 void compare(const char * msg, state_t * bench, mos6502_t * icemu) {
   char bench_buf[BUF_LEN] = {0};
   char icemu_buf[BUF_LEN] = {0};
+  icemu_debug_t * debug = debug_instance();
   int i, c;
   bool red = false;
 
@@ -259,12 +258,12 @@ void compare(const char * msg, state_t * bench, mos6502_t * icemu) {
 
   printf("  BENCH: %s", bench_buf);
 
-  if (debug_nodes_len) {
+  if (debug->debug_nodes_count) {
     printf(" |");
   }
 
-  for (i = 0; i < debug_nodes_len; i++) {
-    int node = debug_nodes[i];
+  for (i = 0; i < debug->debug_nodes_count; i++) {
+    int node = debug->debug_nodes[i];
 
     printf(" %d[%c]", node, bool_char(get_bench_node(bench, node)));
   }
@@ -292,12 +291,12 @@ void compare(const char * msg, state_t * bench, mos6502_t * icemu) {
 
   printf(NORM);
 
-  if (debug_nodes_len) {
+  if (debug->debug_nodes_count) {
     printf(" |");
   }
 
-  for (i = 0; i < debug_nodes_len; i++) {
-    int node = debug_nodes[i];
+  for (i = 0; i < debug->debug_nodes_count; i++) {
+    int node = debug->debug_nodes[i];
     bit_t icemu_bit = get_icemu_node(icemu, node);
 
     printf(" %d[", node);
@@ -322,41 +321,6 @@ int main(int argc, char * argv[]) {
   mos6502_t * icemu;
   int i;
   char buf[BUF_LEN] = {0};
-
-  /* Read debug nodes */
-  if (argc > 1) {
-    FILE * f = fopen(argv[1], "r");
-
-    if (f) {
-      while (fgets(buf, sizeof(buf), f)) {
-        char * ptr = buf;
-        char * tok;
-
-        while ((tok = strtok(ptr, " \n\t\r\v"))) {
-          if (strlen(tok) > 0) {
-            int node = atoi(tok);
-
-            if (node > 0 || tok[0] == '0') {
-              debug_nodes[debug_nodes_len++] = atoi(tok);
-            }
-          }
-          ptr = NULL;
-        }
-      }
-    } else {
-      fprintf(stderr, "Error opening file '%s'\n", argv[1]);
-    }
-  }
-
-  if (debug_nodes_len > 0) {
-    printf("DEBUG");
-
-    for (i = 0; i < debug_nodes_len; i++) {
-      printf(" %u", debug_nodes[i]);
-    }
-
-    printf("\n");
-  }
 
   /* Initialize memory */
   load_memory(bench_memory);
