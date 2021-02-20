@@ -7,6 +7,8 @@
 
 /* --- Private declarations --- */
 
+enum { ICEMU_RESOLVE_LIMIT = 50 };
+
 static bool transistor_is_open(const transistor_t * transistor);
 
 static void icemu_resolve(icemu_t * ic);
@@ -14,8 +16,6 @@ static void icemu_network_reset(icemu_t * ic);
 static void icemu_network_add(icemu_t * ic, nx_t n);
 static void icemu_network_resolve(icemu_t * ic);
 static void icemu_transistor_resolve(icemu_t * ic, tx_t t);
-
-enum { ICEMU_RESOLVE_LIMIT = 50 };
 
 /*
 ===========
@@ -332,9 +332,7 @@ void icemu_network_add(icemu_t * ic, nx_t n) {
 
 void icemu_network_resolve(icemu_t * ic) {
   nx_t nn;
-  tx_t t;
   bit_t state = BIT_Z;
-
 
   /* Find the strongest signal pulling the network up or down */
   if (ic->network_level_up > ic->network_level_down) {
@@ -352,11 +350,11 @@ void icemu_network_resolve(icemu_t * ic) {
   /* Propagate the strongest signal to all nodes in the network */
   for (nn = 0; nn < ic->network_nodes_count; nn++) {
     nx_t n = ic->network_nodes[nn];
-    node_t * node = &ic->nodes[n];
+    tx_t g;
 
     /* Update dirty flags for transistors switching states deterministically */
-    for (t = 0; t < ic->node_gates_counts[n]; t++) {
-      transistor_t * transistor = &ic->transistors[ic->node_gates[n][t]];
+    for (g = 0; g < ic->node_gates_counts[n]; g++) {
+      transistor_t * transistor = &ic->transistors[ic->node_gates[n][g]];
 
       if (state != transistor->state && state != BIT_Z && state != BIT_META) {
         transistor->state = state;
@@ -365,8 +363,50 @@ void icemu_network_resolve(icemu_t * ic) {
     }
 
     /* Update node states and clear dirty flags */
-    node->state = state;
-    node->dirty = false;
+    ic->nodes[n].state = state;
+    ic->nodes[n].dirty = false;
+  }
+
+  if (debug_test_network(ic)) {
+    bool dirty = false;
+
+    printf("[");
+
+    for (nn = 0; nn < ic->network_nodes_count; nn++) {
+      nx_t n = ic->network_nodes[nn];
+      tx_t g;
+
+      for (g = 0; g < ic->node_gates_counts[n]; g++) {
+        if (ic->transistors[ic->node_gates[n][g]].dirty) {
+          dirty = true;
+          break;
+        }
+      }
+
+      printf(" %4zd", n);
+    }
+
+    if (dirty) {
+      printf(" ] <= %c", bit_char(state));
+    } else {
+      printf(" ]    %c", bit_char(state));
+    }
+
+    printf("    +%d -%d", ic->network_level_up, ic->network_level_down);
+    printf("\n");
+
+    for (nn = 0; nn < ic->network_nodes_count; nn++) {
+      nx_t n = ic->network_nodes[nn];
+      tx_t g;
+
+      for (g = 0; g < ic->node_gates_counts[n]; g++) {
+        transistor_t * transistor = &ic->transistors[ic->node_gates[n][g]];
+
+        if (transistor->dirty) {
+          printf("%4zd <%c> %zd\n", transistor->c1, transistor->state ? '=' : '/', transistor->c2);
+        }
+      }
+    }
   }
 }
 
