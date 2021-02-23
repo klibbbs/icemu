@@ -403,7 +403,7 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
     for (g = 0; g < ic->node_gates_counts[n]; g++) {
       transistor_t * transistor = &ic->transistors[ic->node_gates[n][g]];
 
-      if (state != transistor->state && state != BIT_Z && state != BIT_META) {
+      if (state != transistor->state/* && state != BIT_Z && state != BIT_META*/) {
         transistor->state = state;
 
         icemu_dirty_transistors_add(ic, ic->node_gates[n][g]);
