@@ -9,7 +9,7 @@
 
 enum { ICEMU_RESOLVE_LIMIT = 50 };
 
-static bool transistor_is_open(const transistor_t * transistor);
+static bool transistor_is_open(const transistor_t * transistor, const node_t * gate);
 
 static void icemu_resolve(icemu_t * ic);
 static void icemu_network_reset(icemu_t * ic);
@@ -48,12 +48,12 @@ char bit_char(bit_t bit) {
 
 /* --- Private functions --- */
 
-bool transistor_is_open(const transistor_t * transistor) {
+bool transistor_is_open(const transistor_t * transistor, const node_t * gate) {
   switch (transistor->type) {
     case TRANSISTOR_NMOS:
-      return transistor->state == BIT_ONE;
+      return gate->state == BIT_ONE;
     case TRANSISTOR_PMOS:
-      return transistor->state == BIT_ZERO;
+      return gate->state == BIT_ZERO;
   }
 
   return false;
@@ -96,7 +96,6 @@ icemu_t * icemu_init(const icemu_def_t * def) {
     ic->transistors[t].gate  = def->transistors[t].gate;
     ic->transistors[t].c1    = def->transistors[t].c1;
     ic->transistors[t].c2    = def->transistors[t].c2;
-    ic->transistors[t].state = BIT_Z;
     ic->transistors[t].dirty = false;
   }
 
@@ -319,9 +318,10 @@ void icemu_network_add(icemu_t * ic, nx_t n) {
   /* Search for transistor channels connected to this node */
   for (c = 0; c < ic->node_channels_counts[n]; c++) {
     const transistor_t * transistor = &ic->transistors[ic->node_channels[n][c]];
+    const node_t * gate = &ic->nodes[transistor->gate];
 
     /* If the transistor is enabled, recursively expand the network to the other terminal */
-    if (transistor_is_open(transistor)) {
+    if (transistor_is_open(transistor, gate)) {
       if (transistor->c1 == n) {
         icemu_network_add(ic, transistor->c2);
       } else if (transistor->c2 == n) {
@@ -332,8 +332,8 @@ void icemu_network_add(icemu_t * ic, nx_t n) {
 }
 
 void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
-  nx_t nn;
   bit_t state = BIT_Z;
+  nx_t nn;
 
   /* Find the strongest signal pulling the network up or down */
   if (ic->network_level_up > ic->network_level_down) {
@@ -353,13 +353,10 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
     nx_t n = ic->network_nodes[nn];
     tx_t g;
 
-    /* Update dirty flags for transistors switching states deterministically */
-    for (g = 0; g < ic->node_gates_counts[n]; g++) {
-      transistor_t * transistor = &ic->transistors[ic->node_gates[n][g]];
-
-      if (state != transistor->state/* && state != BIT_Z && state != BIT_META*/) {
-        transistor->state = state;
-        transistor->dirty = true;
+    /* Update dirty flags for affected transistors if the state changed */
+    if (state != ic->nodes[n].state) {
+      for (g = 0; g < ic->node_gates_counts[n]; g++) {
+        ic->transistors[ic->node_gates[n][g]].dirty = true;
       }
     }
 
@@ -413,7 +410,7 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
             const transistor_t * transistor = &ic->transistors[ic->node_gates[n][g]];
 
             if (transistor->dirty) {
-              char gate = transistor->state ? '=' : '/';
+              char gate = transistor_is_open(transistor, &ic->nodes[n]) ? '=' : '/';
 
               printf("%4zd <%c> %zd\n", transistor->c1, gate, transistor->c2);
             }
