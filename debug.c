@@ -1,7 +1,14 @@
 #include "debug.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* --- Private declarations --- */
+
+static int debug_comp_int(const void * a, const void * b);
+
+/* --- Public functions --- */
 
 icemu_debug_t * debug_instance() {
   static icemu_debug_t * debug = NULL;
@@ -74,7 +81,7 @@ bool debug_test_node(nx_t n) {
   return false;
 }
 
-bool debug_test_network(icemu_t * ic) {
+bool debug_test_network(const icemu_t * ic) {
   nx_t nn;
 
   for (nn = 0; nn < ic->network_nodes_count; nn++) {
@@ -84,4 +91,32 @@ bool debug_test_network(icemu_t * ic) {
   }
 
   return false;
+}
+
+void debug_print_network(const icemu_t * ic, const char * delim) {
+  nx_t dnn;
+  nx_t * debug_network_nodes = malloc(sizeof(nx_t) * ic->network_nodes_count);
+
+  /* Copy the current network and sort the copied version */
+  memcpy(debug_network_nodes, ic->network_nodes, sizeof(nx_t) * ic->network_nodes_count);
+  qsort(debug_network_nodes, ic->network_nodes_count, sizeof(nx_t), debug_comp_int);
+
+  for (dnn = 0; dnn < ic->network_nodes_count; dnn++) {
+    if (dnn != 0) {
+      printf("%s", delim);
+    }
+
+    printf("%4zd", debug_network_nodes[dnn]);
+  }
+
+  free(debug_network_nodes);
+}
+
+/* --- Private functions --- */
+
+int debug_comp_int(const void * a, const void * b) {
+  int aa = *(const int *)a;
+  int bb = *(const int *)b;
+
+  return (aa > bb) - (aa < bb);
 }

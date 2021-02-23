@@ -371,8 +371,12 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
   if (debug_test_network(ic)) {
     bool dirty = false;
 
-    printf("#%-2u [", iter);
+    printf("#%-2u [ ", iter);
 
+    /* Print sorted network list */
+    debug_print_network(ic, " ");
+
+    /* Determine whether the network state is dirty */
     for (nn = 0; nn < ic->network_nodes_count; nn++) {
       nx_t n = ic->network_nodes[nn];
       tx_t g;
@@ -383,22 +387,20 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
           break;
         }
       }
-
-      printf(" %zd", n);
     }
 
-    // Print resulting network state
+    /*  Print resulting network state */
     if (dirty) {
-      printf(" ]\t<= %c", bit_char(state));
+      printf(" ] <= %c", bit_char(state));
     } else {
-      printf(" ]\t   %c", bit_char(state));
+      printf(" ]    %c", bit_char(state));
     }
 
-    // Print network signal levels
-    printf("\t(+%d -%d)", ic->network_level_up, ic->network_level_down);
+    /* Print network signal levels */
+    printf("    (+%d -%d)", ic->network_level_up, ic->network_level_down);
     printf("\n");
 
-    // Print affected downstream transistors
+    /* Print affected downstream transistors */
     if (dirty) {
       for (nn = 0; nn < ic->network_nodes_count; nn++) {
         nx_t n = ic->network_nodes[nn];

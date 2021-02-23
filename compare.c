@@ -313,7 +313,7 @@ void compare(const char * msg, state_t * bench, mos6502_t * icemu) {
   }
 
   printf(NORM);
-  printf("\n");
+  printf("\n----\n");
 }
 
 int main(int argc, char * argv[]) {
@@ -321,6 +321,10 @@ int main(int argc, char * argv[]) {
   mos6502_t * icemu;
   int i;
   char buf[BUF_LEN] = {0};
+
+  printf("================================================================\n");
+  printf("================================================================\n");
+  printf("================================================================\n");
 
   /* Initialize memory */
   load_memory(bench_memory);
