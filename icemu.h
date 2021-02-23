@@ -32,7 +32,6 @@ typedef enum {
 typedef struct {
   pull_t load;
   bit_t state;
-  bool dirty;
 } node_t;
 
 /* --- Transistor --- */
@@ -50,7 +49,6 @@ typedef struct {
   nx_t c1;
   nx_t c2;
   bit_t state;
-  bool dirty;
 } transistor_t;
 
 /* --- IC --- */
@@ -98,6 +96,12 @@ typedef struct {
   size_t network_nodes_count;
   level_t network_level_down;
   level_t network_level_up;
+
+  nx_t * dirty_nodes;
+  size_t dirty_nodes_count;
+
+  tx_t * dirty_transistors;
+  size_t dirty_transistors_count;
 } icemu_t;
 
 icemu_t * icemu_init(const icemu_def_t * def);

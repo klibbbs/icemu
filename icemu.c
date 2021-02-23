@@ -11,6 +11,10 @@ enum { ICEMU_RESOLVE_LIMIT = 50 };
 
 static bool transistor_is_open(const transistor_t * transistor);
 
+static void icemu_dirty_nodes_reset(icemu_t * ic);
+static void icemu_dirty_nodes_add(icemu_t * ic, nx_t n);
+static void icemu_dirty_transistors_reset(icemu_t * ic);
+static void icemu_dirty_transistors_add(icemu_t * ic, tx_t t);
 static void icemu_resolve(icemu_t * ic);
 static void icemu_network_reset(icemu_t * ic);
 static void icemu_network_add(icemu_t * ic, nx_t n);
@@ -84,7 +88,6 @@ icemu_t * icemu_init(const icemu_def_t * def) {
   for (n = 0; n < ic->nodes_count; n++) {
     ic->nodes[n].load  = def->nodes[n];
     ic->nodes[n].state = BIT_Z;
-    ic->nodes[n].dirty = false;
   }
 
   /* Allocate and initialize transistors */
@@ -97,7 +100,6 @@ icemu_t * icemu_init(const icemu_def_t * def) {
     ic->transistors[t].c1    = def->transistors[t].c1;
     ic->transistors[t].c2    = def->transistors[t].c2;
     ic->transistors[t].state = BIT_Z;
-    ic->transistors[t].dirty = false;
   }
 
   /* Allocate and initialize map of nodes to transistor gates */
@@ -162,6 +164,13 @@ icemu_t * icemu_init(const icemu_def_t * def) {
   ic->network_level_down = LEVEL_FLOAT;
   ic->network_level_up = LEVEL_FLOAT;
 
+  /* Allocate dirty node and transistor queues */
+  ic->dirty_nodes = malloc(sizeof(*ic->dirty_nodes) * ic->nodes_count);
+  ic->dirty_nodes_count = 0;
+
+  ic->dirty_transistors = malloc(sizeof(*ic->dirty_transistors) * ic->transistors_count);
+  ic->dirty_transistors_count = 0;
+
   return ic;
 }
 
@@ -178,6 +187,9 @@ void icemu_destroy(icemu_t * ic) {
   free(ic->node_channels_counts);
 
   free(ic->network_nodes);
+
+  free(ic->dirty_nodes);
+  free(ic->dirty_transistors);
 
   free(ic);
 }
@@ -213,7 +225,7 @@ void icemu_write_node(icemu_t * ic, nx_t n, bit_t state, bool sync) {
   }
 
   /* Flag the node as dirty so it will be reevaluated */
-  ic->nodes[n].dirty = true;
+  icemu_dirty_nodes_add(ic, n);
 
   /* Synchronize the chip if requested */
   if (sync) {
@@ -223,46 +235,80 @@ void icemu_write_node(icemu_t * ic, nx_t n, bit_t state, bool sync) {
 
 /* --- Private functions --- */
 
+void icemu_dirty_nodes_reset(icemu_t * ic) {
+  ic->dirty_nodes_count = 0;
+}
+
+void icemu_dirty_nodes_add(icemu_t * ic, nx_t n) {
+  nx_t dn;
+
+  /* Check if this node is already dirty */
+  for (dn = 0; dn < ic->dirty_nodes_count; dn++) {
+    if (ic->dirty_nodes[dn] == n) {
+      return;
+    }
+  }
+
+  /* Append this node to the queue */
+  ic->dirty_nodes[ic->dirty_nodes_count++] = n;
+}
+
+void icemu_dirty_transistors_reset(icemu_t * ic) {
+  ic->dirty_transistors_count = 0;
+}
+
+void icemu_dirty_transistors_add(icemu_t * ic, tx_t t) {
+  nx_t dt;
+
+  /* Check if this transistor is already dirty */
+  for (dt = 0; dt < ic->dirty_transistors_count; dt++) {
+    if (ic->dirty_transistors[dt] == t) {
+      return;
+    }
+  }
+
+  /* Append this transistor to the queue */
+  ic->dirty_transistors[ic->dirty_transistors_count++] = t;
+}
+
+
 void icemu_resolve(icemu_t * ic) {
   unsigned int i;
-  nx_t n;
-  tx_t t;
-  size_t dirty_nodes, dirty_transistors;
+  nx_t dn;
+  tx_t dt;
 
   for (i = 0; i < ICEMU_RESOLVE_LIMIT; i++) {
 
-    /* Reset counters */
-    dirty_nodes = 0;
-    dirty_transistors = 0;
-
     /* Iterate through all dirty nodes */
-    for (n = 0; n < ic->nodes_count; n++) {
-      if (ic->nodes[n].dirty) {
-        dirty_nodes++;
+    for (dn = 0; dn < ic->dirty_nodes_count; dn++) {
+      nx_t n = ic->dirty_nodes[dn];
 
-        /* Find the network of all connected nodes */
-        icemu_network_add(ic, n);
+      /* Find the network of all connected nodes */
+      icemu_network_add(ic, n);
 
-        /* Resolve nodes in the network and propagate changes to affected transistors */
-        icemu_network_resolve(ic, i);
+      /* Resolve nodes in the network and propagate changes to affected transistors */
+      icemu_network_resolve(ic, i);
 
-        /* Clean up the network */
-        icemu_network_reset(ic);
-      }
+      /* Clean up the network */
+      icemu_network_reset(ic);
     }
+
+    /* Clear dirty node queue */
+    icemu_dirty_nodes_reset(ic);
 
     /* Iterate through all dirty transistors */
-    for (t = 0; t < ic->transistors_count; t++) {
-      if (ic->transistors[t].dirty) {
-        dirty_transistors++;
+    for (dt = 0; dt < ic->dirty_transistors_count; dt++) {
+      tx_t t = ic->dirty_transistors[dt];
 
-        /* Resolve this transistor and propagate changes to affected nodes */
-        icemu_transistor_resolve(ic, t);
-      }
+      /* Propagate changes to affected nodes */
+      icemu_transistor_resolve(ic, t);
     }
 
-    /* If no transistors were marked dirty, resolution is complete */
-    if (dirty_transistors == 0) {
+    /* Clear dirty transistor queue */
+    icemu_dirty_transistors_reset(ic);
+
+    /* If no further nodes need to be reevaluated, resolution is complete */
+    if (ic->dirty_nodes_count == 0) {
       return;
     }
   }
@@ -353,19 +399,19 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
     nx_t n = ic->network_nodes[nn];
     tx_t g;
 
-    /* Update dirty flags for transistors switching states deterministically */
+    /* Flag any transistors for reevaluation if they switch states deterministically */
     for (g = 0; g < ic->node_gates_counts[n]; g++) {
       transistor_t * transistor = &ic->transistors[ic->node_gates[n][g]];
 
       if (state != transistor->state && state != BIT_Z && state != BIT_META) {
         transistor->state = state;
-        transistor->dirty = true;
+
+        icemu_dirty_transistors_add(ic, ic->node_gates[n][g]);
       }
     }
 
     /* Update node states and clear dirty flags */
     ic->nodes[n].state = state;
-    ic->nodes[n].dirty = false;
   }
 
   if (debug_test_network(ic)) {
@@ -382,10 +428,12 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
       tx_t g;
 
       for (g = 0; g < ic->node_gates_counts[n]; g++) {
+        /*
         if (ic->transistors[ic->node_gates[n][g]].dirty) {
           dirty = true;
           break;
         }
+        */
       }
     }
 
@@ -411,12 +459,9 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
         } else {
           for (g = 0; g < ic->node_gates_counts[n]; g++) {
             const transistor_t * transistor = &ic->transistors[ic->node_gates[n][g]];
+            char gate = transistor->state ? '=' : '/';
 
-            if (transistor->dirty) {
-              char gate = transistor->state ? '=' : '/';
-
-              printf("%4zd <%c> %zd\n", transistor->c1, gate, transistor->c2);
-            }
+            printf("%4zd <%c> %zd\n", transistor->c1, gate, transistor->c2);
           }
         }
       }
@@ -425,14 +470,9 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
 }
 
 void icemu_transistor_resolve(icemu_t * ic, tx_t t) {
-  transistor_t * transistor = &ic->transistors[t];
+  const transistor_t * transistor = &ic->transistors[t];
 
-  /* Update dirty flags for affected nodes */
-  if (transistor->dirty) {
-    ic->nodes[transistor->c1].dirty = true;
-    ic->nodes[transistor->c2].dirty = true;
-  }
-
-  /* Clear transistor dirty flag */
-  transistor->dirty = false;
+  /* Flag channel nodes for reevaluation */
+  icemu_dirty_nodes_add(ic, transistor->c1);
+  icemu_dirty_nodes_add(ic, transistor->c2);
 }
