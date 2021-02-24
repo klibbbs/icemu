@@ -1,8 +1,9 @@
-#ifndef INCLUDE_MOS6502_DEFS_H
-#define INCLUDE_MOS6502_DEFS_H
+#ifndef INCLUDE_MOS6502_DEFINITIONS_H
+#define INCLUDE_MOS6502_DEFINITIONS_H
 
 #include "mos6502.h"
-#include "icemu.h"
+
+#include "../icemu.h"
 
 #include <stddef.h>
 
@@ -3709,5 +3710,5 @@ const transistor_t MOS6502_TRANSISTOR_DEFS[] = {
   {TRANSISTOR_NMOS, 923, 810, 558}
 };
 
-#endif /* INCLUDE_MOS6502_DEFS_H */
+#endif /* INCLUDE_MOS6502_DEFINITIONS_H */
 

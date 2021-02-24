@@ -1,6 +1,7 @@
 #include "debug.h"
 #include "icemu.h"
-#include "mos6502.h"
+
+#include "mos6502/mos6502.h"
 
 #include "../perfect6502/perfect6502.h"
 #include "../perfect6502/types.h"

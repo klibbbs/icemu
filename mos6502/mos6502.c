@@ -1,8 +1,8 @@
 #include "mos6502.h"
-#include "mos6502_defs.h"
 
-#include "debug.h"
-#include "icemu.h"
+#include "definitions.h"
+
+#include "../icemu.h"
 
 #include <stdlib.h>
 

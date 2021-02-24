@@ -1,7 +1,7 @@
-#ifndef INCLUDE_MOS6502_H
-#define INCLUDE_MOS6502_H
+#ifndef INCLUDE_MOS6502_MOS6502_H
+#define INCLUDE_MOS6502_MOS6502_H
 
-#include "icemu.h"
+#include "../icemu.h"
 
 typedef struct {
   icemu_t * ic;
@@ -47,4 +47,4 @@ void mos6502_set_res(mos6502_t * mos6502, bit_t state, bool sync);
 void mos6502_set_rdy(mos6502_t * mos6502, bit_t state, bool sync);
 void mos6502_set_so(mos6502_t * mos6502, bit_t state, bool sync);
 
-#endif /* INCLUDE_MOS6502_H */
+#endif /* INCLUDE_MOS6502_MOS6502_H */

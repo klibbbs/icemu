@@ -3,13 +3,13 @@
 
 .PHONY: all clean
 
-all: mos6502 compare
+all: compare
 
 clean:
-	$(RM) *.o ../perfect6502/*.o mos6502 compare
+	$(RM) *.o ../perfect6502/*.o mos6502/*.o compare
 
-mos6502: icemu.o debug.o mos6502.o mos6502_main.o
-	gcc --std=c89 --pedantic -Wall -o $@ $^
+#mos6502: icemu.o debug.o mos6502.o mos6502_main.o
+#	gcc --std=c89 --pedantic -Wall -o $@ $^
 
-compare: icemu.o debug.o mos6502.o compare.o ../perfect6502/perfect6502.o ../perfect6502/netlist_sim.o
+compare: icemu.o debug.o mos6502/mos6502.o compare.o ../perfect6502/perfect6502.o ../perfect6502/netlist_sim.o
 	gcc -o $@ $^
