@@ -1,7 +1,8 @@
 #include "adapter.h"
 
-#include "mos6502.h"
+#include "controller.h"
 #include "memory.h"
+#include "mos6502.h"
 
 #include "../runtime.h"
 
@@ -33,7 +34,7 @@ static const pin_16_func_t MOS6502_PIN_16_MAP[] = {
   { "pc.reg", mos6502_get_reg_pc, NULL },
 };
 
-static const size_t MOS6502_PIN_16_COUNT = sizeof(MOS6502_PIN_16_MAP) / sizeof(*MOS6502_PIN_16_MAP);
+static const size_t MOS6502_PIN_16_COUNT = sizeof(MOS6502_PIN_16_MAP) / sizeof(pin_16_func_t);
 
 static const pin_8_func_t MOS6502_PIN_8_MAP[] = {
   { "db.pin", mos6502_get_db, mos6502_set_db },
@@ -45,7 +46,7 @@ static const pin_8_func_t MOS6502_PIN_8_MAP[] = {
   { "i.reg", mos6502_get_reg_i, NULL },
 };
 
-static const size_t MOS6502_PIN_8_COUNT = sizeof(MOS6502_PIN_8_MAP) / sizeof(*MOS6502_PIN_8_MAP);
+static const size_t MOS6502_PIN_8_COUNT = sizeof(MOS6502_PIN_8_MAP) / sizeof(pin_8_func_t);
 
 static const pin_1_func_t MOS6502_PIN_1_MAP[] = {
   { "clk.pin", mos6502_get_clk, mos6502_set_clk },
@@ -60,7 +61,7 @@ static const pin_1_func_t MOS6502_PIN_1_MAP[] = {
   { "sync.pin", mos6502_get_sync, NULL },
 };
 
-static const size_t MOS6502_PIN_1_COUNT = sizeof(MOS6502_PIN_1_MAP) / sizeof(*MOS6502_PIN_1_MAP);
+static const size_t MOS6502_PIN_1_COUNT = sizeof(MOS6502_PIN_1_MAP) / sizeof(pin_1_func_t);
 
 /* --- Adapter declarations --- */
 
@@ -72,6 +73,8 @@ typedef struct {
 static void * adapter_instance_init();
 static void adapter_instance_destroy(void * instance);
 static void adapter_instance_reset(void * instance);
+static void adapter_instance_step(void * instance);
+static void adapter_instance_run(void * instance, size_t cycles);
 static int adapter_instance_can_read_pin(const void * instance, const char * pin);
 static int adapter_instance_can_write_pin(const void * instance, const char * pin);
 static output_t adapter_instance_read_pin(const void * instance, const char * pin);
@@ -87,6 +90,8 @@ adapter_t * mos6502_adapter_init() {
   adapter->init = adapter_instance_init;
   adapter->destroy = adapter_instance_destroy;
   adapter->reset = adapter_instance_reset;
+  adapter->step = adapter_instance_step;
+  adapter->run = adapter_instance_run;
   adapter->can_read_pin = adapter_instance_can_read_pin;
   adapter->can_write_pin = adapter_instance_can_write_pin;
   adapter->read_pin = adapter_instance_read_pin;
@@ -104,23 +109,39 @@ void mos6502_adapter_destroy(adapter_t * adapter) {
 /* --- Adapter functions --- */
 
 void * adapter_instance_init() {
-  mos6502_instance_t * instance = malloc(sizeof(mos6502_instance_t));
+  mos6502_instance_t * mos6502_instance = malloc(sizeof(mos6502_instance_t));
 
-  instance->mos6502 = mos6502_init();
-  instance->memory = mos6502_memory_init();
+  mos6502_instance->mos6502 = mos6502_init();
+  mos6502_instance->memory = mos6502_memory_init();
 
-  return instance;
+  return mos6502_instance;
 }
 
 void adapter_instance_destroy(void * instance) {
-  mos6502_destroy(((mos6502_instance_t *)instance)->mos6502);
-  mos6502_memory_destroy(((mos6502_instance_t *)instance)->memory);
+  mos6502_instance_t * mos6502_instance = (mos6502_instance_t *)instance;
 
-  free(instance);
+  mos6502_destroy(mos6502_instance->mos6502);
+  mos6502_memory_destroy(mos6502_instance->memory);
+
+  free(mos6502_instance);
 }
 
 void adapter_instance_reset(void * instance) {
-  /* TODO */
+  mos6502_instance_t * mos6502_instance = (mos6502_instance_t *)instance;
+
+  mos6502_controller_reset(mos6502_instance->mos6502);
+}
+
+void adapter_instance_step(void * instance) {
+  mos6502_instance_t * mos6502_instance = (mos6502_instance_t *)instance;
+
+  mos6502_controller_step(mos6502_instance->mos6502, mos6502_instance->memory);
+}
+
+void adapter_instance_run(void * instance, size_t cycles) {
+  mos6502_instance_t * mos6502_instance = (mos6502_instance_t *)instance;
+
+  mos6502_controller_run(mos6502_instance->mos6502, mos6502_instance->memory, cycles);
 }
 
 int adapter_instance_can_read_pin(const void * instance, const char * pin) {
@@ -205,12 +226,18 @@ void adapter_instance_write_pin(void * instance, const char * pin, unsigned int 
 }
 
 output_t adapter_instance_read_mem(const void * instance, unsigned int addr) {
-  /* TODO */
-  return (output_t){ 0, 0 };
+  mos6502_instance_t * mos6502_instance = (mos6502_instance_t *)instance;
+
+  output_t output = {
+    mos6502_memory_read(mos6502_instance->memory, addr),
+    MOS6502_WORD_WIDTH,
+  };
+
+  return output;
 }
 
 void adapter_instance_write_mem(void * instance, unsigned int addr, unsigned int data) {
-  /* TODO */
-}
+  mos6502_instance_t * mos6502_instance = (mos6502_instance_t *)instance;
 
-/* --- Private functions --- */
+  mos6502_memory_write(mos6502_instance->memory, addr, data);
+}

@@ -4,7 +4,7 @@
 ICEMU_OBJS = icemu.o debug.o runtime.o
 ICEMU_DEPS = icemu.h debug.h runtime.h
 
-MOS6502_OBJS = mos6502/mos6502.o mos6502/memory.o mos6502/adapter.o
+MOS6502_OBJS = mos6502/mos6502.o mos6502/memory.o mos6502/adapter.o mos6502/controller.o
 MOS6502_DEPS = mos6502/*.h
 
 .PHONY: all clean

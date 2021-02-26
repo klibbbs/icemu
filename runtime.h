@@ -20,6 +20,8 @@ typedef struct {
   void * (* init)();
   void (* destroy)(void * instance);
   void (* reset)(void * instance);
+  void (* step)(void * instance);
+  void (* run)(void * instance, size_t cycles);
   int (* can_read_pin)(const void * instance, const char * pin);
   int (* can_write_pin)(const void * instance, const char * pin);
   output_t (* read_pin)(const void * instance, const char * pin);
