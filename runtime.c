@@ -13,26 +13,29 @@
 
 enum {
   BUF_LEN  = 4096,
-  PIN_LEN  = 32,
+  PIN_LEN  = 16,
   MAX_PINS = 64,
 };
 
 typedef enum {
-  COLOR_NONE = 0,
-  COLOR_OK   = 32,
-  COLOR_ERR  = 31,
-} color_t;
+  STYLE_NONE = 0,
+  STYLE_INFO = 1,
+  STYLE_OK   = 32,
+  STYLE_ERR  = 31,
+  STYLE_CMD  = 34,
+} style_t;
 
 typedef enum {
+  STATE_ERR,
   STATE_START,
-  STATE_CMD,
   STATE_NEXT,
-  STATE_PINSET,
+  STATE_CMD,
+  STATE_PINSET_PIN,
   STATE_MEMSET_ADDR,
   STATE_MEMSET_DATA,
   STATE_MEMTEST_ADDR,
   STATE_MEMTEST_DATA,
-  STATE_RUN,
+  STATE_RUN_CYCLES,
 } state_t;
 
 typedef struct {
@@ -43,7 +46,6 @@ typedef struct {
   const char * file;
   size_t line;
   bool success;
-  bool verbose;
 
   char ** pins;
   char * pins_buf;
@@ -58,24 +60,34 @@ typedef struct {
 } env_t;
 
 static rc_t runtime_exec_line(env_t * env, char * buf);
-static rc_t runtime_exec_cmd(env_t * env, const char * tok, char * buf);
-static rc_t runtime_exec_pinset(env_t * env, const char * tok, char * buf);
-static rc_t runtime_exec_memset_addr(env_t * env, const char * tok, char * buf);
-static rc_t runtime_exec_memset_data(env_t * env, const char * tok, char * buf);
-static rc_t runtime_exec_memtest_addr(env_t * env, const char * tok, char * buf);
-static rc_t runtime_exec_memtest_data(env_t * env, const char * tok, char * buf);
-static rc_t runtime_exec_run(env_t * env, const char * tok, char * buf);
+
+static state_t runtime_handle_start(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_next(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_info(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_pinset(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_pinset_pin(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_pinset_end(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_memset(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_memset_addr(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_memset_data(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_memset_end(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_memtest(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_memtest_addr(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_memtest_data(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_memtest_end(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_reset(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_step(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_run(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_run_cycles(env_t * env, const char * tok, const char * buf);
 
 static rc_t runtime_parse_val(const char * tok, unsigned int * val);
 
-static void runtime_debug(const env_t * env, const char * format, ...);
-static void runtime_debug_pinset(const env_t * env);
-static void runtime_debug_addr(const env_t * env, unsigned int addr);
-static void runtime_debug_word(const env_t * env, unsigned int word);
+static void runtime_error(const env_t * env, const char * format, ...);
 
-static void runtime_print(const env_t * env, color_t color, const char * format, ...);
-static void runtime_print_addr(const env_t * env, color_t color, unsigned int addr);
-static void runtime_print_word(const env_t * env, color_t color, unsigned int word);
+static void runtime_print(const env_t * env, style_t style, const char * format, ...);
+static void runtime_print_addr(const env_t * env, style_t style, unsigned int addr);
+static void runtime_print_word(const env_t * env, style_t style, unsigned int word);
 
 static env_t * runtime_env_init();
 static void runtime_env_destroy(env_t * env);
@@ -158,11 +170,6 @@ rc_t runtime_exec_line(env_t * env, char * buf) {
 
   while ((tok = strtok(ptr, " \n\t\r\v")) != NULL) {
 
-    if (strlen(tok) == 0) {
-      fprintf(stderr, "Error on line %zu: unexpected empty token\n", env->line);
-      return RC_ERR;
-    }
-
     /* Re-point the buffer to the remainder of the line */
     if (tok + strlen(tok) >= end) {
       buf = end;
@@ -170,50 +177,47 @@ rc_t runtime_exec_line(env_t * env, char * buf) {
       buf = tok + strlen(tok) + 1;
     }
 
-    /* Handle state machine */
+    /* Handle state */
     switch (env->state) {
       case STATE_START:
-        runtime_debug(env, "START\t%s\n", env->file);
-        /* Fall through */
-      case STATE_CMD:
-        /* Parse command */
-        rc = runtime_exec_cmd(env, tok, buf);
-        break;
-      case STATE_PINSET:
-        /* Parse output pin */
-        rc = runtime_exec_pinset(env, tok, buf);
-        break;
-      case STATE_MEMSET_ADDR:
-        /* Parse reference address */
-        rc = runtime_exec_memset_addr(env, tok, buf);
-        break;
-      case STATE_MEMSET_DATA:
-        /* Parse memory word */
-        rc = runtime_exec_memset_data(env, tok, buf);
-        break;
-      case STATE_MEMTEST_ADDR:
-        /* Parse reference address */
-        rc = runtime_exec_memtest_addr(env, tok, buf);
-        break;
-      case STATE_MEMTEST_DATA:
-        /* Parse memory word */
-        rc = runtime_exec_memtest_data(env, tok, buf);
-        break;
-      case STATE_RUN:
-        /* Parse cycle count */
-        rc = runtime_exec_run(env, tok, buf);
+        env->state = runtime_handle_start(env, tok, buf);
         break;
       case STATE_NEXT:
-        /* Advance to next line */
-        env->state = STATE_CMD;
-        return RC_OK;
+        env->state = runtime_handle_next(env, tok, buf);
+        break;
+      case STATE_CMD:
+        env->state = runtime_handle_cmd(env, tok, buf);
+        break;
+      case STATE_PINSET_PIN:
+        env->state = runtime_handle_pinset_pin(env, tok, buf);
+        break;
+      case STATE_MEMSET_ADDR:
+        env->state = runtime_handle_memset_addr(env, tok, buf);
+        break;
+      case STATE_MEMSET_DATA:
+        env->state = runtime_handle_memset_data(env, tok, buf);
+        break;
+      case STATE_MEMTEST_ADDR:
+        env->state = runtime_handle_memtest_addr(env, tok, buf);
+        break;
+      case STATE_MEMTEST_DATA:
+        env->state = runtime_handle_memtest_data(env, tok, buf);
+        break;
+      case STATE_RUN_CYCLES:
+        env->state = runtime_handle_run_cycles(env, tok, buf);
+        break;
       default:
-        fprintf(stderr, "Error on line %zu: Unexpected parse state %d", env->line, env->state);
+        runtime_error(env, "Unrecognized state %d", env->state);
         return RC_ERR;
     }
 
-    if (rc != RC_OK) {
-      break;
+    /* Handle special-case states */
+    if (env->state == STATE_NEXT) {
+      env->state = STATE_CMD;
+
+      return RC_OK;
+    } else if (env->state == STATE_ERR) {
+      return RC_ERR;
     }
 
     /* Advance to the next token */
@@ -223,230 +227,288 @@ rc_t runtime_exec_line(env_t * env, char * buf) {
   return rc;
 }
 
-rc_t runtime_exec_cmd(env_t * env, const char * tok, char * buf) {
-
-  /* Confirm that the token is a command */
-  if (tok[0] != '.') {
-    fprintf(stderr, "Parse error on line %zu: expected command, found '%s'\n", env->line, tok);
-    return RC_PARSE_ERR;
-  }
-
-  /* Execute command */
-  if (strcmp(tok, ".verbose") == 0) {
-    /* Set verbose flag */
-    env->verbose = true;
-  } else if (strcmp(tok, ".info") == 0) {
-
-    /* Print remaining buffer */
-    runtime_debug(env, "INFO\t");
-    printf("%s", buf);
-
-    /* Advance to next line */
-    env->state = STATE_NEXT;
-  } else if (strcmp(tok, ".pinset") == 0) {
-
-    /* Reset pinset state */
-    env->pins_count = 0;
-    env->pins_cursor = 0;
-
-    /* Consume pins */
-    env->state = STATE_PINSET;
-  } else if (strcmp(tok, ".memset") == 0) {
-
-    /* Reset memory state */
-    env->mem_addr = 0;
-    env->mem_offset = 0;
-
-    /* Consume reference address */
-    env->state = STATE_MEMSET_ADDR;
-  } else if (strcmp(tok, ".memtest") == 0) {
-
-    /* Reset memory state */
-    env->mem_addr = 0;
-    env->mem_offset = 0;
-
-    /* Consume reference address */
-    env->state = STATE_MEMTEST_ADDR;
-  } else if (strcmp(tok, ".reset") == 0) {
-
-    /* Reset instance */
-    env->adapter->reset(env->instance);
-  } else if (strcmp(tok, ".step") == 0) {
-
-    /* Step instance */
-    env->adapter->step(env->instance);
-    runtime_debug(env, "STEP\n");
-  } else if (strcmp(tok, ".run") == 0) {
-
-    /* Consume cycle count */
-    env->state = STATE_RUN;
-  } else {
-    fprintf(stderr, "Parse error on line %zu: unrecognized command '%s'\n", env->line, tok);
-    return RC_PARSE_ERR;
-  }
-
-  return RC_OK;
+state_t runtime_handle_start(env_t * env, const char * tok, const char * buf) {
+  return runtime_handle_cmd(env, tok, buf);
 }
 
-rc_t runtime_exec_pinset(env_t * env, const char * tok, char * buf) {
+state_t runtime_handle_next(env_t * env, const char * tok, const char * buf) {
+  return runtime_handle_cmd(env, tok, buf);
+}
 
-  /* If the token is a command, pin-setting is complete */
+state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf) {
+
+  /* Validate token */
+  if (tok[0] != '.') {
+    runtime_error(env, "Expected command, found '%s'", tok);
+    return STATE_ERR;
+  }
+
+  /* Parse command */
+  if (strcmp(tok, ".info") == 0) {
+    return runtime_handle_info(env, tok, buf);
+  } else if (strcmp(tok, ".pinset") == 0) {
+    return runtime_handle_pinset(env, tok, buf);
+  } else if (strcmp(tok, ".memset") == 0) {
+    return runtime_handle_memset(env, tok, buf);
+  } else if (strcmp(tok, ".memtest") == 0) {
+    return runtime_handle_memtest(env, tok, buf);
+  } else if (strcmp(tok, ".reset") == 0) {
+    return runtime_handle_reset(env, tok, buf);
+  } else if (strcmp(tok, ".step") == 0) {
+    return runtime_handle_step(env, tok, buf);
+  } else if (strcmp(tok, ".run") == 0) {
+    return runtime_handle_run(env, tok, buf);
+  }
+
+  runtime_error(env, "Unrecognized command '%s'", tok);
+  return STATE_ERR;
+}
+
+state_t runtime_handle_info(env_t * env, const char * tok, const char * buf) {
+
+  /* Print the remainder of the line */
+  runtime_print(env, STYLE_CMD, "INFO\t");
+  runtime_print(env, STYLE_INFO, "%s", buf);
+
+  return STATE_NEXT;
+}
+
+state_t runtime_handle_pinset(env_t * env, const char * tok, const char * buf) {
+
+  /* Reset pin list */
+  env->pins_count = 0;
+  env->pins_cursor = 0;
+
+  return STATE_PINSET_PIN;
+}
+
+state_t runtime_handle_pinset_pin(env_t * env, const char * tok, const char * buf) {
+
+  /* Check for end condition */
   if (tok[0] == '.') {
-    runtime_debug(env, "PINSET\t");
-    runtime_debug_pinset(env);
-    runtime_debug(env, "\n");
-
-    env->state = STATE_CMD;
-
-    return runtime_exec_cmd(env, tok, buf);
+    return runtime_handle_pinset_end(env, tok, buf);
   }
 
   /* Validate pin */
-  if (strlen(tok) + 1 > PIN_LEN) {
-    fprintf(stderr, "Parse error on line %zu: invalid pin name '%s'\n", env->line, tok);
-    return RC_PARSE_ERR;
+  if (strlen(tok) >= PIN_LEN) {
+    runtime_error(env, "Invalid pin name '%s'", tok);
+    return STATE_ERR;
   }
 
   if (!env->adapter->can_read_pin(env->instance, tok)) {
-    fprintf(stderr, "Error on line %zu: unreadable pin '%s'\n", env->line, tok);
-    return RC_EMULATOR_ERR;
+    runtime_error(env, "Unreadable pin '%s'", tok);
+    return STATE_ERR;
   }
 
-  /* Register new pin */
+  /* Register pin */
   env->pins[env->pins_count++] = strcpy(&env->pins_buf[env->pins_count * PIN_LEN], tok);
 
-  return RC_OK;
+  return STATE_PINSET_PIN;
 }
 
-rc_t runtime_exec_memset_addr(env_t * env, const char * tok, char * buf) {
+state_t runtime_handle_pinset_end(env_t * env, const char * tok, const char * buf) {
+
+  /* Print pin list */
+  runtime_print(env, STYLE_CMD, "PINSET\t");
+
+  for (size_t p = 0; p < env->pins_count; p++) {
+    if (p == 0) {
+      runtime_print(env, STYLE_NONE, "%s", env->pins[p]);
+    } else {
+      runtime_print(env, STYLE_NONE, " %s", env->pins[p]);
+    }
+  }
+
+  runtime_print(env, STYLE_NONE, "\n");
+
+  return runtime_handle_cmd(env, tok, buf);
+}
+
+state_t runtime_handle_memset(env_t * env, const char * tok, const char * buf) {
+
+  /* Reset memory reference */
+  env->mem_addr = 0;
+  env->mem_offset = 0;
+
+  return STATE_MEMSET_ADDR;
+}
+
+state_t runtime_handle_memset_addr(env_t * env, const char * tok, const char * buf) {
 
   /* Validate address */
   unsigned int addr = 0;
 
   if (runtime_parse_val(tok, &addr) != RC_OK) {
-    fprintf(stderr, "Parse error on line %zu: expected address, found '%s'\n", env->line, tok);
-    return RC_PARSE_ERR;
+    runtime_error(env, "Expected address, found '%s'\n", tok);
+    return STATE_ERR;
   }
 
   /* Register reference address */
   env->mem_addr = addr;
 
-  runtime_debug(env, "MEMSET\n");
+  runtime_print(env, STYLE_CMD, "MEMSET\t");
+  runtime_print_addr(env, STYLE_NONE, addr);
+  runtime_print(env, STYLE_NONE, "\n");
 
-  /* Consume memory words */
-  env->state = STATE_MEMSET_DATA;
-
-  return RC_OK;
+  return STATE_MEMSET_DATA;
 }
 
-rc_t runtime_exec_memset_data(env_t * env, const char * tok, char * buf) {
+state_t runtime_handle_memset_data(env_t * env, const char * tok, const char * buf) {
 
-  /* If the token is a command, memory-setting is complete */
+  /* Check for end condition */
   if (tok[0] == '.') {
-    env->state = STATE_CMD;
-    return runtime_exec_cmd(env, tok, buf);
+    return runtime_handle_memset_end(env, tok, buf);
   }
 
-  /* Validate data */
-  unsigned int data = 0;
+  /* Validate word */
+  unsigned int word = 0;
 
-  if (runtime_parse_val(tok, &data) != RC_OK) {
-    fprintf(stderr, "Parse error on line %zu: expected word, found '%s'\n", env->line, tok);
-    return RC_PARSE_ERR;
+  if (runtime_parse_val(tok, &word) != RC_OK) {
+    runtime_error(env, "Expected word, found '%s'\n", tok);
+    return STATE_ERR;
   }
 
-  /* Write memory */
+  /* Write to memory */
   unsigned int addr = env->mem_addr + env->mem_offset++;
 
-  env->adapter->write_mem(env->instance, addr, data);
+  env->adapter->write_mem(env->instance, addr, word);
 
-  runtime_debug(env, "\t");
-  runtime_debug_addr(env, addr);
-  runtime_debug(env, "\t");
-  runtime_debug_word(env, data);
-  runtime_debug(env, "\n");
+  runtime_print(env, STYLE_NONE, "\t");
+  runtime_print_addr(env, STYLE_NONE, addr);
+  runtime_print(env, STYLE_NONE, "\t");
+  runtime_print_word(env, STYLE_NONE, word);
+  runtime_print(env, STYLE_NONE, "\n");
 
-  return RC_OK;
+  return STATE_MEMSET_DATA;
 }
 
-rc_t runtime_exec_memtest_addr(env_t * env, const char * tok, char * buf) {
+state_t runtime_handle_memset_end(env_t * env, const char * tok, const char * buf) {
+  return runtime_handle_cmd(env, tok, buf);
+}
+
+state_t runtime_handle_memtest(env_t * env, const char * tok, const char * buf) {
+
+  /* Reset memory reference */
+  env->mem_addr = 0;
+  env->mem_offset = 0;
+
+  return STATE_MEMTEST_ADDR;
+}
+
+state_t runtime_handle_memtest_addr(env_t * env, const char * tok, const char * buf) {
 
   /* Validate address */
   unsigned int addr = 0;
 
   if (runtime_parse_val(tok, &addr) != RC_OK) {
-    fprintf(stderr, "Parse error on line %zu: expected address, found '%s'\n", env->line, tok);
-    return RC_PARSE_ERR;
+    runtime_error(env, "Expected address, found '%s'\n", tok);
+    return STATE_ERR;
   }
 
   /* Register reference address */
   env->mem_addr = addr;
 
-  runtime_print(env, COLOR_NONE, "MEMTEST\n");
+  runtime_print(env, STYLE_CMD, "MEMTEST\t");
+  runtime_print_addr(env, STYLE_NONE, addr);
+  runtime_print(env, STYLE_NONE, "\n");
 
-  /* Consume memory words */
-  env->state = STATE_MEMTEST_DATA;
-
-  return RC_OK;
+  return STATE_MEMTEST_DATA;
 }
 
-rc_t runtime_exec_memtest_data(env_t * env, const char * tok, char * buf) {
+state_t runtime_handle_memtest_data(env_t * env, const char * tok, const char * buf) {
 
-  /* If the token is a command, memory-setting is complete */
+  /* Check for end condition */
   if (tok[0] == '.') {
-    env->state = STATE_CMD;
-    return runtime_exec_cmd(env, tok, buf);
+    return runtime_handle_memtest_end(env, tok, buf);
   }
 
-  /* Validate data */
-  unsigned int data = 0;
+  /* Validate word */
+  unsigned int word = 0;
 
-  if (runtime_parse_val(tok, &data) != RC_OK) {
-    fprintf(stderr, "Parse error on line %zu: expected data, found '%s'\n", env->line, tok);
-    return RC_PARSE_ERR;
+  if (runtime_parse_val(tok, &word) != RC_OK) {
+    runtime_error(env, "Expected word, found '%s'\n", tok);
+    return STATE_ERR;
   }
 
-  /* Read memory */
+  /* Read from memory */
   unsigned int addr = env->mem_addr + env->mem_offset++;
   output_t out = env->adapter->read_mem(env->instance, addr);
 
   /* Compare */
-  bool match = (data == out.data);
+  bool match = (word == out.data);
 
   env->success = env->success && match;
 
-  runtime_print(env, COLOR_NONE, "\t");
-  runtime_print_addr(env, COLOR_NONE, addr);
-  runtime_print(env, COLOR_NONE, "\t");
-  runtime_print_word(env, COLOR_NONE, data);
-  runtime_print(env, COLOR_NONE, "\t");
-  runtime_print_word(env, match ? COLOR_OK : COLOR_ERR, out.data);
-  runtime_print(env, COLOR_NONE, "\n");
+  runtime_print(env, STYLE_NONE, "\t");
+  runtime_print_addr(env, STYLE_NONE, addr);
+  runtime_print(env, STYLE_NONE, "\t");
+  runtime_print_word(env, STYLE_NONE, word);
+  runtime_print(env, STYLE_NONE, "\t");
+  runtime_print_word(env, match ? STYLE_OK : STYLE_ERR, out.data);
+  runtime_print(env, STYLE_NONE, "\n");
 
-  return RC_OK;
+  return STATE_MEMTEST_DATA;
 }
 
-rc_t runtime_exec_run(env_t * env, const char * tok, char * buf) {
+state_t runtime_handle_memtest_end(env_t * env, const char * tok, const char * buf) {
+  return runtime_handle_cmd(env, tok, buf);
+}
 
-  /* Validate cycles */
+state_t runtime_handle_reset(env_t * env, const char * tok, const char * buf) {
+
+  /* Reset intance */
+  env->adapter->reset(env->instance);
+
+  runtime_print(env, STYLE_CMD, "RESET\n");
+
+  return STATE_CMD;
+}
+
+state_t runtime_handle_step(env_t * env, const char * tok, const char * buf) {
+
+  /* Step instance */
+  env->adapter->step(env->instance);
+
+  runtime_print(env, STYLE_CMD, "STEP\n");
+
+  return STATE_CMD;
+}
+
+
+state_t runtime_handle_run(env_t * env, const char * tok, const char * buf) {
+
+  /* Reset run clock */
+  env->run_cpu_start = 0;
+  env->run_cpu_end = 0;
+
+  return STATE_RUN_CYCLES;
+}
+
+state_t runtime_handle_run_cycles(env_t * env, const char * tok, const char * buf) {
+
+  /* Validate cycle count */
   unsigned int cycles = 0;
 
   if (runtime_parse_val(tok, &cycles) != RC_OK) {
-    fprintf(stderr, "Parse error on line %zu: expected cycle count, found '%s'\n", env->line, tok);
-    return RC_PARSE_ERR;
+    runtime_error(env, "Expected cycle count, found '%s'\n", tok);
+    return STATE_ERR;
   }
 
-  /* Run instance */
-  runtime_debug(env, "RUN\t%zu\t...\t", cycles);
+  /* Start run clock */
+  runtime_print(env, STYLE_CMD, "RUN\t");
+  runtime_print(env, STYLE_NONE, "%zu\t...\t", cycles);
 
+  /* TODO */
+
+  /* Run instance */
   env->adapter->run(env->instance, cycles);
 
-  runtime_debug(env, "DONE\n");
+  /* Capture clock speed */
+  /* TODO */
 
-  /* Advance to the next command */
-  env->state = STATE_CMD;
+  runtime_print(env, STYLE_NONE, "DONE\n");
 
-  return RC_OK;
+  return STATE_CMD;
 }
 
 rc_t runtime_parse_val(const char * tok, unsigned int * val) {
@@ -471,53 +533,23 @@ rc_t runtime_parse_val(const char * tok, unsigned int * val) {
 
 }
 
-void runtime_debug(const env_t * env, const char * format, ...) {
-  if (!env->verbose) {
-    return;
-  }
+void runtime_error(const env_t * env, const char * format, ...) {
+  fprintf(stderr, "%s:%zu: ", env->file, env->line);
 
   va_list args;
   va_start(args, format);
 
-  vprintf(format, args);
+  vfprintf(stderr, format, args);
 
   va_end(args);
+
+  fprintf(stderr, "\n");
 }
 
-void runtime_debug_pinset(const env_t * env) {
-  if (!env->verbose) {
-    return;
-  }
+void runtime_print(const env_t * env, style_t style, const char * format, ...) {
 
-  for (size_t p = 0; p < env->pins_count; p++) {
-    if (p > 0) {
-      runtime_print(env, COLOR_NONE, " %s", env->pins[p]);
-    } else {
-      runtime_print(env, COLOR_NONE, "%s", env->pins[p]);
-    }
-  }
-}
-
-void runtime_debug_addr(const env_t * env, unsigned int addr) {
-  if (!env->verbose) {
-    return;
-  }
-
-  runtime_print_addr(env, COLOR_NONE, addr);
-}
-
-void runtime_debug_word(const env_t * env, unsigned int word) {
-  if (!env->verbose) {
-    return;
-  }
-
-  runtime_print_word(env, COLOR_NONE, word);
-}
-
-void runtime_print(const env_t * env, color_t color, const char * format, ...) {
-
-  if (color != COLOR_NONE) {
-    printf("\033[0;%dm", color);
+  if (style != STYLE_NONE) {
+    printf("\033[0;%dm", style);
   }
 
   va_list args;
@@ -527,17 +559,17 @@ void runtime_print(const env_t * env, color_t color, const char * format, ...) {
 
   va_end(args);
 
-  if (color != COLOR_NONE) {
+  if (style != STYLE_NONE) {
     printf("\033[0;0m");
   }
 }
 
-void runtime_print_addr(const env_t * env, color_t color, unsigned int addr) {
-  runtime_print(env, color, "$%04X:", addr);
+void runtime_print_addr(const env_t * env, style_t style, unsigned int addr) {
+  runtime_print(env, style, "($%04X)", addr);
 }
 
-void runtime_print_word(const env_t * env, color_t color, unsigned int word) {
-  runtime_print(env, color, "$%02X", word);
+void runtime_print_word(const env_t * env, style_t style, unsigned int word) {
+  runtime_print(env, style, "$%02X", word);
 }
 
 env_t * runtime_env_init(const adapter_t * adapter, const char * file) {
@@ -552,7 +584,6 @@ env_t * runtime_env_init(const adapter_t * adapter, const char * file) {
   env->file = file;
   env->line = 1;
   env->success = true;
-  env->verbose = false;
 
   /* Initialize pins */
   env->pins = malloc(sizeof(char *) * MAX_PINS);

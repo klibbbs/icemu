@@ -1,4 +1,3 @@
-.verbose
 .info Basic store and load
 .pinset clk1.pin clk2.pin ab.pin db.pin rw.pin sync.pin pc.reg p.reg a.reg i.reg
 .memset $0200
