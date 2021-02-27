@@ -150,12 +150,16 @@ rc_t runtime_exec_line(env_t * env, char * buf) {
   rc_t rc = RC_OK;
   char * ptr;
   char * tok;
+  char * end;
 
   /* Strip comments */
   if ((ptr = strchr(buf, '#')) != NULL) {
     *(ptr + 0) = '\n';
     *(ptr + 1) = '\0';
   }
+
+  /* Store a pointer to null terminator */
+  end = buf + strlen(buf);
 
   /* Tokenize on whitespace */
   ptr = buf;
@@ -167,11 +171,11 @@ rc_t runtime_exec_line(env_t * env, char * buf) {
       return RC_ERR;
     }
 
-    /* Capture the remainder of the line */
-    char * remainder = buf + strlen(tok);
-
-    if (*remainder == '\0') {
-      remainder++;
+    /* Re-point the buffer to the remainder of the line */
+    if (tok + strlen(tok) >= end) {
+      buf = end;
+    } else {
+      buf = tok + strlen(tok) + 1;
     }
 
     /* Handle state machine */
@@ -181,31 +185,31 @@ rc_t runtime_exec_line(env_t * env, char * buf) {
         /* Fall through */
       case STATE_CMD:
         /* Parse command */
-        rc = runtime_exec_cmd(env, tok, remainder);
+        rc = runtime_exec_cmd(env, tok, buf);
         break;
       case STATE_PINSET:
         /* Parse output pin */
-        rc = runtime_exec_pinset(env, tok, remainder);
+        rc = runtime_exec_pinset(env, tok, buf);
         break;
       case STATE_MEMSET_ADDR:
         /* Parse reference address */
-        rc = runtime_exec_memset_addr(env, tok, remainder);
+        rc = runtime_exec_memset_addr(env, tok, buf);
         break;
       case STATE_MEMSET_DATA:
         /* Parse memory word */
-        rc = runtime_exec_memset_data(env, tok, remainder);
+        rc = runtime_exec_memset_data(env, tok, buf);
         break;
       case STATE_MEMTEST_ADDR:
         /* Parse reference address */
-        rc = runtime_exec_memtest_addr(env, tok, remainder);
+        rc = runtime_exec_memtest_addr(env, tok, buf);
         break;
       case STATE_MEMTEST_DATA:
         /* Parse memory word */
-        rc = runtime_exec_memtest_data(env, tok, remainder);
+        rc = runtime_exec_memtest_data(env, tok, buf);
         break;
       case STATE_RUN:
         /* Parse cycle count */
-        rc = runtime_exec_run(env, tok, remainder);
+        rc = runtime_exec_run(env, tok, buf);
         break;
       case STATE_NEXT:
         /* Advance to next line */
