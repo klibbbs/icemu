@@ -19,9 +19,10 @@ enum {
 
 typedef enum {
   STYLE_NONE = 0,
-  STYLE_INFO = 1,
+  STYLE_TEXT = 1,
   STYLE_OK   = 32,
   STYLE_ERR  = 31,
+  STYLE_INFO = 35,
   STYLE_CMD  = 34,
 } style_t;
 
@@ -54,9 +55,6 @@ typedef struct {
 
   unsigned int mem_addr;
   size_t mem_offset;
-
-  clock_t run_cpu_start;
-  clock_t run_cpu_end;
 } env_t;
 
 static rc_t runtime_exec_line(env_t * env, char * buf);
@@ -268,7 +266,7 @@ state_t runtime_handle_info(env_t * env, const char * tok, const char * buf) {
 
   /* Print the remainder of the line */
   runtime_print(env, STYLE_CMD, "INFO\t");
-  runtime_print(env, STYLE_INFO, "%s", buf);
+  runtime_print(env, STYLE_TEXT, "%s", buf);
 
   return STATE_NEXT;
 }
@@ -476,11 +474,6 @@ state_t runtime_handle_step(env_t * env, const char * tok, const char * buf) {
 
 
 state_t runtime_handle_run(env_t * env, const char * tok, const char * buf) {
-
-  /* Reset run clock */
-  env->run_cpu_start = 0;
-  env->run_cpu_end = 0;
-
   return STATE_RUN_CYCLES;
 }
 
@@ -495,18 +488,23 @@ state_t runtime_handle_run_cycles(env_t * env, const char * tok, const char * bu
   }
 
   /* Start run clock */
-  runtime_print(env, STYLE_CMD, "RUN\t");
-  runtime_print(env, STYLE_NONE, "%zu\t...\t", cycles);
-
-  /* TODO */
+  clock_t start = clock();
 
   /* Run instance */
   env->adapter->run(env->instance, cycles);
 
   /* Capture clock speed */
-  /* TODO */
+  clock_t elapsed = clock() - start;
+  double khz = .001 * CLOCKS_PER_SEC * cycles / elapsed;
 
-  runtime_print(env, STYLE_NONE, "DONE\n");
+  runtime_print(env, STYLE_CMD, "RUN\t");
+  runtime_print(env, STYLE_NONE, "%zu\t@\t", cycles);
+
+  if (khz > 1000) {
+    runtime_print(env, STYLE_INFO, "%.3f MHz\n", khz / 1000);
+  } else {
+    runtime_print(env, STYLE_INFO, "%.3f kHz\n", khz);
+  }
 
   return STATE_CMD;
 }
@@ -594,10 +592,6 @@ env_t * runtime_env_init(const adapter_t * adapter, const char * file) {
   /* Initialize memory */
   env->mem_addr = 0;
   env->mem_offset = 0;
-
-  /* Initialize benchmarks */
-  env->run_cpu_start = 0;
-  env->run_cpu_end = 0;
 
   return env;
 }

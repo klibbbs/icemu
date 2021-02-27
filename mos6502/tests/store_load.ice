@@ -10,7 +10,7 @@
 .memset $FFFC
     $00 $80     # RESET => $8000
 .reset
-.info Start cycle
+.info RESET sequence
 .run 6
 .step
 .step
