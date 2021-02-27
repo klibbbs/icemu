@@ -240,10 +240,10 @@ rc_t runtime_exec_cmd(env_t * env, const char * tok, char * buf) {
   if (strcmp(tok, ".verbose") == 0) {
     /* Set verbose flag */
     env->verbose = true;
-  } else if (strcmp(tok, ".print") == 0) {
+  } else if (strcmp(tok, ".info") == 0) {
 
     /* Print remaining buffer */
-    runtime_debug(env, "PRINT\t");
+    runtime_debug(env, "INFO\t");
     printf("%s", buf);
 
     /* Advance to next line */
@@ -280,6 +280,7 @@ rc_t runtime_exec_cmd(env_t * env, const char * tok, char * buf) {
 
     /* Step instance */
     env->adapter->step(env->instance);
+    runtime_debug(env, "STEP\n");
   } else if (strcmp(tok, ".run") == 0) {
 
     /* Consume cycle count */

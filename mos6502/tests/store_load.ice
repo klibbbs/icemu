@@ -1,5 +1,5 @@
 .verbose
-.print Basic store and load
+.info Basic store and load
 .pinset clk1.pin clk2.pin ab.pin db.pin rw.pin sync.pin pc.reg p.reg a.reg i.reg
 .memset $0200
     $77
@@ -11,6 +11,13 @@
 .memset $FFFC
     $00 $80     # RESET => $8000
 .reset
-.run 23
+.info Start cycle
+.run 6
+.step
+.step
+.step
+.step
+.info Program start
+.run 15
 .memtest $0300
     $66 $77
