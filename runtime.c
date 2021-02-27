@@ -9,13 +9,13 @@
 #include <string.h>
 #include <time.h>
 
-/* --- Macros --- */
-
-#define str_ok(str)  "\033[0;32m" str "\033[0;0m"
-#define str_err(str) "\033[0;31m" str "\033[0;0m"
-
-
 /* --- Private declarations --- */
+
+enum {
+  BUF_LEN  = 4096,
+  PIN_LEN  = 32,
+  MAX_PINS = 64,
+};
 
 typedef enum {
   COLOR_NONE = 0,
@@ -57,12 +57,6 @@ typedef struct {
   clock_t run_cpu_end;
 } env_t;
 
-enum {
-  BUF_LEN  = 4096,
-  PIN_LEN  = 32,
-  MAX_PINS = 64,
-};
-
 static rc_t runtime_exec_line(env_t * env, char * buf);
 static rc_t runtime_exec_cmd(env_t * env, const char * tok, char * buf);
 static rc_t runtime_exec_pinset(env_t * env, const char * tok, char * buf);
@@ -72,9 +66,7 @@ static rc_t runtime_exec_memtest_addr(env_t * env, const char * tok, char * buf)
 static rc_t runtime_exec_memtest_data(env_t * env, const char * tok, char * buf);
 static rc_t runtime_exec_run(env_t * env, const char * tok, char * buf);
 
-static rc_t runtime_parse_number(const char * tok, unsigned int * num);
-static rc_t runtime_parse_decimal(const char * tok, unsigned int * num);
-static rc_t runtime_parse_hex(const char * tok, unsigned int * num);
+static rc_t runtime_parse_val(const char * tok, unsigned int * val);
 
 static void runtime_debug(const env_t * env, const char * format, ...);
 static void runtime_debug_pinset(const env_t * env);
@@ -332,8 +324,8 @@ rc_t runtime_exec_memset_addr(env_t * env, const char * tok, char * buf) {
   /* Validate address */
   unsigned int addr = 0;
 
-  if (runtime_parse_hex(tok, &addr) != RC_OK) {
-    fprintf(stderr, "Parse error on line %zu: expected hex address, found '%s'\n", env->line, tok);
+  if (runtime_parse_val(tok, &addr) != RC_OK) {
+    fprintf(stderr, "Parse error on line %zu: expected address, found '%s'\n", env->line, tok);
     return RC_PARSE_ERR;
   }
 
@@ -359,8 +351,8 @@ rc_t runtime_exec_memset_data(env_t * env, const char * tok, char * buf) {
   /* Validate data */
   unsigned int data = 0;
 
-  if (runtime_parse_number(tok, &data) != RC_OK) {
-    fprintf(stderr, "Parse error on line %zu: expected data, found '%s'\n", env->line, tok);
+  if (runtime_parse_val(tok, &data) != RC_OK) {
+    fprintf(stderr, "Parse error on line %zu: expected word, found '%s'\n", env->line, tok);
     return RC_PARSE_ERR;
   }
 
@@ -383,8 +375,8 @@ rc_t runtime_exec_memtest_addr(env_t * env, const char * tok, char * buf) {
   /* Validate address */
   unsigned int addr = 0;
 
-  if (runtime_parse_hex(tok, &addr) != RC_OK) {
-    fprintf(stderr, "Parse error on line %zu: expected hex address, found '%s'\n", env->line, tok);
+  if (runtime_parse_val(tok, &addr) != RC_OK) {
+    fprintf(stderr, "Parse error on line %zu: expected address, found '%s'\n", env->line, tok);
     return RC_PARSE_ERR;
   }
 
@@ -410,7 +402,7 @@ rc_t runtime_exec_memtest_data(env_t * env, const char * tok, char * buf) {
   /* Validate data */
   unsigned int data = 0;
 
-  if (runtime_parse_number(tok, &data) != RC_OK) {
+  if (runtime_parse_val(tok, &data) != RC_OK) {
     fprintf(stderr, "Parse error on line %zu: expected data, found '%s'\n", env->line, tok);
     return RC_PARSE_ERR;
   }
@@ -440,7 +432,7 @@ rc_t runtime_exec_run(env_t * env, const char * tok, char * buf) {
   /* Validate cycles */
   unsigned int cycles = 0;
 
-  if (runtime_parse_decimal(tok, &cycles) != RC_OK) {
+  if (runtime_parse_val(tok, &cycles) != RC_OK) {
     fprintf(stderr, "Parse error on line %zu: expected cycle count, found '%s'\n", env->line, tok);
     return RC_PARSE_ERR;
   }
@@ -458,44 +450,26 @@ rc_t runtime_exec_run(env_t * env, const char * tok, char * buf) {
   return RC_OK;
 }
 
-rc_t runtime_parse_number(const char * tok, unsigned int * num) {
-  if (runtime_parse_hex(tok, num) == RC_OK) {
+rc_t runtime_parse_val(const char * tok, unsigned int * val) {
+  int base = 10;
+  char * end;
+
+  if (tok[0] == '$') {
+    base = 16;
+    tok++;
+  } else if (tok[0] == '%') {
+    base = 2;
+    tok++;
+  }
+
+  *val = strtoul(tok, &end, base);
+
+  if (end == tok + strlen(tok)) {
     return RC_OK;
-  }
-
-  if (runtime_parse_decimal(tok, num) == RC_OK) {
-    return RC_OK;
-  }
-
-  return RC_PARSE_ERR;
-}
-
-rc_t runtime_parse_decimal(const char * tok, unsigned int * num) {
-  for (size_t i = 0; i < strlen(tok); i++) {
-    if (!isdigit(tok[i])) {
-      return RC_PARSE_ERR;
-    }
-  }
-
-  *num = strtoul(tok, NULL, 10);
-
-  return RC_OK;
-}
-
-rc_t runtime_parse_hex(const char * tok, unsigned int * num) {
-  if (tok[0] != '$') {
+  } else {
     return RC_PARSE_ERR;
   }
 
-  for (size_t i = 1; i < strlen(tok); i++) {
-    if (!isxdigit(tok[i])) {
-      return RC_PARSE_ERR;
-    }
-  }
-
-  *num = strtoul(tok + 1, NULL, 16);
-
-  return RC_OK;
 }
 
 void runtime_debug(const env_t * env, const char * format, ...) {
@@ -560,7 +534,7 @@ void runtime_print(const env_t * env, color_t color, const char * format, ...) {
 }
 
 void runtime_print_addr(const env_t * env, color_t color, unsigned int addr) {
-  runtime_print(env, color, "(%04X)", addr);
+  runtime_print(env, color, "$%04X:", addr);
 }
 
 void runtime_print_word(const env_t * env, color_t color, unsigned int word) {
@@ -581,7 +555,7 @@ env_t * runtime_env_init(const adapter_t * adapter, const char * file) {
   env->success = true;
   env->verbose = false;
 
-  /* Initialize pinset */
+  /* Initialize pins */
   env->pins = malloc(sizeof(char *) * MAX_PINS);
   env->pins_buf = malloc(sizeof(char) * MAX_PINS * PIN_LEN);
   env->pins_count = 0;
@@ -604,7 +578,7 @@ void runtime_env_destroy(env_t * env) {
   /* Clean up emulator */
   env->adapter->destroy(env->instance);
 
-  /* Clean up parser state */
+  /* Clean up runtime */
   free(env->pins);
   free(env->pins_buf);
 
