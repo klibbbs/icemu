@@ -472,7 +472,7 @@ rc_t runtime_parse_decimal(const char * tok, unsigned int * num) {
     }
   }
 
-  *num = strtoul(tok + 1, NULL, 10);
+  *num = strtoul(tok, NULL, 10);
 
   return RC_OK;
 }
