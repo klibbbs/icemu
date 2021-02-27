@@ -1,5 +1,5 @@
-#CC = gcc
-#CFLAGS = --std=c89 --pedantic -Wall -DDEBUG
+CC = gcc
+CFLAGS = --std=c99 --pedantic -Wall -DDEBUG
 
 ICEMU_OBJS = icemu.o debug.o runtime.o
 ICEMU_DEPS = icemu.h debug.h runtime.h
@@ -15,10 +15,10 @@ clean:
 	$(RM) *.o ../perfect6502/*.o mos6502/*.o compare mos6502/run
 
 compare: icemu.o debug.o mos6502/mos6502.o compare.o ../perfect6502/perfect6502.o ../perfect6502/netlist_sim.o
-	gcc -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
 .PHONY: mos6502
 mos6502: mos6502/run
 
 mos6502/run: mos6502/run.o $(MOS6502_OBJS) $(MOS6502_DEPS) $(ICEMU_OBJS) $(ICEMU_DEPS)
-	gcc --std=c89 --pedantic -Wall -o $@ mos6502/run.o $(MOS6502_OBJS) $(ICEMU_OBJS)
+	$(CC) $(CFLAGS) -o $@ mos6502/run.o $(MOS6502_OBJS) $(ICEMU_OBJS)

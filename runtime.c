@@ -224,7 +224,6 @@ rc_t runtime_exec_line(env_t * env, char * buf) {
 }
 
 rc_t runtime_exec_cmd(env_t * env, const char * tok, char * buf) {
-  rc_t rc = RC_OK;
 
   /* Confirm that the token is a command */
   if (tok[0] != '.') {
@@ -573,7 +572,6 @@ env_t * runtime_env_init(const adapter_t * adapter, const char * file) {
 }
 
 void runtime_env_destroy(env_t * env) {
-  size_t i;
 
   /* Clean up emulator */
   env->adapter->destroy(env->instance);

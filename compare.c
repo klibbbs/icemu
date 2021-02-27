@@ -97,15 +97,15 @@ void get_bench_state(state_t * bench, char * buf) {
   unsigned short pin_ab = readAddressBus(bench);
   unsigned char pin_db = readDataBus(bench);
 
-  BOOL pin_clk = isNodeHigh(bench, 1171);
+  //BOOL pin_clk = isNodeHigh(bench, 1171);
   BOOL pin_clk1 = isNodeHigh(bench, 1163);
   BOOL pin_clk2 = isNodeHigh(bench, 421);
-  BOOL pin_irq = isNodeHigh(bench, 103);
-  BOOL pin_nmi = isNodeHigh(bench, 1297);
+  //BOOL pin_irq = isNodeHigh(bench, 103);
+  //BOOL pin_nmi = isNodeHigh(bench, 1297);
   BOOL pin_res = isNodeHigh(bench, 159);
-  BOOL pin_rdy = isNodeHigh(bench, 89);
+  //BOOL pin_rdy = isNodeHigh(bench, 89);
   BOOL pin_rw = isNodeHigh(bench, 1156);
-  BOOL pin_so = isNodeHigh(bench, 1672);
+  //BOOL pin_so = isNodeHigh(bench, 1672);
   BOOL pin_sync = isNodeHigh(bench, 539);
 
   unsigned short reg_pc = readPC(bench);
@@ -137,15 +137,15 @@ void get_icemu_state(mos6502_t * icemu, char * buf) {
   unsigned short pin_ab = mos6502_get_ab(icemu);
   unsigned char pin_db = mos6502_get_db(icemu);
 
-  bit_t pin_clk = mos6502_get_clk(icemu);
+  //bit_t pin_clk = mos6502_get_clk(icemu);
   bit_t pin_clk1 = mos6502_get_clk1(icemu);
   bit_t pin_clk2 = mos6502_get_clk2(icemu);
-  bit_t pin_irq = mos6502_get_irq(icemu);
-  bit_t pin_nmi = mos6502_get_nmi(icemu);
+  //bit_t pin_irq = mos6502_get_irq(icemu);
+  //bit_t pin_nmi = mos6502_get_nmi(icemu);
   bit_t pin_res = mos6502_get_res(icemu);
-  bit_t pin_rdy = mos6502_get_rdy(icemu);
+  //bit_t pin_rdy = mos6502_get_rdy(icemu);
   bit_t pin_rw = mos6502_get_rw(icemu);
-  bit_t pin_so = mos6502_get_so(icemu);
+  //bit_t pin_so = mos6502_get_so(icemu);
   bit_t pin_sync = mos6502_get_sync(icemu);
 
   unsigned short reg_pc = mos6502_get_reg_pc(icemu);
