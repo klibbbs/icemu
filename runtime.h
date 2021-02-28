@@ -14,9 +14,14 @@ typedef enum {
 typedef struct {
   unsigned int data;
   size_t bits;
-} output_t;
+} value_t;
 
 typedef struct {
+  /* Constants */
+  const size_t mem_addr_width;
+  const size_t mem_word_width;
+
+  /* Functions */
   void * (* init)();
   void (* destroy)(void * instance);
   void (* reset)(void * instance);
@@ -24,9 +29,9 @@ typedef struct {
   void (* run)(void * instance, size_t cycles);
   int (* can_read_pin)(const void * instance, const char * pin);
   int (* can_write_pin)(const void * instance, const char * pin);
-  output_t (* read_pin)(const void * instance, const char * pin);
+  value_t (* read_pin)(const void * instance, const char * pin);
   void (* write_pin)(void * instance, const char * pin, unsigned int data);
-  output_t (* read_mem)(const void * instance, unsigned int addr);
+  value_t (* read_mem)(const void * instance, unsigned int addr);
   void (* write_mem)(void * instance, unsigned int addr, unsigned int data);
 } adapter_t;
 

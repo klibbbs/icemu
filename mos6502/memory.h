@@ -7,9 +7,9 @@
 
 /* --- Constants --- */
 
-enum { MOS6502_ADDR_SPACE = 65536 };
-enum { MOS6502_ADDR_WIDTH = 16 };
-enum { MOS6502_WORD_WIDTH = 8 };
+enum { MOS6502_MEMORY_ADDR_SPACE = 65536 };
+enum { MOS6502_MEMORY_ADDR_WIDTH = 16 };
+enum { MOS6502_MEMORY_WORD_WIDTH = 8 };
 
 /* --- Types --- */
 
@@ -17,7 +17,7 @@ typedef unsigned short mos6502_addr_t;
 typedef unsigned char mos6502_word_t;
 
 typedef struct {
-  mos6502_word_t memory[MOS6502_ADDR_SPACE];
+  mos6502_word_t memory[MOS6502_MEMORY_ADDR_SPACE];
 } mos6502_memory_t;
 
 /* --- Functions --- */

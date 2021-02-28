@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -41,6 +42,12 @@ typedef enum {
 } state_t;
 
 typedef struct {
+  unsigned int data;
+  unsigned int mask;
+  size_t bits;
+} test_t;
+
+typedef struct {
   const adapter_t * adapter;
   void * instance;
 
@@ -53,7 +60,7 @@ typedef struct {
   char * pins_buf;
   size_t pins_count;
   size_t pins_cursor;
-  unsigned int * pins_values;
+  test_t * pins_tests;
 
   unsigned int mem_addr;
   size_t mem_offset;
@@ -84,13 +91,16 @@ static state_t runtime_handle_step(env_t * env, const char * tok, const char * b
 static state_t runtime_handle_run(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_run_cycles(env_t * env, const char * tok, const char * buf);
 
-static rc_t runtime_parse_val(const char * tok, unsigned int * val);
+static rc_t runtime_parse_value(const env_t * env, const char * tok, value_t * val);
+static rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test);
 
 static void runtime_error(const env_t * env, const char * format, ...);
 
 static void runtime_print(const env_t * env, style_t style, const char * format, ...);
 static void runtime_print_addr(const env_t * env, style_t style, unsigned int addr);
 static void runtime_print_word(const env_t * env, style_t style, unsigned int word);
+static void runtime_print_value(const env_t * env, style_t style, value_t val);
+static void runtime_print_test(const env_t * env, style_t style, test_t test);
 
 static env_t * runtime_env_init();
 static void runtime_env_destroy(env_t * env);
@@ -354,15 +364,15 @@ state_t runtime_handle_pintest_data(env_t * env, const char * tok, const char * 
   }
 
   /* Validate test value */
-  unsigned int value = 0;
+  test_t test;
 
-  if (runtime_parse_val(tok, &value) != RC_OK) {
-    runtime_error(env, "Expected pin value, found '%s'\n", tok);
+  if (runtime_parse_test(env, tok, &test) != RC_OK) {
+    runtime_error(env, "Expected pin test value, found '%s'\n", tok);
     return STATE_ERR;
   }
 
   /* Register test value */
-  env->pins_values[env->pins_cursor++] = value;
+  env->pins_tests[env->pins_cursor++] = test;
 
   return STATE_PINTEST_DATA;
 }
@@ -378,7 +388,7 @@ state_t runtime_handle_pintest_end(env_t * env, const char * tok, const char * b
     }
 
     runtime_print(env, STYLE_NONE, "%s[", env->pins[p]);
-    runtime_print(env, STYLE_NONE, "%u", env->pins_values[p]);
+    runtime_print_test(env, STYLE_NONE, env->pins_tests[p]);
     runtime_print(env, STYLE_NONE, "]");
   }
 
@@ -393,15 +403,15 @@ state_t runtime_handle_pintest_end(env_t * env, const char * tok, const char * b
     }
 
     /* Read from pin */
-    output_t out = env->adapter->read_pin(env->instance, env->pins[p]);
+    value_t val = env->adapter->read_pin(env->instance, env->pins[p]);
 
     /* Compare */
-    bool match = (env->pins_values[p] == out.data);
+    bool match = (env->pins_tests[p].data == (val.data & env->pins_tests[p].mask));
 
     env->success = env->success && match;
 
     runtime_print(env, match ? STYLE_OK : STYLE_ERR, "%s[", env->pins[p]);
-    runtime_print(env, match ? STYLE_OK : STYLE_ERR, "%u", out.data);
+    runtime_print_value(env, match ? STYLE_OK : STYLE_ERR, val);
     runtime_print(env, match ? STYLE_OK : STYLE_ERR, "]");
   }
 
@@ -422,9 +432,12 @@ state_t runtime_handle_memset(env_t * env, const char * tok, const char * buf) {
 state_t runtime_handle_memset_addr(env_t * env, const char * tok, const char * buf) {
 
   /* Validate address */
-  unsigned int addr = 0;
+  value_t val;
+  unsigned int addr;
 
-  if (runtime_parse_val(tok, &addr) != RC_OK) {
+  if (runtime_parse_value(env, tok, &val) == RC_OK) {
+    addr = val.data;
+  } else {
     runtime_error(env, "Expected address, found '%s'\n", tok);
     return STATE_ERR;
   }
@@ -447,9 +460,12 @@ state_t runtime_handle_memset_data(env_t * env, const char * tok, const char * b
   }
 
   /* Validate word */
-  unsigned int word = 0;
+  value_t val;
+  unsigned int word;
 
-  if (runtime_parse_val(tok, &word) != RC_OK) {
+  if (runtime_parse_value(env, tok, &val) == RC_OK) {
+    word = val.data;
+  } else {
     runtime_error(env, "Expected word, found '%s'\n", tok);
     return STATE_ERR;
   }
@@ -484,9 +500,12 @@ state_t runtime_handle_memtest(env_t * env, const char * tok, const char * buf) 
 state_t runtime_handle_memtest_addr(env_t * env, const char * tok, const char * buf) {
 
   /* Validate address */
-  unsigned int addr = 0;
+  value_t val;
+  unsigned int addr;
 
-  if (runtime_parse_val(tok, &addr) != RC_OK) {
+  if (runtime_parse_value(env, tok, &val) == RC_OK) {
+    addr = val.data;
+  } else {
     runtime_error(env, "Expected address, found '%s'\n", tok);
     return STATE_ERR;
   }
@@ -509,28 +528,28 @@ state_t runtime_handle_memtest_data(env_t * env, const char * tok, const char * 
   }
 
   /* Validate test word */
-  unsigned int word = 0;
+  test_t test;
 
-  if (runtime_parse_val(tok, &word) != RC_OK) {
-    runtime_error(env, "Expected word, found '%s'\n", tok);
+  if (runtime_parse_test(env, tok, &test) != RC_OK) {
+    runtime_error(env, "Expected test word, found '%s'\n", tok);
     return STATE_ERR;
   }
 
   /* Read from memory */
   unsigned int addr = env->mem_addr + env->mem_offset++;
-  output_t out = env->adapter->read_mem(env->instance, addr);
+  value_t val = env->adapter->read_mem(env->instance, addr);
 
   /* Compare */
-  bool match = (word == out.data);
+  bool match = (test.data == (val.data & test.mask));
 
   env->success = env->success && match;
 
   runtime_print(env, STYLE_NONE, "\t");
   runtime_print_addr(env, STYLE_NONE, addr);
   runtime_print(env, STYLE_NONE, "\t");
-  runtime_print_word(env, STYLE_NONE, word);
+  runtime_print_test(env, STYLE_NONE, test);
   runtime_print(env, STYLE_NONE, "\t");
-  runtime_print_word(env, match ? STYLE_OK : STYLE_ERR, out.data);
+  runtime_print_value(env, match ? STYLE_OK : STYLE_ERR, val);
   runtime_print(env, STYLE_NONE, "\n");
 
   return STATE_MEMTEST_DATA;
@@ -568,9 +587,12 @@ state_t runtime_handle_run(env_t * env, const char * tok, const char * buf) {
 state_t runtime_handle_run_cycles(env_t * env, const char * tok, const char * buf) {
 
   /* Validate cycle count */
-  unsigned int cycles = 0;
+  value_t val;
+  unsigned int cycles;
 
-  if (runtime_parse_val(tok, &cycles) != RC_OK) {
+  if (runtime_parse_value(env, tok, &val) == RC_OK) {
+    cycles = val.data;
+  } else {
     runtime_error(env, "Expected cycle count, found '%s'\n", tok);
     return STATE_ERR;
   }
@@ -597,26 +619,93 @@ state_t runtime_handle_run_cycles(env_t * env, const char * tok, const char * bu
   return STATE_CMD;
 }
 
-rc_t runtime_parse_val(const char * tok, unsigned int * val) {
+rc_t runtime_parse_value(const env_t * env, const char * tok, value_t * value) {
+  test_t test;
+
+  if (runtime_parse_test(env, tok, &test) == RC_OK) {
+    if (~test.mask) {
+      return RC_PARSE_ERR;
+    } else {
+      value->data = test.data;
+      value->bits = test.bits;
+
+      return RC_OK;
+    }
+  } else {
+    return RC_PARSE_ERR;
+  }
+}
+
+rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
+
+  /* Handle single bit */
+  if (tok[1] == '\0' && (tok[0] == '0' || tok[0] == '1')) {
+    test->bits = 1;
+    test->data = tok[0] - '0';
+    test->mask = -1;
+
+    return RC_OK;
+  } else if (tok[1] == '\0' && (tok[0] == 'X' || tok[0] == 'x')) {
+    test->bits = 1;
+    test->data = 0;
+    test->mask = 0;
+
+    return RC_OK;
+  }
+
+  /* Handle variable length */
   int base = 10;
+  char * buf = malloc(strlen(tok));
   char * end;
 
   if (tok[0] == '$') {
     base = 16;
     tok++;
+    test->bits = strlen(tok) * 4;
   } else if (tok[0] == '%') {
     base = 2;
     tok++;
+    test->bits = strlen(tok);
+  } else {
+    test->bits = ceil(strlen(tok) / 0.301);
   }
 
-  *val = strtoul(tok, &end, base);
+  /* Parse data */
+  strcpy(buf, tok);
 
-  if (end == tok + strlen(tok)) {
-    return RC_OK;
-  } else {
+  for (char * c = buf; *c; c++) {
+    if (*c == 'X' || *c == 'x') {
+      *c = '0';
+    }
+  }
+
+  test->data = strtoul(buf, &end, base);
+
+  if (end < buf + strlen(buf)) {
+    free(buf);
     return RC_PARSE_ERR;
   }
 
+  /* Parse (inverse) mask */
+  strcpy(buf, tok);
+
+  for (char * c = buf; *c; c++) {
+    if (*c == 'X' || *c == 'x') {
+      *c = (base == 16 ? 'F' : '1');
+    } else {
+      *c = '0';
+    }
+  }
+
+  test->mask = ~strtoul(buf, &end, base);
+
+  if (end < buf + strlen(buf)) {
+    free(buf);
+    return RC_PARSE_ERR;
+  }
+
+  free(buf);
+  return RC_OK;
 }
 
 void runtime_error(const env_t * env, const char * format, ...) {
@@ -654,11 +743,51 @@ void runtime_print(const env_t * env, style_t style, const char * format, ...) {
 }
 
 void runtime_print_addr(const env_t * env, style_t style, unsigned int addr) {
-  runtime_print(env, style, "($%04X)", addr);
+  runtime_print(env, style, "(");
+  runtime_print_value(env, style, (value_t){ addr, env->adapter->mem_addr_width });
+  runtime_print(env, style, ")");
 }
 
 void runtime_print_word(const env_t * env, style_t style, unsigned int word) {
-  runtime_print(env, style, "$%02X", word);
+  runtime_print_value(env, style, (value_t){ word, env->adapter->mem_word_width });
+}
+
+void runtime_print_value(const env_t * env, style_t style, value_t val) {
+  runtime_print_test(env, style, (test_t){ val.data, -1, val.bits });
+}
+
+void runtime_print_test(const env_t * env, style_t style, test_t test) {
+
+  if (test.bits > 64) {
+    runtime_error(env, "Cannot print %zu-bit value", test.bits);
+    return;
+  }
+
+  if (test.bits == 1) {
+    runtime_print(env, style, test.mask ? test.data ? "1" : "0" : "X");
+    return;
+  }
+
+  int width = ceil(test.bits / 4.0);
+  char * buf = malloc(width + 2);
+  char * mask = malloc(width + 2);
+  char format[8] = "";
+
+  sprintf(format, "$%%0%dX", width);
+
+  sprintf(buf, format, test.data);
+  sprintf(mask, format, test.mask);
+
+  for (char * c = buf, * m = mask; *c && *m; c++, m++) {
+    if (*m == '0') {
+      *c = 'X';
+    }
+  }
+
+  runtime_print(env, style, buf);
+
+  free(buf);
+  free(mask);
 }
 
 env_t * runtime_env_init(const adapter_t * adapter, const char * file) {
@@ -679,7 +808,7 @@ env_t * runtime_env_init(const adapter_t * adapter, const char * file) {
   env->pins_buf = malloc(sizeof(char) * MAX_PINS * PIN_LEN);
   env->pins_count = 0;
   env->pins_cursor = 0;
-  env->pins_values = malloc(sizeof(unsigned int) * MAX_PINS);
+  env->pins_tests = malloc(sizeof(test_t) * MAX_PINS);
 
   /* Initialize memory */
   env->mem_addr = 0;
@@ -696,7 +825,7 @@ void runtime_env_destroy(env_t * env) {
   /* Clean up runtime */
   free(env->pins);
   free(env->pins_buf);
-  free(env->pins_values);
+  free(env->pins_tests);
 
   free(env);
 }
