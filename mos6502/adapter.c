@@ -217,12 +217,78 @@ int adapter_instance_can_write_pin(const void * instance, const char * pin) {
 }
 
 output_t adapter_instance_read_pin(const void * instance, const char * pin) {
-  /* TODO */
+  mos6502_instance_t * mos6502_instance = (mos6502_instance_t *)instance;
+  size_t i;
+
+  for (i = 0; i < MOS6502_PIN_16_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_16_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_16_MAP[i].read_func == NULL) {
+        break;
+      }
+
+      return (output_t){ MOS6502_PIN_16_MAP[i].read_func(mos6502_instance->mos6502), 16 };
+    }
+  }
+
+  for (i = 0; i < MOS6502_PIN_8_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_8_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_8_MAP[i].read_func == NULL) {
+        break;
+      }
+
+      return (output_t){ MOS6502_PIN_8_MAP[i].read_func(mos6502_instance->mos6502), 8 };
+    }
+  }
+
+  for (i = 0; i < MOS6502_PIN_1_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_1_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_1_MAP[i].read_func == NULL) {
+        break;
+      }
+
+      return (output_t){ MOS6502_PIN_1_MAP[i].read_func(mos6502_instance->mos6502), 1 };
+    }
+  }
+
   return (output_t){ 0, 0 };
 }
 
 void adapter_instance_write_pin(void * instance, const char * pin, unsigned int data) {
-  /* TODO */
+  mos6502_instance_t * mos6502_instance = (mos6502_instance_t *)instance;
+  size_t i;
+
+  for (i = 0; i < MOS6502_PIN_16_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_16_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_16_MAP[i].write_func == NULL) {
+        break;
+      }
+
+      MOS6502_PIN_16_MAP[i].write_func(mos6502_instance->mos6502, data, true);
+      return;
+    }
+  }
+
+  for (i = 0; i < MOS6502_PIN_8_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_8_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_8_MAP[i].write_func == NULL) {
+        break;
+      }
+
+      MOS6502_PIN_8_MAP[i].write_func(mos6502_instance->mos6502, data, true);
+      return;
+    }
+  }
+
+  for (i = 0; i < MOS6502_PIN_1_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_1_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_1_MAP[i].write_func == NULL) {
+        break;
+      }
+
+      MOS6502_PIN_1_MAP[i].write_func(mos6502_instance->mos6502, data, true);
+      return;
+    }
+  }
 }
 
 output_t adapter_instance_read_mem(const void * instance, unsigned int addr) {
