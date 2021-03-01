@@ -171,7 +171,7 @@ rc_t runtime_exec_line(env_t * env, char * buf) {
   char * end;
 
   /* Strip comments */
-  if ((ptr = strchr(buf, '#')) != NULL) {
+  if ((ptr = strchr(buf, '!')) != NULL) {
     *(ptr + 0) = '\n';
     *(ptr + 1) = '\0';
   }
