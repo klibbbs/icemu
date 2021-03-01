@@ -29,16 +29,16 @@ typedef struct {
   void (* write_func)(mos6502_t * mos6502, bit_t state, bool sync);
 } pin_1_func_t;
 
-static const pin_16_func_t MOS6502_PIN_16_MAP[] = {
+static const pin_16_func_t MOS6502_PIN_16_HEX_MAP[] = {
   { "ab.pin", mos6502_get_ab, NULL },
   { "pc.reg", mos6502_get_reg_pc, NULL },
 };
 
-static const size_t MOS6502_PIN_16_COUNT = sizeof(MOS6502_PIN_16_MAP) / sizeof(pin_16_func_t);
+static const size_t MOS6502_PIN_16_HEX_COUNT =
+  sizeof(MOS6502_PIN_16_HEX_MAP) / sizeof(pin_16_func_t);
 
-static const pin_8_func_t MOS6502_PIN_8_MAP[] = {
+static const pin_8_func_t MOS6502_PIN_8_HEX_MAP[] = {
   { "db.pin", mos6502_get_db, mos6502_set_db },
-  { "p.reg", mos6502_get_reg_p, NULL },
   { "a.reg", mos6502_get_reg_a, NULL },
   { "x.reg", mos6502_get_reg_x, NULL },
   { "y.reg", mos6502_get_reg_y, NULL },
@@ -46,7 +46,15 @@ static const pin_8_func_t MOS6502_PIN_8_MAP[] = {
   { "i.reg", mos6502_get_reg_i, NULL },
 };
 
-static const size_t MOS6502_PIN_8_COUNT = sizeof(MOS6502_PIN_8_MAP) / sizeof(pin_8_func_t);
+static const size_t MOS6502_PIN_8_HEX_COUNT =
+  sizeof(MOS6502_PIN_8_HEX_MAP) / sizeof(pin_8_func_t);
+
+static const pin_8_func_t MOS6502_PIN_8_BIN_MAP[] = {
+  { "p.reg", mos6502_get_reg_p, NULL },
+};
+
+static const size_t MOS6502_PIN_8_BIN_COUNT =
+  sizeof(MOS6502_PIN_8_BIN_MAP) / sizeof(pin_8_func_t);
 
 static const pin_1_func_t MOS6502_PIN_1_MAP[] = {
   { "clk.pin", mos6502_get_clk, mos6502_set_clk },
@@ -150,9 +158,9 @@ void adapter_instance_run(void * instance, size_t cycles) {
 int adapter_instance_can_read_pin(const void * instance, const char * pin) {
   size_t i;
 
-  for (i = 0; i < MOS6502_PIN_16_COUNT; i++) {
-    if (strcmp(pin, MOS6502_PIN_16_MAP[i].pin) == 0) {
-      if (MOS6502_PIN_16_MAP[i].read_func == NULL) {
+  for (i = 0; i < MOS6502_PIN_16_HEX_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_16_HEX_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_16_HEX_MAP[i].read_func == NULL) {
         return 0;
       } else {
         return 1;
@@ -160,9 +168,19 @@ int adapter_instance_can_read_pin(const void * instance, const char * pin) {
     }
   }
 
-  for (i = 0; i < MOS6502_PIN_8_COUNT; i++) {
-    if (strcmp(pin, MOS6502_PIN_8_MAP[i].pin) == 0) {
-      if (MOS6502_PIN_8_MAP[i].read_func == NULL) {
+  for (i = 0; i < MOS6502_PIN_8_HEX_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_8_HEX_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_8_HEX_MAP[i].read_func == NULL) {
+        return 0;
+      } else {
+        return 1;
+      }
+    }
+  }
+
+  for (i = 0; i < MOS6502_PIN_8_BIN_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_8_BIN_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_8_BIN_MAP[i].read_func == NULL) {
         return 0;
       } else {
         return 1;
@@ -186,9 +204,9 @@ int adapter_instance_can_read_pin(const void * instance, const char * pin) {
 int adapter_instance_can_write_pin(const void * instance, const char * pin) {
   size_t i;
 
-  for (i = 0; i < MOS6502_PIN_16_COUNT; i++) {
-    if (strcmp(pin, MOS6502_PIN_16_MAP[i].pin) == 0) {
-      if (MOS6502_PIN_16_MAP[i].write_func == NULL) {
+  for (i = 0; i < MOS6502_PIN_16_HEX_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_16_HEX_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_16_HEX_MAP[i].write_func == NULL) {
         return 0;
       } else {
         return 1;
@@ -196,9 +214,19 @@ int adapter_instance_can_write_pin(const void * instance, const char * pin) {
     }
   }
 
-  for (i = 0; i < MOS6502_PIN_8_COUNT; i++) {
-    if (strcmp(pin, MOS6502_PIN_8_MAP[i].pin) == 0) {
-      if (MOS6502_PIN_8_MAP[i].write_func == NULL) {
+  for (i = 0; i < MOS6502_PIN_8_HEX_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_8_HEX_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_8_HEX_MAP[i].write_func == NULL) {
+        return 0;
+      } else {
+        return 1;
+      }
+    }
+  }
+
+  for (i = 0; i < MOS6502_PIN_8_BIN_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_8_BIN_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_8_BIN_MAP[i].write_func == NULL) {
         return 0;
       } else {
         return 1;
@@ -223,23 +251,33 @@ value_t adapter_instance_read_pin(const void * instance, const char * pin) {
   const mos6502_instance_t * mos6502_instance = (mos6502_instance_t *)instance;
   size_t i;
 
-  for (i = 0; i < MOS6502_PIN_16_COUNT; i++) {
-    if (strcmp(pin, MOS6502_PIN_16_MAP[i].pin) == 0) {
-      if (MOS6502_PIN_16_MAP[i].read_func == NULL) {
+  for (i = 0; i < MOS6502_PIN_16_HEX_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_16_HEX_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_16_HEX_MAP[i].read_func == NULL) {
         break;
       }
 
-      return (value_t){ MOS6502_PIN_16_MAP[i].read_func(mos6502_instance->mos6502), 16 };
+      return (value_t){ MOS6502_PIN_16_HEX_MAP[i].read_func(mos6502_instance->mos6502), 16, 16 };
     }
   }
 
-  for (i = 0; i < MOS6502_PIN_8_COUNT; i++) {
-    if (strcmp(pin, MOS6502_PIN_8_MAP[i].pin) == 0) {
-      if (MOS6502_PIN_8_MAP[i].read_func == NULL) {
+  for (i = 0; i < MOS6502_PIN_8_HEX_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_8_HEX_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_8_HEX_MAP[i].read_func == NULL) {
         break;
       }
 
-      return (value_t){ MOS6502_PIN_8_MAP[i].read_func(mos6502_instance->mos6502), 8 };
+      return (value_t){ MOS6502_PIN_8_HEX_MAP[i].read_func(mos6502_instance->mos6502), 8, 16 };
+    }
+  }
+
+  for (i = 0; i < MOS6502_PIN_8_BIN_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_8_BIN_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_8_BIN_MAP[i].read_func == NULL) {
+        break;
+      }
+
+      return (value_t){ MOS6502_PIN_8_BIN_MAP[i].read_func(mos6502_instance->mos6502), 8, 2 };
     }
   }
 
@@ -249,35 +287,46 @@ value_t adapter_instance_read_pin(const void * instance, const char * pin) {
         break;
       }
 
-      return (value_t){ MOS6502_PIN_1_MAP[i].read_func(mos6502_instance->mos6502), 1 };
+      return (value_t){ MOS6502_PIN_1_MAP[i].read_func(mos6502_instance->mos6502), 1, 10 };
     }
   }
 
-  return (value_t){ 0, 0 };
+  return (value_t){ 0, 0, 0 };
 }
 
 void adapter_instance_write_pin(void * instance, const char * pin, unsigned int data) {
   mos6502_instance_t * mos6502_instance = (mos6502_instance_t *)instance;
   size_t i;
 
-  for (i = 0; i < MOS6502_PIN_16_COUNT; i++) {
-    if (strcmp(pin, MOS6502_PIN_16_MAP[i].pin) == 0) {
-      if (MOS6502_PIN_16_MAP[i].write_func == NULL) {
+  for (i = 0; i < MOS6502_PIN_16_HEX_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_16_HEX_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_16_HEX_MAP[i].write_func == NULL) {
         break;
       }
 
-      MOS6502_PIN_16_MAP[i].write_func(mos6502_instance->mos6502, data, true);
+      MOS6502_PIN_16_HEX_MAP[i].write_func(mos6502_instance->mos6502, data, true);
       return;
     }
   }
 
-  for (i = 0; i < MOS6502_PIN_8_COUNT; i++) {
-    if (strcmp(pin, MOS6502_PIN_8_MAP[i].pin) == 0) {
-      if (MOS6502_PIN_8_MAP[i].write_func == NULL) {
+  for (i = 0; i < MOS6502_PIN_8_HEX_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_8_HEX_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_8_HEX_MAP[i].write_func == NULL) {
         break;
       }
 
-      MOS6502_PIN_8_MAP[i].write_func(mos6502_instance->mos6502, data, true);
+      MOS6502_PIN_8_HEX_MAP[i].write_func(mos6502_instance->mos6502, data, true);
+      return;
+    }
+  }
+
+  for (i = 0; i < MOS6502_PIN_8_BIN_COUNT; i++) {
+    if (strcmp(pin, MOS6502_PIN_8_BIN_MAP[i].pin) == 0) {
+      if (MOS6502_PIN_8_BIN_MAP[i].write_func == NULL) {
+        break;
+      }
+
+      MOS6502_PIN_8_BIN_MAP[i].write_func(mos6502_instance->mos6502, data, true);
       return;
     }
   }
@@ -300,6 +349,7 @@ value_t adapter_instance_read_mem(const void * instance, unsigned int addr) {
   value_t val = {
     mos6502_memory_read(mos6502_instance->memory, addr),
     MOS6502_MEMORY_WORD_WIDTH,
+    16,
   };
 
   return val;

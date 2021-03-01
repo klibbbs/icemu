@@ -14,6 +14,7 @@ typedef enum {
 typedef struct {
   unsigned int data;
   size_t bits;
+  size_t base;
 } value_t;
 
 typedef struct {

@@ -45,6 +45,7 @@ typedef struct {
   unsigned int data;
   unsigned int mask;
   size_t bits;
+  size_t base;
 } test_t;
 
 typedef struct {
@@ -628,6 +629,7 @@ rc_t runtime_parse_value(const env_t * env, const char * tok, value_t * value) {
     } else {
       value->data = test.data;
       value->bits = test.bits;
+      value->base = test.base;
 
       return RC_OK;
     }
@@ -640,34 +642,39 @@ rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
 
   /* Handle single bit */
   if (tok[1] == '\0' && (tok[0] == '0' || tok[0] == '1')) {
-    test->bits = 1;
     test->data = tok[0] - '0';
     test->mask = -1;
+    test->bits = 1;
+    test->base = 10;
 
     return RC_OK;
-  } else if (tok[1] == '\0' && (tok[0] == 'X' || tok[0] == 'x')) {
-    test->bits = 1;
+  }
+
+  /* Handle single don't-care bit */
+  if (tok[1] == '\0' && (tok[0] == 'X' || tok[0] == 'x')) {
     test->data = 0;
     test->mask = 0;
+    test->bits = 1;
+    test->base = 10;
 
     return RC_OK;
   }
 
   /* Handle variable length */
-  int base = 10;
-  char * buf = malloc(strlen(tok));
+  char buf[strlen(tok) + 1];
   char * end;
 
   if (tok[0] == '$') {
-    base = 16;
     tok++;
     test->bits = strlen(tok) * 4;
+    test->base = 16;
   } else if (tok[0] == '%') {
-    base = 2;
     tok++;
     test->bits = strlen(tok);
+    test->base = 2;
   } else {
-    test->bits = ceil(strlen(tok) / 0.301);
+    test->bits = ceil(strlen(tok) * 3.322); /* log2(X) = log10(X) * log2(10) */
+    test->base = 10;
   }
 
   /* Parse data */
@@ -675,14 +682,19 @@ rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
 
   for (char * c = buf; *c; c++) {
     if (*c == 'X' || *c == 'x') {
+
+      /* Don't-care values are only supported for power-of-2 bases */
+      if (test->base == 10) {
+        return RC_PARSE_ERR;
+      }
+
       *c = '0';
     }
   }
 
-  test->data = strtoul(buf, &end, base);
+  test->data = strtoul(buf, &end, test->base);
 
   if (end < buf + strlen(buf)) {
-    free(buf);
     return RC_PARSE_ERR;
   }
 
@@ -691,20 +703,18 @@ rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
 
   for (char * c = buf; *c; c++) {
     if (*c == 'X' || *c == 'x') {
-      *c = (base == 16 ? 'F' : '1');
+      *c = (test->base == 16 ? 'F' : '1');
     } else {
       *c = '0';
     }
   }
 
-  test->mask = ~strtoul(buf, &end, base);
+  test->mask = ~strtoul(buf, &end, test->base);
 
   if (end < buf + strlen(buf)) {
-    free(buf);
     return RC_PARSE_ERR;
   }
 
-  free(buf);
   return RC_OK;
 }
 
@@ -744,50 +754,91 @@ void runtime_print(const env_t * env, style_t style, const char * format, ...) {
 
 void runtime_print_addr(const env_t * env, style_t style, unsigned int addr) {
   runtime_print(env, style, "(");
-  runtime_print_value(env, style, (value_t){ addr, env->adapter->mem_addr_width });
+  runtime_print_value(env, style, (value_t){ addr, env->adapter->mem_addr_width, 16 });
   runtime_print(env, style, ")");
 }
 
 void runtime_print_word(const env_t * env, style_t style, unsigned int word) {
-  runtime_print_value(env, style, (value_t){ word, env->adapter->mem_word_width });
+  runtime_print_value(env, style, (value_t){ word, env->adapter->mem_word_width, 16 });
 }
 
 void runtime_print_value(const env_t * env, style_t style, value_t val) {
-  runtime_print_test(env, style, (test_t){ val.data, -1, val.bits });
+  runtime_print_test(env, style, (test_t){ val.data, -1, val.bits, val.base });
 }
 
 void runtime_print_test(const env_t * env, style_t style, test_t test) {
 
+  /* Validate data width */
   if (test.bits > 64) {
     runtime_error(env, "Cannot print %zu-bit value", test.bits);
     return;
   }
 
+  /* Handle single bit */
   if (test.bits == 1) {
     runtime_print(env, style, test.mask ? test.data ? "1" : "0" : "X");
     return;
   }
 
-  int width = ceil(test.bits / 4.0);
-  char * buf = malloc(width + 2);
-  char * mask = malloc(width + 2);
+  /* Handle decimal values */
+  if (test.base == 10) {
+    runtime_print(env, style, "%u", test.data);
+    return;
+  }
+
+  /* Handle binary values */
+  if (test.base == 2) {
+    unsigned int data = test.data;
+    unsigned int mask = test.mask;
+    char buf[test.bits + 2];
+
+    buf[test.bits + 1] = '\0';
+
+    for (char * c = buf + test.bits; c > buf; c--) {
+      if (mask & 1) {
+        *c = (data & 1) ? '1' : '0';
+      } else {
+        *c = 'X';
+      }
+
+      data >>= 1;
+      mask >>= 1;
+    }
+
+    buf[0] = '%';
+
+    runtime_print(env, style, "%s", buf);
+    return;
+  }
+
+  /* Build format string from base and calculated width */
+  int width = 0;
   char format[8] = "";
 
-  sprintf(format, "$%%0%dX", width);
+  if (test.base == 16) {
+    int width = ceil(test.bits / 4.0);
+
+    sprintf(format, "$%%0%dX", width);
+  } else {
+    runtime_error(env, "Cannot print base-%zu value", test.base);
+    return;
+  }
+
+  /* Construct separate data and mask strings */
+  char buf[width + 2];
+  char mask[width + 2];
 
   sprintf(buf, format, test.data);
-  sprintf(mask, format, test.mask);
+  sprintf(mask, format, test.mask & ~(-1 << test.bits));
 
+  /* Merge data and mask */
   for (char * c = buf, * m = mask; *c && *m; c++, m++) {
     if (*m == '0') {
       *c = 'X';
     }
   }
 
-  runtime_print(env, style, buf);
-
-  free(buf);
-  free(mask);
+  runtime_print(env, style, "%s", buf);
 }
 
 env_t * runtime_env_init(const adapter_t * adapter, const char * file) {

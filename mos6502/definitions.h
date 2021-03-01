@@ -30,7 +30,7 @@ typedef enum {
   REG_P2   = 1421,
   REG_P3   = 439,
   REG_P4   = 1119,
-  REG_P5   = 0,
+  REG_P5   = 0, /* Should be floating; does not exist */
   REG_P6   = 77,
   REG_P7   = 1370,
   REG_A0   = 737,

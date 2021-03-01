@@ -13,7 +13,7 @@
 .info RESET sequence
 .run 6
 .step
-.pintest 1 0 $FFFC $00 1 0
+.pintest 1 0 $FFFC $00 1 0 $XXXX %XXX001XX $XX $00
 .step
 .step
 .step
