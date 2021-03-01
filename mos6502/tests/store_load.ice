@@ -10,6 +10,7 @@
 .memset $FFFC
     $00 $80     ! RESET => $8000
 .reset
+
 .info RESET sequence
 .run 6
 .step .pintest 1 0 $FFFC $00 1 0 $XXXX %XXXX01XX $XX $00
@@ -65,5 +66,4 @@
 .step .pintest 1 0 $0301 $03 0 0 $800B %0XXX010X $77 $8D
 .step .pintest 0 1 $0301 $77 0 0 $800B %0XXX010X $77 $8D
 
-.memtest $0300
-    $66 $77
+.memtest $0300 $66 $77
