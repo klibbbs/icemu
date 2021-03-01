@@ -32,7 +32,7 @@ typedef enum {
   STATE_START,
   STATE_NEXT,
   STATE_CMD,
-  STATE_PINSET_PIN,
+  STATE_PINS_PIN,
   STATE_PINTEST_DATA,
   STATE_MEMSET_ADDR,
   STATE_MEMSET_DATA,
@@ -73,9 +73,9 @@ static state_t runtime_handle_start(env_t * env, const char * tok, const char * 
 static state_t runtime_handle_next(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_info(env_t * env, const char * tok, const char * buf);
-static state_t runtime_handle_pinset(env_t * env, const char * tok, const char * buf);
-static state_t runtime_handle_pinset_pin(env_t * env, const char * tok, const char * buf);
-static state_t runtime_handle_pinset_end(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_pins(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_pins_pin(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_pins_end(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_pintest(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_pintest_data(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_pintest_end(env_t * env, const char * tok, const char * buf);
@@ -202,8 +202,8 @@ rc_t runtime_exec_line(env_t * env, char * buf) {
       case STATE_CMD:
         env->state = runtime_handle_cmd(env, tok, buf);
         break;
-      case STATE_PINSET_PIN:
-        env->state = runtime_handle_pinset_pin(env, tok, buf);
+      case STATE_PINS_PIN:
+        env->state = runtime_handle_pins_pin(env, tok, buf);
         break;
       case STATE_PINTEST_DATA:
         env->state = runtime_handle_pintest_data(env, tok, buf);
@@ -263,8 +263,8 @@ state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf) {
   /* Parse command */
   if (strcmp(tok, ".info") == 0) {
     return runtime_handle_info(env, tok, buf);
-  } else if (strcmp(tok, ".pinset") == 0) {
-    return runtime_handle_pinset(env, tok, buf);
+  } else if (strcmp(tok, ".pins") == 0) {
+    return runtime_handle_pins(env, tok, buf);
   } else if (strcmp(tok, ".pintest") == 0) {
     return runtime_handle_pintest(env, tok, buf);
   } else if (strcmp(tok, ".memset") == 0) {
@@ -292,20 +292,20 @@ state_t runtime_handle_info(env_t * env, const char * tok, const char * buf) {
   return STATE_NEXT;
 }
 
-state_t runtime_handle_pinset(env_t * env, const char * tok, const char * buf) {
+state_t runtime_handle_pins(env_t * env, const char * tok, const char * buf) {
 
   /* Reset pin list */
   env->pins_count = 0;
   env->pins_cursor = 0;
 
-  return STATE_PINSET_PIN;
+  return STATE_PINS_PIN;
 }
 
-state_t runtime_handle_pinset_pin(env_t * env, const char * tok, const char * buf) {
+state_t runtime_handle_pins_pin(env_t * env, const char * tok, const char * buf) {
 
   /* Check for end condition */
   if (tok[0] == '.') {
-    return runtime_handle_pinset_end(env, tok, buf);
+    return runtime_handle_pins_end(env, tok, buf);
   }
 
   /* Validate pin */
@@ -322,13 +322,13 @@ state_t runtime_handle_pinset_pin(env_t * env, const char * tok, const char * bu
   /* Register pin */
   env->pins[env->pins_count++] = strcpy(&env->pins_buf[env->pins_count * PIN_LEN], tok);
 
-  return STATE_PINSET_PIN;
+  return STATE_PINS_PIN;
 }
 
-state_t runtime_handle_pinset_end(env_t * env, const char * tok, const char * buf) {
+state_t runtime_handle_pins_end(env_t * env, const char * tok, const char * buf) {
 
   /* Print pin list */
-  runtime_print(env, STYLE_CMD, "PINSET\t");
+  runtime_print(env, STYLE_CMD, "PINS\t");
 
   for (size_t p = 0; p < env->pins_count; p++) {
     if (p > 0) {
