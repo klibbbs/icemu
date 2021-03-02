@@ -155,8 +155,8 @@ rc_t runtime_exec_repl(const adapter_t * adapter) {
   state_t state = STATE_START;
 
   /* Print initial prompt */
-  runtime_print(env, STYLE_NONE, "IceScript REPL\n");
-  runtime_print(env, STYLE_NONE, "> ");
+  runtime_print(env, STYLE_INFO, "icescript REPL\n");
+  runtime_print(env, STYLE_INFO, "> ");
 
   /* Parse and execute line by line */
   while (fgets(buf, BUF_LEN, stdin) != NULL) {
@@ -176,7 +176,7 @@ rc_t runtime_exec_repl(const adapter_t * adapter) {
     state = runtime_exec_eof(env, state);
 
     /* Print a command prompt */
-    runtime_print(env, STYLE_NONE, "> ");
+    runtime_print(env, STYLE_INFO, "> ");
   }
 
   /* Clean up environment */
