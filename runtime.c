@@ -28,11 +28,12 @@ typedef enum {
 } style_t;
 
 typedef enum {
-  STATE_EXIT,
   STATE_ERR,
   STATE_START,
   STATE_NEXT,
+  STATE_EXIT,
   STATE_CMD,
+  STATE_EXEC_FILE,
   STATE_PINDEF_PIN,
   STATE_PINTEST_DATA,
   STATE_MEMSET_ADDR,
@@ -68,11 +69,14 @@ typedef struct {
   size_t mem_offset;
 } env_t;
 
-static state_t runtime_handle_line(env_t * env, char * buf, state_t state);
-static state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf);
+static state_t runtime_exec_stream(env_t * env, FILE * stream);
+static state_t runtime_exec_line(env_t * env, char * buf, state_t state);
+
 static state_t runtime_handle_start(env_t * env, const char * tok, const char * buf);
-static state_t runtime_handle_next(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_exec(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_exec_file(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_info(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_pins(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_pindef(env_t * env, const char * tok, const char * buf);
@@ -96,6 +100,7 @@ static state_t runtime_handle_run_cycles(env_t * env, const char * tok, const ch
 
 static rc_t runtime_parse_value(const env_t * env, const char * tok, value_t * val);
 static rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test);
+static rc_t runtime_parse_file(const env_t * env, const char * tok, char * file);
 
 static void runtime_error(const env_t * env, const char * format, ...);
 
@@ -111,11 +116,9 @@ static void runtime_env_destroy(env_t * env);
 /* --- Public functions --- */
 
 rc_t runtime_exec_file(const adapter_t * adapter, const char * file) {
-  rc_t rc = RC_OK;
-  char buf[BUF_LEN];
-  FILE * f;
 
-  /* Open stream for reading */
+  /* Open file for reading */
+  FILE * f;
   f = fopen(file, "r");
 
   if (f == NULL) {
@@ -124,27 +127,12 @@ rc_t runtime_exec_file(const adapter_t * adapter, const char * file) {
     return RC_FILE_ERR;
   }
 
-  /* Initialize environment and state */
+  /* Initialize runtime environment */
   env_t * env = runtime_env_init(adapter, file);
   state_t state = STATE_START;
 
-  /* Parse and execute line by line */
-  while (fgets(buf, BUF_LEN, f) != NULL) {
-    state = runtime_handle_line(env, buf, state);
-
-    /* Stop execution on exit or on error */
-    if (state == STATE_EXIT || state == STATE_ERR) {
-      break;
-    }
-
-    /* Increment line counter */
-    env->line++;
-  }
-
-  if (ferror(f)) {
-    fprintf(stderr, "Error reading '%s', line %zu: %s\n", file, env->line, strerror(errno));
-    rc = RC_FILE_ERR;
-  }
+  /* Execute contents of file */
+  state = runtime_exec_stream(env, f);
 
   /* Clean up environment */
   runtime_env_destroy(env);
@@ -152,24 +140,24 @@ rc_t runtime_exec_file(const adapter_t * adapter, const char * file) {
   /* Close stream */
   fclose(f);
 
-  return rc;
+  return state == STATE_ERR ? RC_ERR : RC_OK;
 }
 
 rc_t runtime_exec_repl(const adapter_t * adapter) {
   rc_t rc = RC_OK;
   char buf[BUF_LEN];
 
-  /* Initialize environment */
+  /* Initialize environment and state */
   env_t * env = runtime_env_init(adapter, "shell");
   state_t state = STATE_START;
 
   /* Print initial prompt */
-  fputs("* IceScript REPL *\n", stdout);
-  fputs("> ", stdout);
+  runtime_print(env, STYLE_NONE, "IceScript REPL\n");
+  runtime_print(env, STYLE_NONE, "> ");
 
   /* Parse and execute line by line */
   while (fgets(buf, BUF_LEN, stdin) != NULL) {
-    state = runtime_handle_line(env, buf, state);
+    state = runtime_exec_line(env, buf, state);
 
     /* Stop execution only on exit */
     if (state == STATE_EXIT) {
@@ -182,23 +170,48 @@ rc_t runtime_exec_repl(const adapter_t * adapter) {
     }
 
     /* Print a command prompt */
-    fputs("> ", stdout);
-  }
-
-  if (ferror(stdin)) {
-    fprintf(stderr, "Error reading line: %s\n", strerror(errno));
-    rc = RC_FILE_ERR;
+    runtime_print(env, STYLE_NONE, "> ");
   }
 
   /* Clean up environment */
   runtime_env_destroy(env);
+
+  if (ferror(stdin)) {
+    runtime_error(env, "%s", strerror(errno));
+    rc = RC_FILE_ERR;
+  }
 
   return rc;
 }
 
 /* --- Private functions --- */
 
-state_t runtime_handle_line(env_t * env, char * buf, state_t state) {
+state_t runtime_exec_stream(env_t * env, FILE * stream) {
+  char buf[BUF_LEN];
+  state_t state = STATE_START;
+
+  /* Parse and execute line by line */
+  while (fgets(buf, BUF_LEN, stream) != NULL) {
+    state = runtime_exec_line(env, buf, state);
+
+    /* Stop execution on exit or on error */
+    if (state == STATE_EXIT || state == STATE_ERR) {
+      break;
+    }
+
+    /* Increment line counter */
+    env->line++;
+  }
+
+  if (ferror(stream)) {
+    runtime_error(env, "%s", strerror(errno));
+    return STATE_ERR;
+  }
+
+  return STATE_EXIT;
+}
+
+state_t runtime_exec_line(env_t * env, char * buf, state_t state) {
   char * ptr;
   char * tok;
   char * end;
@@ -229,11 +242,11 @@ state_t runtime_handle_line(env_t * env, char * buf, state_t state) {
       case STATE_START:
         state = runtime_handle_start(env, tok, buf);
         break;
-      case STATE_NEXT:
-        state = runtime_handle_next(env, tok, buf);
-        break;
       case STATE_CMD:
         state = runtime_handle_cmd(env, tok, buf);
+        break;
+      case STATE_EXEC_FILE:
+        state = runtime_handle_exec_file(env, tok, buf);
         break;
       case STATE_PINDEF_PIN:
         state = runtime_handle_pindef_pin(env, tok, buf);
@@ -261,10 +274,13 @@ state_t runtime_handle_line(env_t * env, char * buf, state_t state) {
         return STATE_ERR;
     }
 
-    /* Handle special-case states */
+    /* Resume parsing on the next line on NEXT */
     if (state == STATE_NEXT) {
       return STATE_CMD;
-    } else if (state == STATE_EXIT || state == STATE_ERR) {
+    }
+
+    /* Bubble up EXIT and ERR */
+    if (state == STATE_EXIT || state == STATE_ERR) {
       return state;
     }
 
@@ -279,8 +295,10 @@ state_t runtime_handle_start(env_t * env, const char * tok, const char * buf) {
   return runtime_handle_cmd(env, tok, buf);
 }
 
-state_t runtime_handle_next(env_t * env, const char * tok, const char * buf) {
-  return runtime_handle_cmd(env, tok, buf);
+state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf) {
+  runtime_print(env, STYLE_CMD, "EXIT\n");
+
+  return STATE_EXIT;
 }
 
 state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf) {
@@ -294,6 +312,8 @@ state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf) {
   /* Parse command */
   if (strcmp(tok, ".exit") == 0) {
     return runtime_handle_exit(env, tok, buf);
+  } else if (strcmp(tok, ".exec") == 0) {
+    return runtime_handle_exec(env, tok, buf);
   } else if (strcmp(tok, ".info") == 0) {
     return runtime_handle_info(env, tok, buf);
   } else if (strcmp(tok, ".test") == 0) {
@@ -334,10 +354,58 @@ state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf) {
   return STATE_ERR;
 }
 
-state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf) {
-  runtime_print(env, STYLE_CMD, "EXIT\n");
+state_t runtime_handle_exec(env_t * env, const char * tok, const char * buf) {
+  return STATE_EXEC_FILE;
+}
 
-  return STATE_EXIT;
+state_t runtime_handle_exec_file(env_t * env, const char * tok, const char * buf) {
+
+  /* Validate filename */
+  char file[BUF_LEN];
+
+  if (runtime_parse_file(env, tok, file) != RC_OK) {
+    runtime_error(env, "Expected filename, found '%s'\n", tok);
+    return STATE_ERR;
+  }
+
+  /* Open file for reading */
+  FILE * f;
+  f = fopen(file, "r");
+
+  if (f == NULL) {
+    runtime_error(env, "Error opening file '%s': %s", tok, strerror(errno));
+    return STATE_ERR;
+  }
+
+  /* Store filename and line number */
+  const char * old_file = env->file;
+  size_t old_line = env->line;
+
+  /* Initialize new filename and line number */
+  env->file = file;
+  env->line = 1;
+
+  /* Execute contents of file */
+  runtime_print(env, STYLE_CMD, "EXEC\t");
+  runtime_print(env, STYLE_NONE, "%s\n", file);
+  state_t state = runtime_exec_stream(env, f);
+
+  /* Restore filename and line number */
+  env->file = old_file;
+  env->line = old_line;
+
+  /* Close file */
+  fclose(f);
+
+  if (state == STATE_ERR) {
+    runtime_error(env, "Error executing file '%s'", file);
+    return STATE_ERR;
+  }
+
+  runtime_print(env, STYLE_CMD, "DONE\t");
+  runtime_print(env, STYLE_NONE, "%s\n", file);
+
+  return STATE_CMD;
 }
 
 state_t runtime_handle_info(env_t * env, const char * tok, const char * buf) {
@@ -793,6 +861,25 @@ rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
   if (end < buf + strlen(buf)) {
     return RC_PARSE_ERR;
   }
+
+  return RC_OK;
+}
+
+rc_t runtime_parse_file(const env_t * env, const char * tok, char * file) {
+
+  /* Use absolute paths as-is */
+  if (tok[0] == '/') {
+    strcpy(file, tok);
+  }
+
+  /* Find the base filename of the current path */
+  strcpy(file, env->file);
+
+  char * last_slash = strrchr(file, '/');
+  char * base = (last_slash == NULL ? file : last_slash + 1);
+
+  /* Copy the new filename over the current filename */
+  strcpy(base, tok);
 
   return RC_OK;
 }
