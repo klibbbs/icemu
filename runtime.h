@@ -3,12 +3,7 @@
 
 #include <stddef.h>
 
-typedef enum {
-  RC_OK           = 0,
-  RC_ERR          = 1,
-  RC_FILE_ERR     = 2,
-  RC_PARSE_ERR    = 3,
-} rc_t;
+/* --- Object types --- */
 
 typedef struct {
   unsigned int data;
@@ -35,9 +30,9 @@ typedef struct {
   void (* write_mem)(void * instance, unsigned int addr, unsigned int data);
 } adapter_t;
 
-/* --- Functions -- */
+/* --- Function types --- */
 
-rc_t runtime_exec_file(const adapter_t * adapter, const char * file);
-rc_t runtime_exec_repl(const adapter_t * adapter);
+typedef adapter_t * (* adapter_init_func)();
+typedef void (* adapter_destroy_func)(adapter_t *);
 
 #endif /* INCLUDE_RUNTIME_H */

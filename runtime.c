@@ -28,6 +28,7 @@ typedef enum {
 } style_t;
 
 typedef enum {
+  STATE_NONE,
   STATE_ERR,
   STATE_START,
   STATE_NEXT,
@@ -69,6 +70,8 @@ typedef struct {
   size_t mem_offset;
 } env_t;
 
+static state_t runtime_exec_repl(const adapter_t * adapter);
+static state_t runtime_exec_file(const adapter_t * adapter, const char * file);
 static state_t runtime_exec_stream(env_t * env, FILE * stream);
 static state_t runtime_exec_line(env_t * env, char * buf, state_t state);
 static state_t runtime_exec_eof(env_t * env, state_t state);
@@ -101,9 +104,9 @@ static state_t runtime_handle_step(env_t * env, const char * tok, const char * b
 static state_t runtime_handle_run(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_run_cycles(env_t * env, const char * tok, const char * buf);
 
-static rc_t runtime_parse_value(const env_t * env, const char * tok, value_t * val);
-static rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test);
-static rc_t runtime_parse_file(const env_t * env, const char * tok, char * file);
+static bool runtime_parse_value(const env_t * env, const char * tok, value_t * val);
+static bool runtime_parse_test(const env_t * env, const char * tok, test_t * test);
+static bool runtime_parse_file(const env_t * env, const char * tok, char * file);
 
 static void runtime_error(const env_t * env, const char * format, ...);
 
@@ -116,50 +119,52 @@ static void runtime_print_test(const env_t * env, style_t style, test_t test);
 static env_t * runtime_env_init();
 static void runtime_env_destroy(env_t * env);
 
-/* --- Public functions --- */
+/* --- Extern declarations --- */
 
-rc_t runtime_exec_file(const adapter_t * adapter, const char * file) {
+extern adapter_t * mos6502_adapter_init();
+extern void mos6502_adapter_destroy(adapter_t * adapter);
 
-  /* Open file for reading */
-  FILE * f;
-  f = fopen(file, "r");
+/* --- Main --- */
 
-  if (f == NULL) {
-    fprintf(stderr, "Error opening '%s': %s\n", file, strerror(errno));
+int main (int argc, char * argv[]) {
 
-    return RC_FILE_ERR;
+  /* Construct a MOS 6502 adapter */
+  adapter_t * adapter = mos6502_adapter_init();
+
+  /* Execute files sequentially if specified, otherwise open the REPL */
+  state_t state = STATE_NONE;
+
+  if (argc > 1) {
+    for (int i = 1; i < argc; i++) {
+      state = runtime_exec_file(adapter, argv[i]);
+
+      /* Stop execution on error */
+      if (state == STATE_ERR) {
+        break;
+      }
+    }
+  } else {
+    state = runtime_exec_repl(adapter);
   }
 
-  /* Initialize runtime environment */
-  env_t * env = runtime_env_init(adapter, file);
-  state_t state = STATE_START;
+  /* Cleanup */
+  mos6502_adapter_destroy(adapter);
 
-  /* Execute contents of file */
-  state = runtime_exec_stream(env, f);
-
-  /* Clean up environment */
-  runtime_env_destroy(env);
-
-  /* Close stream */
-  fclose(f);
-
-  return state == STATE_ERR ? RC_ERR : RC_OK;
+  return (state == STATE_ERR ? 1 : 0);
 }
 
-rc_t runtime_exec_repl(const adapter_t * adapter) {
-  rc_t rc = RC_OK;
-  char buf[BUF_LEN];
+/* --- Private functions --- */
 
-  /* Initialize environment and state */
+state_t runtime_exec_repl(const adapter_t * adapter) {
+
+  /* Initialize environment */
   env_t * env = runtime_env_init(adapter, "shell");
-  state_t state = STATE_START;
-
-  /* Print initial prompt */
-  runtime_print(env, STYLE_INFO, "icescript REPL\n");
-  runtime_print(env, STYLE_INFO, "> ");
 
   /* Parse and execute line by line */
-  while (fgets(buf, BUF_LEN, stdin) != NULL) {
+  char buf[BUF_LEN] = "";
+  state_t state = STATE_START;
+
+  do {
     state = runtime_exec_line(env, buf, state);
 
     /* Stop execution only on exit */
@@ -177,27 +182,51 @@ rc_t runtime_exec_repl(const adapter_t * adapter) {
 
     /* Print a command prompt */
     runtime_print(env, STYLE_INFO, "> ");
-  }
+  } while (fgets(buf, BUF_LEN, stdin) != NULL);
 
   /* Clean up environment */
   runtime_env_destroy(env);
 
   if (ferror(stdin)) {
     runtime_error(env, "%s", strerror(errno));
-    rc = RC_FILE_ERR;
+    return STATE_ERR;
   }
 
-  return rc;
+  return state;
 }
 
-/* --- Private functions --- */
+state_t runtime_exec_file(const adapter_t * adapter, const char * file) {
+
+  /* Open file for reading */
+  FILE * f = fopen(file, "r");
+
+  if (f == NULL) {
+    fprintf(stderr, "Error opening '%s': %s\n", file, strerror(errno));
+    return STATE_ERR;
+  }
+
+  /* Initialize runtime environment */
+  env_t * env = runtime_env_init(adapter, file);
+
+  /* Execute contents of file */
+  state_t state = runtime_exec_stream(env, f);
+
+  /* Clean up environment */
+  runtime_env_destroy(env);
+
+  /* Close stream */
+  fclose(f);
+
+  return state;
+}
 
 state_t runtime_exec_stream(env_t * env, FILE * stream) {
-  char buf[BUF_LEN];
-  state_t state = STATE_START;
 
   /* Parse and execute line by line */
-  while (fgets(buf, BUF_LEN, stream) != NULL) {
+  char buf[BUF_LEN] = "";
+  state_t state = STATE_START;
+
+  do {
     state = runtime_exec_line(env, buf, state);
 
     /* Stop execution on exit or on error */
@@ -207,7 +236,7 @@ state_t runtime_exec_stream(env_t * env, FILE * stream) {
 
     /* Increment line counter */
     env->line++;
-  }
+  } while (fgets(buf, BUF_LEN, stream) != NULL);
 
   /* Finish execution on EOF */
   if (feof(stream)) {
@@ -309,6 +338,9 @@ state_t runtime_exec_token(env_t * env, const char * tok, const char * buf, stat
 }
 
 state_t runtime_handle_start(env_t * env, const char * tok, const char * buf) {
+  runtime_print(env, STYLE_CMD, "START\t");
+  runtime_print(env, STYLE_NONE, "%s\n", env->file);
+
   return runtime_handle_cmd(env, tok, buf);
 }
 
@@ -386,14 +418,13 @@ state_t runtime_handle_exec_file(env_t * env, const char * tok, const char * buf
   /* Validate filename */
   char file[BUF_LEN];
 
-  if (runtime_parse_file(env, tok, file) != RC_OK) {
+  if (!runtime_parse_file(env, tok, file)) {
     runtime_error(env, "Expected filename, found '%s'\n", tok);
     return STATE_ERR;
   }
 
   /* Open file for reading */
-  FILE * f;
-  f = fopen(file, "r");
+  FILE * f = fopen(file, "r");
 
   if (f == NULL) {
     runtime_error(env, "Error opening file '%s': %s", tok, strerror(errno));
@@ -537,7 +568,7 @@ state_t runtime_handle_pintest_data(env_t * env, const char * tok, const char * 
   /* Validate test value */
   test_t test;
 
-  if (runtime_parse_test(env, tok, &test) != RC_OK) {
+  if (!runtime_parse_test(env, tok, &test)) {
     runtime_error(env, "Expected pin test value, found '%s'\n", tok);
     return STATE_ERR;
   }
@@ -606,7 +637,7 @@ state_t runtime_handle_memset_addr(env_t * env, const char * tok, const char * b
   value_t val;
   unsigned int addr;
 
-  if (runtime_parse_value(env, tok, &val) == RC_OK) {
+  if (runtime_parse_value(env, tok, &val)) {
     addr = val.data;
   } else {
     runtime_error(env, "Expected address, found '%s'\n", tok);
@@ -634,7 +665,7 @@ state_t runtime_handle_memset_data(env_t * env, const char * tok, const char * b
   value_t val;
   unsigned int word;
 
-  if (runtime_parse_value(env, tok, &val) == RC_OK) {
+  if (runtime_parse_value(env, tok, &val)) {
     word = val.data;
   } else {
     runtime_error(env, "Expected word, found '%s'\n", tok);
@@ -674,7 +705,7 @@ state_t runtime_handle_memtest_addr(env_t * env, const char * tok, const char * 
   value_t val;
   unsigned int addr;
 
-  if (runtime_parse_value(env, tok, &val) == RC_OK) {
+  if (runtime_parse_value(env, tok, &val)) {
     addr = val.data;
   } else {
     runtime_error(env, "Expected address, found '%s'\n", tok);
@@ -701,7 +732,7 @@ state_t runtime_handle_memtest_data(env_t * env, const char * tok, const char * 
   /* Validate test word */
   test_t test;
 
-  if (runtime_parse_test(env, tok, &test) != RC_OK) {
+  if (!runtime_parse_test(env, tok, &test)) {
     runtime_error(env, "Expected test word, found '%s'\n", tok);
     return STATE_ERR;
   }
@@ -761,7 +792,7 @@ state_t runtime_handle_run_cycles(env_t * env, const char * tok, const char * bu
   value_t val;
   unsigned int cycles;
 
-  if (runtime_parse_value(env, tok, &val) == RC_OK) {
+  if (runtime_parse_value(env, tok, &val)) {
     cycles = val.data;
   } else {
     runtime_error(env, "Expected cycle count, found '%s'\n", tok);
@@ -790,25 +821,25 @@ state_t runtime_handle_run_cycles(env_t * env, const char * tok, const char * bu
   return STATE_CMD;
 }
 
-rc_t runtime_parse_value(const env_t * env, const char * tok, value_t * value) {
+bool runtime_parse_value(const env_t * env, const char * tok, value_t * value) {
   test_t test;
 
-  if (runtime_parse_test(env, tok, &test) == RC_OK) {
+  if (runtime_parse_test(env, tok, &test)) {
     if (~test.mask) {
-      return RC_PARSE_ERR;
+      return false;
     } else {
       value->data = test.data;
       value->bits = test.bits;
       value->base = test.base;
 
-      return RC_OK;
+      return true;
     }
   } else {
-    return RC_PARSE_ERR;
+    return false;
   }
 }
 
-rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
+bool runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
 
   /* Handle single bit */
   if (tok[1] == '\0' && (tok[0] == '0' || tok[0] == '1')) {
@@ -817,7 +848,7 @@ rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
     test->bits = 1;
     test->base = 10;
 
-    return RC_OK;
+    return true;
   }
 
   /* Handle single don't-care bit */
@@ -827,7 +858,7 @@ rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
     test->bits = 1;
     test->base = 10;
 
-    return RC_OK;
+    return true;
   }
 
   /* Handle variable length */
@@ -855,7 +886,7 @@ rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
 
       /* Don't-care values are only supported for power-of-2 bases */
       if (test->base == 10) {
-        return RC_PARSE_ERR;
+        return false;
       }
 
       *c = '0';
@@ -865,7 +896,7 @@ rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
   test->data = strtoul(buf, &end, test->base);
 
   if (end < buf + strlen(buf)) {
-    return RC_PARSE_ERR;
+    return false;
   }
 
   /* Parse (inverse) mask */
@@ -882,13 +913,13 @@ rc_t runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
   test->mask = ~strtoul(buf, &end, test->base);
 
   if (end < buf + strlen(buf)) {
-    return RC_PARSE_ERR;
+    return false;
   }
 
-  return RC_OK;
+  return true;
 }
 
-rc_t runtime_parse_file(const env_t * env, const char * tok, char * file) {
+bool runtime_parse_file(const env_t * env, const char * tok, char * file) {
 
   /* Use absolute paths as-is */
   if (tok[0] == '/') {
@@ -904,7 +935,7 @@ rc_t runtime_parse_file(const env_t * env, const char * tok, char * file) {
   /* Copy the new filename over the current filename */
   strcpy(base, tok);
 
-  return RC_OK;
+  return true;
 }
 
 void runtime_error(const env_t * env, const char * format, ...) {

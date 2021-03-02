@@ -20,5 +20,5 @@ compare: icemu.o debug.o mos6502/mos6502.o compare.o ../perfect6502/perfect6502.
 .PHONY: mos6502
 mos6502: mos6502/run
 
-mos6502/run: mos6502/run.o $(MOS6502_OBJS) $(MOS6502_DEPS) $(ICEMU_OBJS) $(ICEMU_DEPS)
-	$(CC) $(CFLAGS) -o $@ mos6502/run.o $(MOS6502_OBJS) $(ICEMU_OBJS)
+mos6502/run: $(MOS6502_OBJS) $(MOS6502_DEPS) $(ICEMU_OBJS) $(ICEMU_DEPS)
+	$(CC) $(CFLAGS) -o $@ $(MOS6502_OBJS) $(ICEMU_OBJS)
