@@ -28,11 +28,12 @@ typedef enum {
 } style_t;
 
 typedef enum {
+  STATE_EXIT,
   STATE_ERR,
   STATE_START,
   STATE_NEXT,
   STATE_CMD,
-  STATE_PINS_PIN,
+  STATE_PINDEF_PIN,
   STATE_PINTEST_DATA,
   STATE_MEMSET_ADDR,
   STATE_MEMSET_DATA,
@@ -60,22 +61,24 @@ typedef struct {
   char ** pins;
   char * pins_buf;
   size_t pins_count;
-  size_t pins_cursor;
-  test_t * pins_tests;
+
+  test_t * pin_tests;
+  size_t pin_tests_count;
 
   unsigned int mem_addr;
   size_t mem_offset;
 } env_t;
 
-static rc_t runtime_exec_line(env_t * env, char * buf);
-
+static state_t runtime_handle_line(env_t * env, char * buf);
+static state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_start(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_next(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_info(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_pins(env_t * env, const char * tok, const char * buf);
-static state_t runtime_handle_pins_pin(env_t * env, const char * tok, const char * buf);
-static state_t runtime_handle_pins_end(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_pindef(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_pindef_pin(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_pindef_end(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_pintest(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_pintest_data(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_pintest_end(env_t * env, const char * tok, const char * buf);
@@ -129,10 +132,10 @@ rc_t runtime_exec_file(const adapter_t * adapter, const char * file) {
 
   /* Parse and execute line by line */
   while (fgets(buf, BUF_LEN,f) != NULL) {
-    rc = runtime_exec_line(env, buf);
+    state_t state = runtime_handle_line(env, buf);
 
-    /* Stop execution if parsing fails at any point */
-    if (rc != RC_OK) {
+    /* Stop execution on exit or on error */
+    if (state == STATE_EXIT || state == STATE_ERR) {
       break;
     }
 
@@ -164,8 +167,7 @@ rc_t runtime_exec_repl(const adapter_t * adapter) {
 
 /* --- Private functions --- */
 
-rc_t runtime_exec_line(env_t * env, char * buf) {
-  rc_t rc = RC_OK;
+state_t runtime_handle_line(env_t * env, char * buf) {
   char * ptr;
   char * tok;
   char * end;
@@ -202,8 +204,8 @@ rc_t runtime_exec_line(env_t * env, char * buf) {
       case STATE_CMD:
         env->state = runtime_handle_cmd(env, tok, buf);
         break;
-      case STATE_PINS_PIN:
-        env->state = runtime_handle_pins_pin(env, tok, buf);
+      case STATE_PINDEF_PIN:
+        env->state = runtime_handle_pindef_pin(env, tok, buf);
         break;
       case STATE_PINTEST_DATA:
         env->state = runtime_handle_pintest_data(env, tok, buf);
@@ -225,23 +227,21 @@ rc_t runtime_exec_line(env_t * env, char * buf) {
         break;
       default:
         runtime_error(env, "Unrecognized state %d", env->state);
-        return RC_ERR;
+        return STATE_ERR;
     }
 
     /* Handle special-case states */
     if (env->state == STATE_NEXT) {
-      env->state = STATE_CMD;
-
-      return RC_OK;
-    } else if (env->state == STATE_ERR) {
-      return RC_ERR;
+      return STATE_CMD;
+    } else if (env->state == STATE_EXIT || env->state == STATE_ERR) {
+      return env->state;
     }
 
     /* Advance to the next token */
     ptr = NULL;
   }
 
-  return rc;
+  return env->state;
 }
 
 state_t runtime_handle_start(env_t * env, const char * tok, const char * buf) {
@@ -261,12 +261,32 @@ state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf) {
   }
 
   /* Parse command */
-  if (strcmp(tok, ".info") == 0) {
+  if (strcmp(tok, ".exit") == 0) {
+    return runtime_handle_exit(env, tok, buf);
+  } else if (strcmp(tok, ".info") == 0) {
     return runtime_handle_info(env, tok, buf);
+  } else if (strcmp(tok, ".test") == 0) {
+    /* TODO: Define test program */
+    runtime_error(env, "Unimplemented command '%s'", tok);
+    return STATE_ERR;
   } else if (strcmp(tok, ".pins") == 0) {
     return runtime_handle_pins(env, tok, buf);
+  } else if (strcmp(tok, ".pindef") == 0) {
+    return runtime_handle_pindef(env, tok, buf);
+  } else if (strcmp(tok, ".pinget") == 0) {
+    /* TODO: Read from specified pin(s) */
+    runtime_error(env, "Unimplemented command '%s'", tok);
+    return STATE_ERR;
+  } else if (strcmp(tok, ".pinset") == 0) {
+    /* TODO: Write to specified pin */
+    runtime_error(env, "Unimplemented command '%s'", tok);
+    return STATE_ERR;
   } else if (strcmp(tok, ".pintest") == 0) {
     return runtime_handle_pintest(env, tok, buf);
+  } else if (strcmp(tok, ".memget") == 0) {
+    /* TODO: Read from specified memory address */
+    runtime_error(env, "Unimplemented command '%s'", tok);
+    return STATE_ERR;
   } else if (strcmp(tok, ".memset") == 0) {
     return runtime_handle_memset(env, tok, buf);
   } else if (strcmp(tok, ".memtest") == 0) {
@@ -283,6 +303,12 @@ state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf) {
   return STATE_ERR;
 }
 
+state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf) {
+  runtime_print(env, STYLE_CMD, "EXIT\n");
+
+  return STATE_EXIT;
+}
+
 state_t runtime_handle_info(env_t * env, const char * tok, const char * buf) {
 
   /* Print the remainder of the line */
@@ -294,18 +320,40 @@ state_t runtime_handle_info(env_t * env, const char * tok, const char * buf) {
 
 state_t runtime_handle_pins(env_t * env, const char * tok, const char * buf) {
 
-  /* Reset pin list */
-  env->pins_count = 0;
-  env->pins_cursor = 0;
+  /* Print pin values */
+  runtime_print(env, STYLE_CMD, "PINS\t");
 
-  return STATE_PINS_PIN;
+  for (size_t p = 0; p < env->pins_count; p++) {
+    if (p > 0) {
+      runtime_print(env, STYLE_NONE, " ");
+    }
+
+    /* Read from pin */
+    value_t val = env->adapter->read_pin(env->instance, env->pins[p]);
+
+    runtime_print(env, STYLE_NONE, "%s[", env->pins[p]);
+    runtime_print_value(env, STYLE_NONE, val);
+    runtime_print(env, STYLE_NONE, "]");
+  }
+
+  runtime_print(env, STYLE_NONE, "\n");
+
+  return STATE_CMD;
 }
 
-state_t runtime_handle_pins_pin(env_t * env, const char * tok, const char * buf) {
+state_t runtime_handle_pindef(env_t * env, const char * tok, const char * buf) {
+
+  /* Reset pin list */
+  env->pins_count = 0;
+
+  return STATE_PINDEF_PIN;
+}
+
+state_t runtime_handle_pindef_pin(env_t * env, const char * tok, const char * buf) {
 
   /* Check for end condition */
   if (tok[0] == '.') {
-    return runtime_handle_pins_end(env, tok, buf);
+    return runtime_handle_pindef_end(env, tok, buf);
   }
 
   /* Validate pin */
@@ -322,13 +370,13 @@ state_t runtime_handle_pins_pin(env_t * env, const char * tok, const char * buf)
   /* Register pin */
   env->pins[env->pins_count++] = strcpy(&env->pins_buf[env->pins_count * PIN_LEN], tok);
 
-  return STATE_PINS_PIN;
+  return STATE_PINDEF_PIN;
 }
 
-state_t runtime_handle_pins_end(env_t * env, const char * tok, const char * buf) {
+state_t runtime_handle_pindef_end(env_t * env, const char * tok, const char * buf) {
 
   /* Print pin list */
-  runtime_print(env, STYLE_CMD, "PINS\t");
+  runtime_print(env, STYLE_CMD, "PINDEF\t");
 
   for (size_t p = 0; p < env->pins_count; p++) {
     if (p > 0) {
@@ -345,8 +393,8 @@ state_t runtime_handle_pins_end(env_t * env, const char * tok, const char * buf)
 
 state_t runtime_handle_pintest(env_t * env, const char * tok, const char * buf) {
 
-  /* Reset pin cursor */
-  env->pins_cursor = 0;
+  /* Reset pin tests */
+  env->pin_tests_count = 0;
 
   return STATE_PINTEST_DATA;
 }
@@ -359,7 +407,7 @@ state_t runtime_handle_pintest_data(env_t * env, const char * tok, const char * 
   }
 
   /* Check for an available pin */
-  if (env->pins_cursor >= env->pins_count) {
+  if (env->pin_tests_count >= env->pins_count) {
     runtime_error(env, "Only %zu pins specified\n", env->pins_count);
     return STATE_ERR;
   }
@@ -373,7 +421,7 @@ state_t runtime_handle_pintest_data(env_t * env, const char * tok, const char * 
   }
 
   /* Register test value */
-  env->pins_tests[env->pins_cursor++] = test;
+  env->pin_tests[env->pin_tests_count++] = test;
 
   return STATE_PINTEST_DATA;
 }
@@ -383,13 +431,13 @@ state_t runtime_handle_pintest_end(env_t * env, const char * tok, const char * b
   /* Print test values */
   runtime_print(env, STYLE_CMD, "PINTEST\t");
 
-  for (size_t p = 0; p < env->pins_cursor; p++) {
+  for (size_t p = 0; p < env->pin_tests_count; p++) {
     if (p > 0) {
       runtime_print(env, STYLE_NONE, " ");
     }
 
     runtime_print(env, STYLE_NONE, "%s[", env->pins[p]);
-    runtime_print_test(env, STYLE_NONE, env->pins_tests[p]);
+    runtime_print_test(env, STYLE_NONE, env->pin_tests[p]);
     runtime_print(env, STYLE_NONE, "]");
   }
 
@@ -398,7 +446,7 @@ state_t runtime_handle_pintest_end(env_t * env, const char * tok, const char * b
   /* Compare pin list */
   runtime_print(env, STYLE_NONE, "       \t");
 
-  for (size_t p = 0; p < env->pins_cursor; p++) {
+  for (size_t p = 0; p < env->pin_tests_count; p++) {
     if (p > 0) {
       runtime_print(env, STYLE_NONE, " ");
     }
@@ -407,7 +455,7 @@ state_t runtime_handle_pintest_end(env_t * env, const char * tok, const char * b
     value_t val = env->adapter->read_pin(env->instance, env->pins[p]);
 
     /* Compare */
-    bool match = (env->pins_tests[p].data == (val.data & env->pins_tests[p].mask));
+    bool match = (env->pin_tests[p].data == (val.data & env->pin_tests[p].mask));
 
     env->success = env->success && match;
 
@@ -858,8 +906,8 @@ env_t * runtime_env_init(const adapter_t * adapter, const char * file) {
   env->pins = malloc(sizeof(char *) * MAX_PINS);
   env->pins_buf = malloc(sizeof(char) * MAX_PINS * PIN_LEN);
   env->pins_count = 0;
-  env->pins_cursor = 0;
-  env->pins_tests = malloc(sizeof(test_t) * MAX_PINS);
+  env->pin_tests = malloc(sizeof(test_t) * MAX_PINS);
+  env->pin_tests_count = 0;
 
   /* Initialize memory */
   env->mem_addr = 0;
@@ -876,7 +924,7 @@ void runtime_env_destroy(env_t * env) {
   /* Clean up runtime */
   free(env->pins);
   free(env->pins_buf);
-  free(env->pins_tests);
+  free(env->pin_tests);
 
   free(env);
 }

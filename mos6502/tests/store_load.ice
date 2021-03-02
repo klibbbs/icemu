@@ -1,5 +1,5 @@
 .info Basic store and load
-.pins clk1.pin clk2.pin ab.pin db.pin rw.pin sync.pin pc.reg p.reg a.reg i.reg
+.pindef clk1.pin clk2.pin ab.pin db.pin rw.pin sync.pin pc.reg p.reg a.reg i.reg
 .memset $0200
     $77
 .memset $8000
