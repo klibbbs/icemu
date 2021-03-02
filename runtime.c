@@ -71,10 +71,13 @@ typedef struct {
 
 static state_t runtime_exec_stream(env_t * env, FILE * stream);
 static state_t runtime_exec_line(env_t * env, char * buf, state_t state);
+static state_t runtime_exec_eof(env_t * env, state_t state);
+static state_t runtime_exec_token(env_t * env, const char * tok, const char * buf, state_t state);
 
 static state_t runtime_handle_start(env_t * env, const char * tok, const char * buf);
-static state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_nop(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_exec(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_exec_file(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_info(env_t * env, const char * tok, const char * buf);
@@ -169,6 +172,9 @@ rc_t runtime_exec_repl(const adapter_t * adapter) {
       state = STATE_CMD;
     }
 
+    /* Finish unterminated commands on EOL */
+    state = runtime_exec_eof(env, state);
+
     /* Print a command prompt */
     runtime_print(env, STYLE_NONE, "> ");
   }
@@ -203,12 +209,17 @@ state_t runtime_exec_stream(env_t * env, FILE * stream) {
     env->line++;
   }
 
+  /* Finish execution on EOF */
+  if (feof(stream)) {
+    state = runtime_exec_eof(env, state);
+  }
+
   if (ferror(stream)) {
     runtime_error(env, "%s", strerror(errno));
     return STATE_ERR;
   }
 
-  return STATE_EXIT;
+  return state;
 }
 
 state_t runtime_exec_line(env_t * env, char * buf, state_t state) {
@@ -238,41 +249,7 @@ state_t runtime_exec_line(env_t * env, char * buf, state_t state) {
     }
 
     /* Handle state */
-    switch (state) {
-      case STATE_START:
-        state = runtime_handle_start(env, tok, buf);
-        break;
-      case STATE_CMD:
-        state = runtime_handle_cmd(env, tok, buf);
-        break;
-      case STATE_EXEC_FILE:
-        state = runtime_handle_exec_file(env, tok, buf);
-        break;
-      case STATE_PINDEF_PIN:
-        state = runtime_handle_pindef_pin(env, tok, buf);
-        break;
-      case STATE_PINTEST_DATA:
-        state = runtime_handle_pintest_data(env, tok, buf);
-        break;
-      case STATE_MEMSET_ADDR:
-        state = runtime_handle_memset_addr(env, tok, buf);
-        break;
-      case STATE_MEMSET_DATA:
-        state = runtime_handle_memset_data(env, tok, buf);
-        break;
-      case STATE_MEMTEST_ADDR:
-        state = runtime_handle_memtest_addr(env, tok, buf);
-        break;
-      case STATE_MEMTEST_DATA:
-        state = runtime_handle_memtest_data(env, tok, buf);
-        break;
-      case STATE_RUN_CYCLES:
-        state = runtime_handle_run_cycles(env, tok, buf);
-        break;
-      default:
-        runtime_error(env, "Unrecognized state %d", state);
-        return STATE_ERR;
-    }
+    state = runtime_exec_token(env, tok, buf, state);
 
     /* Resume parsing on the next line on NEXT */
     if (state == STATE_NEXT) {
@@ -291,14 +268,48 @@ state_t runtime_exec_line(env_t * env, char * buf, state_t state) {
   return state;
 }
 
-state_t runtime_handle_start(env_t * env, const char * tok, const char * buf) {
-  return runtime_handle_cmd(env, tok, buf);
+state_t runtime_exec_eof(env_t * env, state_t state) {
+
+  /* Execute a .nop to finish any unterminated commands */
+  return runtime_exec_token(env, ".nop", "", state);
 }
 
-state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf) {
-  runtime_print(env, STYLE_CMD, "EXIT\n");
+state_t runtime_exec_token(env_t * env, const char * tok, const char * buf, state_t state) {
 
-  return STATE_EXIT;
+  /* Handle token based on state */
+  switch (state) {
+    case STATE_START:
+      return runtime_handle_start(env, tok, buf);
+    case STATE_CMD:
+      return runtime_handle_cmd(env, tok, buf);
+    case STATE_EXEC_FILE:
+      return runtime_handle_exec_file(env, tok, buf);
+    case STATE_PINDEF_PIN:
+      return runtime_handle_pindef_pin(env, tok, buf);
+    case STATE_PINTEST_DATA:
+      return runtime_handle_pintest_data(env, tok, buf);
+    case STATE_MEMSET_ADDR:
+      return runtime_handle_memset_addr(env, tok, buf);
+    case STATE_MEMSET_DATA:
+      return runtime_handle_memset_data(env, tok, buf);
+    case STATE_MEMTEST_ADDR:
+      return runtime_handle_memtest_addr(env, tok, buf);
+    case STATE_MEMTEST_DATA:
+      return runtime_handle_memtest_data(env, tok, buf);
+    case STATE_RUN_CYCLES:
+      return runtime_handle_run_cycles(env, tok, buf);
+    case STATE_NEXT:
+    case STATE_EXIT:
+    case STATE_ERR:
+      return state;
+    default:
+      runtime_error(env, "Unexpected state %d", state);
+      return STATE_ERR;
+  }
+}
+
+state_t runtime_handle_start(env_t * env, const char * tok, const char * buf) {
+  return runtime_handle_cmd(env, tok, buf);
 }
 
 state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf) {
@@ -310,7 +321,9 @@ state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf) {
   }
 
   /* Parse command */
-  if (strcmp(tok, ".exit") == 0) {
+  if (strcmp(tok, ".nop") == 0) {
+    return runtime_handle_nop(env, tok, buf);
+  } else if (strcmp(tok, ".exit") == 0) {
     return runtime_handle_exit(env, tok, buf);
   } else if (strcmp(tok, ".exec") == 0) {
     return runtime_handle_exec(env, tok, buf);
@@ -352,6 +365,16 @@ state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf) {
 
   runtime_error(env, "Unrecognized command '%s'", tok);
   return STATE_ERR;
+}
+
+state_t runtime_handle_nop(env_t * env, const char * tok, const char * buf) {
+  return STATE_CMD;
+}
+
+state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf) {
+  runtime_print(env, STYLE_CMD, "EXIT\n");
+
+  return STATE_EXIT;
 }
 
 state_t runtime_handle_exec(env_t * env, const char * tok, const char * buf) {
