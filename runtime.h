@@ -8,7 +8,6 @@ typedef enum {
   RC_ERR          = 1,
   RC_FILE_ERR     = 2,
   RC_PARSE_ERR    = 3,
-  RC_EMULATOR_ERR = 4,
 } rc_t;
 
 typedef struct {

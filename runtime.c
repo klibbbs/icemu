@@ -53,7 +53,6 @@ typedef struct {
   const adapter_t * adapter;
   void * instance;
 
-  state_t state;
   const char * file;
   size_t line;
   bool success;
@@ -69,7 +68,7 @@ typedef struct {
   size_t mem_offset;
 } env_t;
 
-static state_t runtime_handle_line(env_t * env, char * buf);
+static state_t runtime_handle_line(env_t * env, char * buf, state_t state);
 static state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_start(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_next(env_t * env, const char * tok, const char * buf);
@@ -113,10 +112,8 @@ static void runtime_env_destroy(env_t * env);
 
 rc_t runtime_exec_file(const adapter_t * adapter, const char * file) {
   rc_t rc = RC_OK;
-  env_t * env;
-
-  FILE * f;
   char buf[BUF_LEN];
+  FILE * f;
 
   /* Open stream for reading */
   f = fopen(file, "r");
@@ -127,12 +124,13 @@ rc_t runtime_exec_file(const adapter_t * adapter, const char * file) {
     return RC_FILE_ERR;
   }
 
-  /* Initialize environment */
-  env = runtime_env_init(adapter, file);
+  /* Initialize environment and state */
+  env_t * env = runtime_env_init(adapter, file);
+  state_t state = STATE_START;
 
   /* Parse and execute line by line */
-  while (fgets(buf, BUF_LEN,f) != NULL) {
-    state_t state = runtime_handle_line(env, buf);
+  while (fgets(buf, BUF_LEN, f) != NULL) {
+    state = runtime_handle_line(env, buf, state);
 
     /* Stop execution on exit or on error */
     if (state == STATE_EXIT || state == STATE_ERR) {
@@ -159,15 +157,48 @@ rc_t runtime_exec_file(const adapter_t * adapter, const char * file) {
 
 rc_t runtime_exec_repl(const adapter_t * adapter) {
   rc_t rc = RC_OK;
+  char buf[BUF_LEN];
 
-  /* TODO */
+  /* Initialize environment */
+  env_t * env = runtime_env_init(adapter, "shell");
+  state_t state = STATE_START;
+
+  /* Print initial prompt */
+  fputs("* IceScript REPL *\n", stdout);
+  fputs("> ", stdout);
+
+  /* Parse and execute line by line */
+  while (fgets(buf, BUF_LEN, stdin) != NULL) {
+    state = runtime_handle_line(env, buf, state);
+
+    /* Stop execution only on exit */
+    if (state == STATE_EXIT) {
+      break;
+    }
+
+    /* On error, read the next command */
+    if (state == STATE_ERR) {
+      state = STATE_CMD;
+    }
+
+    /* Print a command prompt */
+    fputs("> ", stdout);
+  }
+
+  if (ferror(stdin)) {
+    fprintf(stderr, "Error reading line: %s\n", strerror(errno));
+    rc = RC_FILE_ERR;
+  }
+
+  /* Clean up environment */
+  runtime_env_destroy(env);
 
   return rc;
 }
 
 /* --- Private functions --- */
 
-state_t runtime_handle_line(env_t * env, char * buf) {
+state_t runtime_handle_line(env_t * env, char * buf, state_t state) {
   char * ptr;
   char * tok;
   char * end;
@@ -194,54 +225,54 @@ state_t runtime_handle_line(env_t * env, char * buf) {
     }
 
     /* Handle state */
-    switch (env->state) {
+    switch (state) {
       case STATE_START:
-        env->state = runtime_handle_start(env, tok, buf);
+        state = runtime_handle_start(env, tok, buf);
         break;
       case STATE_NEXT:
-        env->state = runtime_handle_next(env, tok, buf);
+        state = runtime_handle_next(env, tok, buf);
         break;
       case STATE_CMD:
-        env->state = runtime_handle_cmd(env, tok, buf);
+        state = runtime_handle_cmd(env, tok, buf);
         break;
       case STATE_PINDEF_PIN:
-        env->state = runtime_handle_pindef_pin(env, tok, buf);
+        state = runtime_handle_pindef_pin(env, tok, buf);
         break;
       case STATE_PINTEST_DATA:
-        env->state = runtime_handle_pintest_data(env, tok, buf);
+        state = runtime_handle_pintest_data(env, tok, buf);
         break;
       case STATE_MEMSET_ADDR:
-        env->state = runtime_handle_memset_addr(env, tok, buf);
+        state = runtime_handle_memset_addr(env, tok, buf);
         break;
       case STATE_MEMSET_DATA:
-        env->state = runtime_handle_memset_data(env, tok, buf);
+        state = runtime_handle_memset_data(env, tok, buf);
         break;
       case STATE_MEMTEST_ADDR:
-        env->state = runtime_handle_memtest_addr(env, tok, buf);
+        state = runtime_handle_memtest_addr(env, tok, buf);
         break;
       case STATE_MEMTEST_DATA:
-        env->state = runtime_handle_memtest_data(env, tok, buf);
+        state = runtime_handle_memtest_data(env, tok, buf);
         break;
       case STATE_RUN_CYCLES:
-        env->state = runtime_handle_run_cycles(env, tok, buf);
+        state = runtime_handle_run_cycles(env, tok, buf);
         break;
       default:
-        runtime_error(env, "Unrecognized state %d", env->state);
+        runtime_error(env, "Unrecognized state %d", state);
         return STATE_ERR;
     }
 
     /* Handle special-case states */
-    if (env->state == STATE_NEXT) {
+    if (state == STATE_NEXT) {
       return STATE_CMD;
-    } else if (env->state == STATE_EXIT || env->state == STATE_ERR) {
-      return env->state;
+    } else if (state == STATE_EXIT || state == STATE_ERR) {
+      return state;
     }
 
     /* Advance to the next token */
     ptr = NULL;
   }
 
-  return env->state;
+  return state;
 }
 
 state_t runtime_handle_start(env_t * env, const char * tok, const char * buf) {
@@ -897,7 +928,6 @@ env_t * runtime_env_init(const adapter_t * adapter, const char * file) {
   env->instance = adapter->init();
 
   /* Initialize runtime */
-  env->state = STATE_START;
   env->file = file;
   env->line = 1;
   env->success = true;
