@@ -74,6 +74,7 @@ static state_t runtime_exec_repl(const adapter_t * adapter);
 static state_t runtime_exec_file(const adapter_t * adapter, const char * file);
 static state_t runtime_exec_stream(env_t * env, FILE * stream);
 static state_t runtime_exec_line(env_t * env, char * buf, state_t state);
+static state_t runtime_exec_flush(env_t * env, state_t state);
 static state_t runtime_exec_eof(env_t * env, state_t state);
 static state_t runtime_exec_token(env_t * env, const char * tok, const char * buf, state_t state);
 
@@ -177,20 +178,25 @@ state_t runtime_exec_repl(const adapter_t * adapter) {
       state = STATE_CMD;
     }
 
-    /* Finish unterminated commands on EOL */
-    state = runtime_exec_eof(env, state);
+    /* Flush unterminated commands on EOL */
+    state = runtime_exec_flush(env, state);
 
     /* Print a command prompt */
     runtime_print(env, STYLE_INFO, "> ");
   } while (fgets(buf, BUF_LEN, stdin) != NULL);
 
-  /* Clean up environment */
-  runtime_env_destroy(env);
+  /* Finish execution on EOF */
+  if (feof(stdin)) {
+    state = runtime_exec_eof(env, state);
+  }
 
   if (ferror(stdin)) {
     runtime_error(env, "%s", strerror(errno));
-    return STATE_ERR;
+    state = STATE_ERR;
   }
+
+  /* Clean up environment */
+  runtime_env_destroy(env);
 
   return state;
 }
@@ -297,10 +303,21 @@ state_t runtime_exec_line(env_t * env, char * buf, state_t state) {
   return state;
 }
 
-state_t runtime_exec_eof(env_t * env, state_t state) {
+state_t runtime_exec_flush(env_t * env, state_t state) {
 
   /* Execute a .nop to finish any unterminated commands */
   return runtime_exec_token(env, ".nop", "", state);
+}
+
+state_t runtime_exec_eof(env_t * env, state_t state) {
+
+  /* If already in EXIT state, nothing more to do */
+  if (state == STATE_EXIT) {
+    return state;
+  }
+
+  /* Execute an implicit .exit to finish unterminated commands and run exit sequence */
+  return runtime_exec_token(env, ".exit", "", state);
 }
 
 state_t runtime_exec_token(env_t * env, const char * tok, const char * buf, state_t state) {
@@ -404,7 +421,8 @@ state_t runtime_handle_nop(env_t * env, const char * tok, const char * buf) {
 }
 
 state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf) {
-  runtime_print(env, STYLE_CMD, "EXIT\n");
+  runtime_print(env, STYLE_CMD, "EXIT\t");
+  runtime_print(env, STYLE_NONE, "%s\n", env->file);
 
   return STATE_EXIT;
 }
