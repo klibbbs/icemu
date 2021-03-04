@@ -1,4 +1,5 @@
 .info Basic store and load
+.device ../mos6502.so
 .pindef clk1.pin clk2.pin ab.pin db.pin rw.pin sync.pin pc.reg p.reg a.reg i.reg
 .memset $0200
     $77

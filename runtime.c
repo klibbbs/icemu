@@ -1,5 +1,7 @@
 #include "runtime.h"
 
+#include <dlfcn.h>
+
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
@@ -34,6 +36,7 @@ typedef enum {
   STATE_NEXT,
   STATE_EXIT,
   STATE_CMD,
+  STATE_DEVICE_FILE,
   STATE_EXEC_FILE,
   STATE_PINDEF_PIN,
   STATE_PINTEST_DATA,
@@ -52,12 +55,17 @@ typedef struct {
 } test_t;
 
 typedef struct {
+  void * dl;
   const adapter_t * adapter;
   void * instance;
+} device_t;
 
+typedef struct {
   const char * file;
   size_t line;
   bool success;
+
+  device_t * device;
 
   char ** pins;
   char * pins_buf;
@@ -70,8 +78,8 @@ typedef struct {
   size_t mem_offset;
 } env_t;
 
-static state_t runtime_exec_repl(const adapter_t * adapter);
-static state_t runtime_exec_file(const adapter_t * adapter, const char * file);
+static state_t runtime_exec_repl();
+static state_t runtime_exec_file(const char * file);
 static state_t runtime_exec_stream(env_t * env, FILE * stream);
 static state_t runtime_exec_line(env_t * env, char * buf, state_t state);
 static state_t runtime_exec_flush(env_t * env, state_t state);
@@ -82,6 +90,8 @@ static state_t runtime_handle_start(env_t * env, const char * tok, const char * 
 static state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_nop(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_device(env_t * env, const char * tok, const char * buf);
+static state_t runtime_handle_device_file(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_exec(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_exec_file(env_t * env, const char * tok, const char * buf);
 static state_t runtime_handle_info(env_t * env, const char * tok, const char * buf);
@@ -108,6 +118,7 @@ static state_t runtime_handle_run_cycles(env_t * env, const char * tok, const ch
 static bool runtime_parse_value(const env_t * env, const char * tok, value_t * val);
 static bool runtime_parse_test(const env_t * env, const char * tok, test_t * test);
 static bool runtime_parse_file(const env_t * env, const char * tok, char * file);
+static bool runtime_parse_device(const env_t *env, const char * tok, char * file, char * id);
 
 static void runtime_error(const env_t * env, const char * format, ...);
 
@@ -117,27 +128,22 @@ static void runtime_print_word(const env_t * env, style_t style, unsigned int wo
 static void runtime_print_value(const env_t * env, style_t style, value_t val);
 static void runtime_print_test(const env_t * env, style_t style, test_t test);
 
+static device_t * runtime_device_init();
+static void runtime_device_destroy(device_t * device);
+
 static env_t * runtime_env_init();
 static void runtime_env_destroy(env_t * env);
-
-/* --- Extern declarations --- */
-
-extern adapter_t * mos6502_adapter_init();
-extern void mos6502_adapter_destroy(adapter_t * adapter);
 
 /* --- Main --- */
 
 int main (int argc, char * argv[]) {
-
-  /* Construct a MOS 6502 adapter */
-  adapter_t * adapter = mos6502_adapter_init();
 
   /* Execute files sequentially if specified, otherwise open the REPL */
   state_t state = STATE_NONE;
 
   if (argc > 1) {
     for (int i = 1; i < argc; i++) {
-      state = runtime_exec_file(adapter, argv[i]);
+      state = runtime_exec_file(argv[i]);
 
       /* Stop execution on error */
       if (state == STATE_ERR) {
@@ -145,21 +151,18 @@ int main (int argc, char * argv[]) {
       }
     }
   } else {
-    state = runtime_exec_repl(adapter);
+    state = runtime_exec_repl();
   }
 
-  /* Cleanup */
-  mos6502_adapter_destroy(adapter);
-
-  return (state == STATE_ERR ? 1 : 0);
+  return (state == STATE_ERR ? EXIT_FAILURE : EXIT_SUCCESS);
 }
 
 /* --- Private functions --- */
 
-state_t runtime_exec_repl(const adapter_t * adapter) {
+state_t runtime_exec_repl() {
 
   /* Initialize environment */
-  env_t * env = runtime_env_init(adapter, "shell");
+  env_t * env = runtime_env_init("shell");
 
   /* Parse and execute line by line */
   char buf[BUF_LEN] = "";
@@ -201,7 +204,7 @@ state_t runtime_exec_repl(const adapter_t * adapter) {
   return state;
 }
 
-state_t runtime_exec_file(const adapter_t * adapter, const char * file) {
+state_t runtime_exec_file(const char * file) {
 
   /* Open file for reading */
   FILE * f = fopen(file, "r");
@@ -212,7 +215,7 @@ state_t runtime_exec_file(const adapter_t * adapter, const char * file) {
   }
 
   /* Initialize runtime environment */
-  env_t * env = runtime_env_init(adapter, file);
+  env_t * env = runtime_env_init(file);
 
   /* Execute contents of file */
   state_t state = runtime_exec_stream(env, f);
@@ -328,6 +331,8 @@ state_t runtime_exec_token(env_t * env, const char * tok, const char * buf, stat
       return runtime_handle_start(env, tok, buf);
     case STATE_CMD:
       return runtime_handle_cmd(env, tok, buf);
+    case STATE_DEVICE_FILE:
+      return runtime_handle_device_file(env, tok, buf);
     case STATE_EXEC_FILE:
       return runtime_handle_exec_file(env, tok, buf);
     case STATE_PINDEF_PIN:
@@ -374,6 +379,8 @@ state_t runtime_handle_cmd(env_t * env, const char * tok, const char * buf) {
     return runtime_handle_nop(env, tok, buf);
   } else if (strcmp(tok, ".exit") == 0) {
     return runtime_handle_exit(env, tok, buf);
+  } else if (strcmp(tok, ".device") == 0) {
+    return runtime_handle_device(env, tok, buf);
   } else if (strcmp(tok, ".exec") == 0) {
     return runtime_handle_exec(env, tok, buf);
   } else if (strcmp(tok, ".info") == 0) {
@@ -425,6 +432,43 @@ state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf) {
   runtime_print(env, STYLE_NONE, "%s\n", env->file);
 
   return STATE_EXIT;
+}
+
+state_t runtime_handle_device(env_t * env, const char * tok, const char * buf) {
+  return STATE_DEVICE_FILE;
+}
+
+state_t runtime_handle_device_file(env_t * env, const char * tok, const char * buf) {
+
+  /* Validate device library */
+  char file[BUF_LEN];
+  char id[BUF_LEN];
+
+  if (!runtime_parse_device(env, tok, file, id)) {
+    runtime_error(env, "Expected device library, found '%s'\n", tok);
+    return STATE_ERR;
+  }
+
+  /* Load device */
+  device_t * device = runtime_device_init(file, id);
+
+  if (device == NULL) {
+    runtime_error(env, "Error loading device '%s' from library '%s'", id, file);
+    return STATE_ERR;
+  }
+
+  /* Clean up old device and register new one */
+  if (env->device) {
+    runtime_device_destroy(env->device);
+  }
+
+  env->device = device;
+
+  runtime_print(env, STYLE_CMD, "DEVICE\t");
+  runtime_print(env, STYLE_INFO, "%s\t", env->device->adapter->id);
+  runtime_print(env, STYLE_NONE, "(%s)\n", env->device->adapter->name);
+
+  return STATE_CMD;
 }
 
 state_t runtime_handle_exec(env_t * env, const char * tok, const char * buf) {
@@ -491,6 +535,12 @@ state_t runtime_handle_info(env_t * env, const char * tok, const char * buf) {
 
 state_t runtime_handle_pins(env_t * env, const char * tok, const char * buf) {
 
+  /* Validate device */
+  if (env->device == NULL) {
+    runtime_error(env, "No device configured");
+    return STATE_ERR;
+  }
+
   /* Print pin values */
   runtime_print(env, STYLE_CMD, "PINS\t");
 
@@ -500,7 +550,7 @@ state_t runtime_handle_pins(env_t * env, const char * tok, const char * buf) {
     }
 
     /* Read from pin */
-    value_t val = env->adapter->read_pin(env->instance, env->pins[p]);
+    value_t val = env->device->adapter->read_pin(env->device->instance, env->pins[p]);
 
     runtime_print(env, STYLE_NONE, "%s[", env->pins[p]);
     runtime_print_value(env, STYLE_NONE, val);
@@ -513,6 +563,12 @@ state_t runtime_handle_pins(env_t * env, const char * tok, const char * buf) {
 }
 
 state_t runtime_handle_pindef(env_t * env, const char * tok, const char * buf) {
+
+  /* Validate device */
+  if (env->device == NULL) {
+    runtime_error(env, "No device configured");
+    return STATE_ERR;
+  }
 
   /* Reset pin list */
   env->pins_count = 0;
@@ -533,7 +589,7 @@ state_t runtime_handle_pindef_pin(env_t * env, const char * tok, const char * bu
     return STATE_ERR;
   }
 
-  if (!env->adapter->can_read_pin(env->instance, tok)) {
+  if (!env->device->adapter->can_read_pin(env->device->instance, tok)) {
     runtime_error(env, "Unreadable pin '%s'", tok);
     return STATE_ERR;
   }
@@ -563,6 +619,12 @@ state_t runtime_handle_pindef_end(env_t * env, const char * tok, const char * bu
 }
 
 state_t runtime_handle_pintest(env_t * env, const char * tok, const char * buf) {
+
+  /* Validate device */
+  if (env->device == NULL) {
+    runtime_error(env, "No device configured");
+    return STATE_ERR;
+  }
 
   /* Reset pin tests */
   env->pin_tests_count = 0;
@@ -623,7 +685,7 @@ state_t runtime_handle_pintest_end(env_t * env, const char * tok, const char * b
     }
 
     /* Read from pin */
-    value_t val = env->adapter->read_pin(env->instance, env->pins[p]);
+    value_t val = env->device->adapter->read_pin(env->device->instance, env->pins[p]);
 
     /* Compare */
     bool match = (env->pin_tests[p].data == (val.data & env->pin_tests[p].mask));
@@ -641,6 +703,12 @@ state_t runtime_handle_pintest_end(env_t * env, const char * tok, const char * b
 }
 
 state_t runtime_handle_memset(env_t * env, const char * tok, const char * buf) {
+
+  /* Validate device */
+  if (env->device == NULL) {
+    runtime_error(env, "No device configured");
+    return STATE_ERR;
+  }
 
   /* Reset memory reference */
   env->mem_addr = 0;
@@ -693,7 +761,7 @@ state_t runtime_handle_memset_data(env_t * env, const char * tok, const char * b
   /* Write to memory */
   unsigned int addr = env->mem_addr + env->mem_offset++;
 
-  env->adapter->write_mem(env->instance, addr, word);
+  env->device->adapter->write_mem(env->device->instance, addr, word);
 
   runtime_print(env, STYLE_NONE, "\t");
   runtime_print_addr(env, STYLE_NONE, addr);
@@ -709,6 +777,12 @@ state_t runtime_handle_memset_end(env_t * env, const char * tok, const char * bu
 }
 
 state_t runtime_handle_memtest(env_t * env, const char * tok, const char * buf) {
+
+  /* Validate device */
+  if (env->device == NULL) {
+    runtime_error(env, "No device configured");
+    return STATE_ERR;
+  }
 
   /* Reset memory reference */
   env->mem_addr = 0;
@@ -757,7 +831,7 @@ state_t runtime_handle_memtest_data(env_t * env, const char * tok, const char * 
 
   /* Read from memory */
   unsigned int addr = env->mem_addr + env->mem_offset++;
-  value_t val = env->adapter->read_mem(env->instance, addr);
+  value_t val = env->device->adapter->read_mem(env->device->instance, addr);
 
   /* Compare */
   bool match = (test.data == (val.data & test.mask));
@@ -781,8 +855,14 @@ state_t runtime_handle_memtest_end(env_t * env, const char * tok, const char * b
 
 state_t runtime_handle_reset(env_t * env, const char * tok, const char * buf) {
 
+  /* Validate device */
+  if (env->device == NULL) {
+    runtime_error(env, "No device configured");
+    return STATE_ERR;
+  }
+
   /* Reset intance */
-  env->adapter->reset(env->instance);
+  env->device->adapter->reset(env->device->instance);
 
   runtime_print(env, STYLE_CMD, "RESET\n");
 
@@ -791,8 +871,14 @@ state_t runtime_handle_reset(env_t * env, const char * tok, const char * buf) {
 
 state_t runtime_handle_step(env_t * env, const char * tok, const char * buf) {
 
+  /* Validate device */
+  if (env->device == NULL) {
+    runtime_error(env, "No device configured");
+    return STATE_ERR;
+  }
+
   /* Step instance */
-  env->adapter->step(env->instance);
+  env->device->adapter->step(env->device->instance);
 
   runtime_print(env, STYLE_CMD, "STEP\n");
 
@@ -801,6 +887,13 @@ state_t runtime_handle_step(env_t * env, const char * tok, const char * buf) {
 
 
 state_t runtime_handle_run(env_t * env, const char * tok, const char * buf) {
+
+  /* Validate device */
+  if (env->device == NULL) {
+    runtime_error(env, "No device configured");
+    return STATE_ERR;
+  }
+
   return STATE_RUN_CYCLES;
 }
 
@@ -821,7 +914,7 @@ state_t runtime_handle_run_cycles(env_t * env, const char * tok, const char * bu
   clock_t start = clock();
 
   /* Run instance */
-  env->adapter->run(env->instance, cycles);
+  env->device->adapter->run(env->device->instance, cycles);
 
   /* Capture clock speed */
   clock_t elapsed = clock() - start;
@@ -842,19 +935,19 @@ state_t runtime_handle_run_cycles(env_t * env, const char * tok, const char * bu
 bool runtime_parse_value(const env_t * env, const char * tok, value_t * value) {
   test_t test;
 
-  if (runtime_parse_test(env, tok, &test)) {
-    if (~test.mask) {
-      return false;
-    } else {
-      value->data = test.data;
-      value->bits = test.bits;
-      value->base = test.base;
-
-      return true;
-    }
-  } else {
+  if (!runtime_parse_test(env, tok, &test)) {
     return false;
   }
+
+  if (~test.mask) {
+    return false;
+  }
+
+  value->data = test.data;
+  value->bits = test.bits;
+  value->base = test.base;
+
+  return true;
 }
 
 bool runtime_parse_test(const env_t * env, const char * tok, test_t * test) {
@@ -942,6 +1035,7 @@ bool runtime_parse_file(const env_t * env, const char * tok, char * file) {
   /* Use absolute paths as-is */
   if (tok[0] == '/') {
     strcpy(file, tok);
+    return true;
   }
 
   /* Find the base filename of the current path */
@@ -952,6 +1046,35 @@ bool runtime_parse_file(const env_t * env, const char * tok, char * file) {
 
   /* Copy the new filename over the current filename */
   strcpy(base, tok);
+
+  return true;
+}
+
+bool runtime_parse_device(const env_t * env, const char * tok, char * file, char * id) {
+
+  /* Determine file path */
+  if (!runtime_parse_file(env, tok, file)) {
+    return false;
+  }
+
+  /* Extract ID from base name of file path */
+  char * last_slash = strrchr(file, '/');
+  char * base = (last_slash == NULL ? file : last_slash + 1);
+
+  strcpy(id, base);
+
+  /* Validate and strip ".so" file extension */
+  size_t len = strlen(id);
+
+  if (len < 4) {
+    return false;
+  }
+
+  if (id[len - 3] != '.' || id[len - 2] != 's' || id[len - 1] != 'o') {
+    return false;
+  }
+
+  id[len - 3] = '\0';
 
   return true;
 }
@@ -992,12 +1115,12 @@ void runtime_print(const env_t * env, style_t style, const char * format, ...) {
 
 void runtime_print_addr(const env_t * env, style_t style, unsigned int addr) {
   runtime_print(env, style, "(");
-  runtime_print_value(env, style, (value_t){ addr, env->adapter->mem_addr_width, 16 });
+  runtime_print_value(env, style, (value_t){ addr, env->device->adapter->mem_addr_width, 16 });
   runtime_print(env, style, ")");
 }
 
 void runtime_print_word(const env_t * env, style_t style, unsigned int word) {
-  runtime_print_value(env, style, (value_t){ word, env->adapter->mem_word_width, 16 });
+  runtime_print_value(env, style, (value_t){ word, env->device->adapter->mem_word_width, 16 });
 }
 
 void runtime_print_value(const env_t * env, style_t style, value_t val) {
@@ -1079,17 +1202,59 @@ void runtime_print_test(const env_t * env, style_t style, test_t test) {
   runtime_print(env, style, "%s", buf);
 }
 
-env_t * runtime_env_init(const adapter_t * adapter, const char * file) {
-  env_t * env = malloc(sizeof(env_t));
+device_t * runtime_device_init(const char * file, const char * id) {
 
-  /* Initialize emulator */
-  env->adapter = adapter;
-  env->instance = adapter->init();
+  /* Load dynamic library */
+  void * dl = dlopen(file, RTLD_NOW);
+
+  if (dl == NULL) {
+    fprintf(stderr, "Error loading library '%s': %s\n", file, dlerror());
+    return NULL;
+  }
+
+  /* Load adapter symbol */
+  char sym[BUF_LEN] = "";
+
+  sprintf(sym, "%s_adapter", id);
+  adapter_func adapter = (adapter_func)dlsym(dl, sym);
+
+  if (adapter == NULL) {
+    dlclose(dl);
+    fprintf(stderr, "Error loading symbol '%s': %s\n", sym, dlerror());
+    return NULL;
+  }
+
+  /* Initialize device */
+  device_t * device = malloc(sizeof(device_t));
+
+  device->dl = dl;
+  device->adapter = adapter();
+  device->instance = device->adapter->init();
+
+  return device;
+}
+
+void runtime_device_destroy(device_t * device) {
+
+  /* Clean up instance and adapter */
+  device->adapter->destroy(device->instance);
+
+  /* Close dynamic library */
+  dlclose(device->dl);
+
+  free(device);
+}
+
+env_t * runtime_env_init(const char * file) {
+  env_t * env = malloc(sizeof(env_t));
 
   /* Initialize runtime */
   env->file = file;
   env->line = 1;
   env->success = true;
+
+  /* Initialize device emulator */
+  env->device = NULL;
 
   /* Initialize pins */
   env->pins = malloc(sizeof(char *) * MAX_PINS);
@@ -1107,8 +1272,10 @@ env_t * runtime_env_init(const adapter_t * adapter, const char * file) {
 
 void runtime_env_destroy(env_t * env) {
 
-  /* Clean up emulator */
-  env->adapter->destroy(env->instance);
+  /* Clean up device emulator if defined */
+  if (env->device) {
+    runtime_device_destroy(env->device);
+  }
 
   /* Clean up runtime */
   free(env->pins);

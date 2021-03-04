@@ -90,31 +90,30 @@ static void adapter_instance_write_pin(void * instance, const char * pin, unsign
 static value_t adapter_instance_read_mem(const void * instance, unsigned int addr);
 static void adapter_instance_write_mem(void * instance, unsigned int addr, unsigned int data);
 
+/* --- Adapter singleton --- */
+
+static const adapter_t MOS6502_ADAPTER = {
+  "mos6502",
+  "MOS Technology 6502",
+  MOS6502_MEMORY_ADDR_WIDTH,
+  MOS6502_MEMORY_WORD_WIDTH,
+  adapter_instance_init,
+  adapter_instance_destroy,
+  adapter_instance_reset,
+  adapter_instance_step,
+  adapter_instance_run,
+  adapter_instance_can_read_pin,
+  adapter_instance_can_write_pin,
+  adapter_instance_read_pin,
+  adapter_instance_write_pin,
+  adapter_instance_read_mem,
+  adapter_instance_write_mem,
+};
+
 /* --- Public functions --- */
 
-adapter_t * mos6502_adapter_init() {
-  adapter_t * adapter = malloc(sizeof(adapter_t));
-
-  *(size_t *)&adapter->mem_addr_width = MOS6502_MEMORY_ADDR_WIDTH;
-  *(size_t *)&adapter->mem_word_width = MOS6502_MEMORY_WORD_WIDTH;
-
-  adapter->init = adapter_instance_init;
-  adapter->destroy = adapter_instance_destroy;
-  adapter->reset = adapter_instance_reset;
-  adapter->step = adapter_instance_step;
-  adapter->run = adapter_instance_run;
-  adapter->can_read_pin = adapter_instance_can_read_pin;
-  adapter->can_write_pin = adapter_instance_can_write_pin;
-  adapter->read_pin = adapter_instance_read_pin;
-  adapter->write_pin = adapter_instance_write_pin;
-  adapter->read_mem = adapter_instance_read_mem;
-  adapter->write_mem = adapter_instance_write_mem;
-
-  return adapter;
-}
-
-void mos6502_adapter_destroy(adapter_t * adapter) {
-  free(adapter);
+const adapter_t * mos6502_adapter() {
+  return &MOS6502_ADAPTER;
 }
 
 /* --- Adapter functions --- */

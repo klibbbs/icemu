@@ -1,4 +1,5 @@
 .info Measure performance
+.device ../mos6502.so
 .memset $0200
     $77 $99 $BB $DD $FF
 .memset $8000

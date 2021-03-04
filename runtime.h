@@ -12,7 +12,10 @@ typedef struct {
 } value_t;
 
 typedef struct {
+
   /* Constants */
+  const char * const id;
+  const char * const name;
   const size_t mem_addr_width;
   const size_t mem_word_width;
 
@@ -32,7 +35,6 @@ typedef struct {
 
 /* --- Function types --- */
 
-typedef adapter_t * (* adapter_init_func)();
-typedef void (* adapter_destroy_func)(adapter_t *);
+typedef const adapter_t * (* adapter_func)();
 
 #endif /* INCLUDE_RUNTIME_H */

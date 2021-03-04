@@ -11,6 +11,8 @@ MOS6502_LIB  = mos6502/mos6502.so
 MOS6502_OBJS = mos6502/mos6502.o mos6502/memory.o mos6502/adapter.o mos6502/controller.o
 MOS6502_DEPS = mos6502/*.h
 
+DEVICE_LIBS = $(MOS6502_LIB)
+
 .PHONY: all clean
 
 all: compare runtime
@@ -25,5 +27,5 @@ $(MOS6502_LIB): $(MOS6502_OBJS) $(MOS6502_DEPS) $(ICEMU_OBJS) $(ICEMU_DEPS)
 compare: icemu.o debug.o mos6502/mos6502.o compare.o ../perfect6502/perfect6502.o ../perfect6502/netlist_sim.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-runtime: $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(MOS6502_LIB)
-	$(CC) $(CFLAGS) -o $@ $(RUNTIME_OBJS) $(MOS6502_LIB)
+runtime: $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(DEVICE_LIBS)
+	$(CC) $(CFLAGS) -o $@ $(RUNTIME_OBJS)
