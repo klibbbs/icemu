@@ -1,7 +1,5 @@
 #include "memory.h"
 
-#include "mos6502.h"
-
 #include <stdlib.h>
 
 mos6502_memory_t * mos6502_memory_init() {

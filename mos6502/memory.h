@@ -1,10 +1,6 @@
 #ifndef INCLUDE_MOS6502_MEMORY_H
 #define INCLUDE_MOS6502_MEMORY_H
 
-/* TODO: Auto-generate from JSON */
-
-#include "mos6502.h"
-
 /* --- Constants --- */
 
 enum { MOS6502_MEMORY_ADDR_SPACE = 65536 };
