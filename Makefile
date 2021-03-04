@@ -19,10 +19,10 @@ DEVICE_LIBS = $(MOS6502_LIB) $(PERFECT6502_LIB)
 
 .PHONY: all clean
 
-all: compare runtime
+all: runtime
 
 clean:
-	$(RM) *.o *.so ../perfect6502/*.o mos6502/*.{o,so} compare runtime
+	$(RM) *.o *.so ../perfect6502/*.{o,so} mos6502/*.{o,so} runtime
 
 $(MOS6502_LIB): CFLAGS += -fPIC
 $(MOS6502_LIB): $(MOS6502_OBJS) $(MOS6502_DEPS) $(ICEMU_OBJS) $(ICEMU_DEPS)
@@ -31,9 +31,6 @@ $(MOS6502_LIB): $(MOS6502_OBJS) $(MOS6502_DEPS) $(ICEMU_OBJS) $(ICEMU_DEPS)
 $(PERFECT6502_LIB): CFLAGS += -fPIC
 $(PERFECT6502_LIB): $(PERFECT6502_OBJS) $(PERFECT6502_DEPS)
 	$(CC) $(CFLAGS) -o $@ --shared $(PERFECT6502_OBJS)
-
-compare: icemu.o debug.o mos6502/mos6502.o compare.o ../perfect6502/perfect6502.o ../perfect6502/netlist_sim.o
-	$(CC) $(CFLAGS) -o $@ $^
 
 runtime: $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(DEVICE_LIBS)
 	$(CC) $(CFLAGS) -o $@ $(RUNTIME_OBJS)
