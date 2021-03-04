@@ -8,7 +8,7 @@
 typedef enum {
   false,
   true
-} bool;
+} bool_t;
 
 typedef enum {
   BIT_ZERO = 0,
@@ -32,7 +32,7 @@ typedef enum {
 typedef struct {
   pull_t load;
   bit_t state;
-  bool dirty;
+  bool_t dirty;
 } node_t;
 
 /* --- Transistor --- */
@@ -49,7 +49,7 @@ typedef struct {
   nx_t gate;
   nx_t c1;
   nx_t c2;
-  bool dirty;
+  bool_t dirty;
 } transistor_t;
 
 /* --- IC --- */
@@ -74,7 +74,7 @@ typedef struct {
 } icemu_def_t;
 
 typedef struct {
-  bool synced;
+  bool_t synced;
 
   nx_t on;
   nx_t off;
@@ -104,6 +104,6 @@ void icemu_destroy(icemu_t * ic);
 void icemu_sync(icemu_t * ic);
 
 bit_t icemu_read_node(const icemu_t * ic, nx_t n, pull_t pull);
-void icemu_write_node(icemu_t * ic, nx_t n, bit_t state, bool sync);
+void icemu_write_node(icemu_t * ic, nx_t n, bit_t state, bool_t sync);
 
 #endif /* INCLUDE_ICEMU_H */

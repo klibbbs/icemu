@@ -9,7 +9,7 @@
 
 enum { ICEMU_RESOLVE_LIMIT = 50 };
 
-static bool transistor_is_open(const transistor_t * transistor, const node_t * gate);
+static bool_t transistor_is_open(const transistor_t * transistor, const node_t * gate);
 
 static void icemu_resolve(icemu_t * ic);
 static void icemu_network_reset(icemu_t * ic);
@@ -48,7 +48,7 @@ char bit_char(bit_t bit) {
 
 /* --- Private functions --- */
 
-bool transistor_is_open(const transistor_t * transistor, const node_t * gate) {
+bool_t transistor_is_open(const transistor_t * transistor, const node_t * gate) {
   switch (transistor->type) {
     case TRANSISTOR_NMOS:
       return gate->state == BIT_ONE;
@@ -202,7 +202,7 @@ bit_t icemu_read_node(const icemu_t * ic, nx_t n, pull_t load) {
   return state;
 }
 
-void icemu_write_node(icemu_t * ic, nx_t n, bit_t state, bool sync) {
+void icemu_write_node(icemu_t * ic, nx_t n, bit_t state, bool_t sync) {
 
   /* Apply a load to the node in the desired direction */
   if (state == BIT_ZERO) {
@@ -366,7 +366,7 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
   }
 
   if (debug_test_network(ic)) {
-    bool dirty = false;
+    bool_t dirty = false;
 
     printf("#%-2u [ ", iter);
 

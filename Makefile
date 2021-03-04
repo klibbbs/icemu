@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = --std=c99 --pedantic -Wall -DDEBUG
+CFLAGS = -std=c89 -pedantic -Wall -Werror -DDEBUG
 
 RUNTIME_OBJS = runtime.o
 RUNTIME_DEPS = runtime.h
@@ -28,7 +28,7 @@ $(MOS6502_LIB): CFLAGS += -fPIC
 $(MOS6502_LIB): $(MOS6502_OBJS) $(MOS6502_DEPS) $(ICEMU_OBJS) $(ICEMU_DEPS)
 	$(CC) $(CFLAGS) -o $@ --shared $(MOS6502_OBJS) $(ICEMU_OBJS)
 
-$(PERFECT6502_LIB): CFLAGS += -fPIC
+$(PERFECT6502_LIB): CFLAGS += -fPIC -std=c99
 $(PERFECT6502_LIB): $(PERFECT6502_OBJS) $(PERFECT6502_DEPS)
 	$(CC) $(CFLAGS) -o $@ --shared $(PERFECT6502_OBJS)
 

@@ -14,19 +14,19 @@
 typedef struct {
   const char * pin;
   unsigned short (* read_func)(const mos6502_t * mos6502);
-  void (* write_func)(mos6502_t * mos6502, unsigned short data, bool sync);
+  void (* write_func)(mos6502_t * mos6502, unsigned short data, bool_t sync);
 } pin_16_func_t;
 
 typedef struct {
   const char * pin;
   unsigned char (* read_func)(const mos6502_t * mos6502);
-  void (* write_func)(mos6502_t * mos6502, unsigned char data, bool sync);
+  void (* write_func)(mos6502_t * mos6502, unsigned char data, bool_t sync);
 } pin_8_func_t;
 
 typedef struct {
   const char * pin;
   bit_t (* read_func)(const mos6502_t * mos6502);
-  void (* write_func)(mos6502_t * mos6502, bit_t state, bool sync);
+  void (* write_func)(mos6502_t * mos6502, bit_t state, bool_t sync);
 } pin_1_func_t;
 
 static const pin_16_func_t MOS6502_PIN_16_HEX_MAP[] = {
@@ -248,6 +248,8 @@ int adapter_instance_can_write_pin(const void * instance, const char * pin) {
 
 value_t adapter_instance_read_pin(const void * instance, const char * pin) {
   const mos6502_instance_t * mos6502_instance = (mos6502_instance_t *)instance;
+
+  value_t val = { 0, 0, 0 };
   size_t i;
 
   for (i = 0; i < MOS6502_PIN_16_HEX_COUNT; i++) {
@@ -256,7 +258,11 @@ value_t adapter_instance_read_pin(const void * instance, const char * pin) {
         break;
       }
 
-      return (value_t){ MOS6502_PIN_16_HEX_MAP[i].read_func(mos6502_instance->mos6502), 16, 16 };
+      val.data = MOS6502_PIN_16_HEX_MAP[i].read_func(mos6502_instance->mos6502);
+      val.bits = 16;
+      val.base = 16;
+
+      return val;
     }
   }
 
@@ -266,7 +272,11 @@ value_t adapter_instance_read_pin(const void * instance, const char * pin) {
         break;
       }
 
-      return (value_t){ MOS6502_PIN_8_HEX_MAP[i].read_func(mos6502_instance->mos6502), 8, 16 };
+      val.data = MOS6502_PIN_8_HEX_MAP[i].read_func(mos6502_instance->mos6502);
+      val.bits = 8;
+      val.base = 16;
+
+      return val;
     }
   }
 
@@ -276,7 +286,11 @@ value_t adapter_instance_read_pin(const void * instance, const char * pin) {
         break;
       }
 
-      return (value_t){ MOS6502_PIN_8_BIN_MAP[i].read_func(mos6502_instance->mos6502), 8, 2 };
+      val.data = MOS6502_PIN_8_BIN_MAP[i].read_func(mos6502_instance->mos6502);
+      val.bits = 8;
+      val.base = 2;
+
+      return val;
     }
   }
 
@@ -286,11 +300,15 @@ value_t adapter_instance_read_pin(const void * instance, const char * pin) {
         break;
       }
 
-      return (value_t){ MOS6502_PIN_1_MAP[i].read_func(mos6502_instance->mos6502), 1, 10 };
+      val.data = MOS6502_PIN_1_MAP[i].read_func(mos6502_instance->mos6502);
+      val.bits = 1;
+      val.base = 10;
+
+      return val;
     }
   }
 
-  return (value_t){ 0, 0, 0 };
+  return val;
 }
 
 void adapter_instance_write_pin(void * instance, const char * pin, unsigned int data) {
@@ -345,11 +363,11 @@ void adapter_instance_write_pin(void * instance, const char * pin, unsigned int 
 value_t adapter_instance_read_mem(const void * instance, unsigned int addr) {
   const mos6502_instance_t * mos6502_instance = (mos6502_instance_t *)instance;
 
-  value_t val = {
-    mos6502_memory_read(mos6502_instance->memory, addr),
-    MOS6502_MEMORY_WORD_WIDTH,
-    16,
-  };
+  value_t val;
+
+  val.data = mos6502_memory_read(mos6502_instance->memory, addr);
+  val.bits = MOS6502_MEMORY_WORD_WIDTH;
+  val.base = 16;
 
   return val;
 }

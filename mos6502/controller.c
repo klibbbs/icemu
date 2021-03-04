@@ -48,9 +48,10 @@ void mos6502_controller_step(mos6502_t * mos6502, mos6502_memory_t * memory) {
 }
 
 void mos6502_controller_run(mos6502_t * mos6502, mos6502_memory_t * memory, size_t cycles) {
+  size_t i;
 
   /* Each step is a half-cycle */
-  for (size_t i = 0; i < cycles; i++) {
+  for (i = 0; i < cycles; i++) {
     mos6502_controller_step(mos6502, memory);
     mos6502_controller_step(mos6502, memory);
   }

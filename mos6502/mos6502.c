@@ -212,11 +212,11 @@ bit_t mos6502_get_sync(const mos6502_t * mos6502) {
 
 /* --- Pin modifiers --- */
 
-void mos6502_set_clk(mos6502_t * mos6502, bit_t state, bool sync) {
+void mos6502_set_clk(mos6502_t * mos6502, bit_t state, bool_t sync) {
   icemu_write_node(mos6502->ic, PIN_CLK, state, sync);
 }
 
-void mos6502_set_db(mos6502_t * mos6502, unsigned char data, bool sync) {
+void mos6502_set_db(mos6502_t * mos6502, unsigned char data, bool_t sync) {
   icemu_write_node(mos6502->ic, PIN_DB0, data >> 0 & 0x01, false);
   icemu_write_node(mos6502->ic, PIN_DB1, data >> 1 & 0x01, false);
   icemu_write_node(mos6502->ic, PIN_DB2, data >> 2 & 0x01, false);
@@ -231,22 +231,22 @@ void mos6502_set_db(mos6502_t * mos6502, unsigned char data, bool sync) {
   }
 }
 
-void mos6502_set_irq(mos6502_t * mos6502, bit_t state, bool sync) {
+void mos6502_set_irq(mos6502_t * mos6502, bit_t state, bool_t sync) {
   icemu_write_node(mos6502->ic, PIN_IRQ, state, sync);
 }
 
-void mos6502_set_nmi(mos6502_t * mos6502, bit_t state, bool sync) {
+void mos6502_set_nmi(mos6502_t * mos6502, bit_t state, bool_t sync) {
   icemu_write_node(mos6502->ic, PIN_NMI, state, sync);
 }
 
-void mos6502_set_res(mos6502_t * mos6502, bit_t state, bool sync) {
+void mos6502_set_res(mos6502_t * mos6502, bit_t state, bool_t sync) {
   icemu_write_node(mos6502->ic, PIN_RES, state, sync);
 }
 
-void mos6502_set_rdy(mos6502_t * mos6502, bit_t state, bool sync) {
+void mos6502_set_rdy(mos6502_t * mos6502, bit_t state, bool_t sync) {
   icemu_write_node(mos6502->ic, PIN_RDY, state, sync);
 }
 
-void mos6502_set_so(mos6502_t * mos6502, bit_t state, bool sync) {
+void mos6502_set_so(mos6502_t * mos6502, bit_t state, bool_t sync) {
   icemu_write_node(mos6502->ic, PIN_SO, state, sync);
 }

@@ -12,8 +12,8 @@ typedef struct {
 
 icemu_debug_t * debug_instance();
 
-bool debug_test_node(nx_t n);
-bool debug_test_network(const icemu_t * ic);
+bool_t debug_test_node(nx_t n);
+bool_t debug_test_network(const icemu_t * ic);
 
 void debug_print_network(const icemu_t * ic, const char * delim);
 

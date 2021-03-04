@@ -68,7 +68,7 @@ icemu_debug_t * debug_instance() {
   return debug;
 }
 
-bool debug_test_node(nx_t n) {
+bool_t debug_test_node(nx_t n) {
   nx_t dn;
   icemu_debug_t * debug = debug_instance();
 
@@ -81,7 +81,7 @@ bool debug_test_node(nx_t n) {
   return false;
 }
 
-bool debug_test_network(const icemu_t * ic) {
+bool_t debug_test_network(const icemu_t * ic) {
   nx_t nn;
 
   for (nn = 0; nn < ic->network_nodes_count; nn++) {
