@@ -39,9 +39,10 @@ typedef enum {
 typedef enum {
   STATE_NONE,
   STATE_ERR,
+  STATE_SUCCESS,
+  STATE_FAILURE,
   STATE_START,
   STATE_NEXT,
-  STATE_EXIT,
   STATE_CMD,
   STATE_DEVICE_FILE,
   STATE_EXEC_FILE,
@@ -160,8 +161,8 @@ int main (int argc, char * argv[]) {
     for (i = 1; i < argc; i++) {
       state = runtime_exec_file(argv[i]);
 
-      /* Stop execution on error */
-      if (state == STATE_ERR) {
+      /* Stop execution on error or failure */
+      if (state == STATE_FAILURE || state == STATE_ERR) {
         break;
       }
     }
@@ -169,7 +170,11 @@ int main (int argc, char * argv[]) {
     state = runtime_exec_repl();
   }
 
-  return (state == STATE_ERR ? EXIT_FAILURE : EXIT_SUCCESS);
+  if (state == STATE_SUCCESS) {
+    return EXIT_SUCCESS;
+  } else {
+    return EXIT_FAILURE;
+  }
 }
 
 /* --- Private functions --- */
@@ -187,7 +192,7 @@ state_t runtime_exec_repl() {
     state = runtime_exec_line(env, buf, state);
 
     /* Stop execution only on exit */
-    if (state == STATE_EXIT) {
+    if (state == STATE_SUCCESS || state == STATE_FAILURE) {
       break;
     }
 
@@ -256,7 +261,7 @@ state_t runtime_exec_stream(env_t * env, FILE * stream) {
     state = runtime_exec_line(env, buf, state);
 
     /* Stop execution on exit or on error */
-    if (state == STATE_EXIT || state == STATE_ERR) {
+    if (state == STATE_SUCCESS || state == STATE_FAILURE || state == STATE_ERR) {
       break;
     }
 
@@ -312,7 +317,7 @@ state_t runtime_exec_line(env_t * env, char * buf, state_t state) {
     }
 
     /* Bubble up EXIT and ERR */
-    if (state == STATE_EXIT || state == STATE_ERR) {
+    if (state == STATE_SUCCESS || state == STATE_FAILURE || state == STATE_ERR) {
       return state;
     }
 
@@ -331,8 +336,8 @@ state_t runtime_exec_flush(env_t * env, state_t state) {
 
 state_t runtime_exec_eof(env_t * env, state_t state) {
 
-  /* If already in EXIT state, nothing more to do */
-  if (state == STATE_EXIT) {
+  /* If already in an exit state, nothing more to do */
+  if (state == STATE_SUCCESS || state == STATE_FAILURE) {
     return state;
   }
 
@@ -367,7 +372,8 @@ state_t runtime_exec_token(env_t * env, const char * tok, const char * buf, stat
     case STATE_RUN_CYCLES:
       return runtime_handle_run_cycles(env, tok, buf);
     case STATE_NEXT:
-    case STATE_EXIT:
+    case STATE_SUCCESS:
+    case STATE_FAILURE:
     case STATE_ERR:
       return state;
     default:
@@ -446,9 +452,14 @@ state_t runtime_handle_nop(env_t * env, const char * tok, const char * buf) {
 
 state_t runtime_handle_exit(env_t * env, const char * tok, const char * buf) {
   runtime_print(env, STYLE_CMD, "EXIT\t");
-  runtime_print(env, STYLE_NONE, "%s\n", env->file);
 
-  return STATE_EXIT;
+  if (env->success == RC_OK) {
+    runtime_print(env, STYLE_OK, "SUCCESS\n");
+    return STATE_SUCCESS;
+  } else {
+    runtime_print(env, STYLE_ERR, "FAILURE\n");
+    return STATE_FAILURE;
+  }
 }
 
 state_t runtime_handle_device(env_t * env, const char * tok, const char * buf) {
@@ -1359,7 +1370,7 @@ env_t * runtime_env_init(const char * file) {
   /* Initialize runtime */
   env->file = file;
   env->line = 1;
-  env->success = true;
+  env->success = RC_OK;
 
   /* Initialize device emulator */
   env->device = NULL;
