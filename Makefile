@@ -1,6 +1,11 @@
+# Input variables
+DEVICE ?= *
+
+# Compile flags
 CC = gcc
 CFLAGS = -std=c89 -pedantic -Wall -Werror -DDEBUG
 
+# Build dependencies
 RUNTIME_OBJS = runtime.o
 RUNTIME_DEPS = runtime.h
 
@@ -17,12 +22,21 @@ PERFECT6502_DEPS = perfect6502/*.h
 
 DEVICE_LIBS = $(MOS6502_LIB) $(PERFECT6502_LIB)
 
+# Testing
+TEST_CMD = bin/test
+
+DEVICE_TESTS = $(shell find . -type f -path "./${DEVICE}/tests/*ice")
+
 .PHONY: all clean
 
 all: runtime
 
 clean:
 	$(RM) *.o *.so ../perfect6502/*.{o,so} mos6502/*.{o,so} runtime
+
+.PHONY: test
+test: $(TEST_CMD) $(DEVICE_TESTS) runtime
+	$(TEST_CMD) $(DEVICE_TESTS)
 
 $(MOS6502_LIB): CFLAGS += -fPIC
 $(MOS6502_LIB): $(MOS6502_OBJS) $(MOS6502_DEPS) $(ICEMU_OBJS) $(ICEMU_DEPS)

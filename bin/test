@@ -1,0 +1,44 @@
+#!/bin/bash
+
+BASEDIR="$(dirname "$0")/.."
+RUNTIME="${BASEDIR}/runtime"
+
+if [[ ! -f "$RUNTIME" ]]; then
+    echo "Error: file '$RUNTIME' does not exist"
+    exit 1
+fi
+
+if [[ ! -x "$RUNTIME" ]]; then
+    echo "Error: file '$UNTIME' is not executable"
+    exit 1
+fi
+
+TOTAL=0
+SUCCESS=0
+
+STYLE_OK='\033[0;32m'
+STYLE_ERR='\033[0;31m'
+STYLE_NONE='\033[0;0m'
+
+for FILE in "$@"; do
+    echo -n "$FILE: "
+
+    if "$RUNTIME" "$FILE" > /dev/null; then
+        echo -e "${STYLE_OK}SUCCESS${STYLE_NONE}"
+        SUCCESS=$((SUCCESS+1))
+    else
+        echo -e "${STYLE_ERR}FAILURE${STYLE_NONE}"
+    fi
+
+    TOTAL=$((TOTAL+1))
+done
+
+if [[ "$TOTAL" == "$SUCCESS" ]]; then
+    echo -en "$STYLE_OK"
+else
+    echo -en "$STYLE_ERR"
+fi
+
+echo -n "Done: ${SUCCESS} / ${TOTAL} tests passed"
+
+echo -e "$STYLE_NONE"
