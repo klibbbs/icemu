@@ -365,6 +365,7 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
     ic->nodes[n].dirty = false;
   }
 
+  #ifdef DEBUG
   if (debug_test_network(ic)) {
     bool_t dirty = false;
 
@@ -419,6 +420,7 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
       }
     }
   }
+  #endif
 }
 
 void icemu_transistor_resolve(icemu_t * ic, tx_t t) {

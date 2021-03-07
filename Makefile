@@ -3,7 +3,7 @@ DEVICE ?= *
 
 # Compile flags
 CC = gcc
-CFLAGS = -std=c89 -pedantic -Wall -Werror -DDEBUG
+CFLAGS = -std=c89 -pedantic -Wall -Werror
 
 # Build dependencies
 RUNTIME_OBJS = runtime.o
