@@ -3,11 +3,15 @@
 
 #include "../icemu.h"
 
-/* --- MOS Technology 6502 --- */
+/* ------------------------- */
+/*    MOS Technology 6502    */
+/* ------------------------- */
 
 typedef struct {
     icemu_t * ic;
 } mos6502_t;
+
+/* --- Emulator --- */
 
 mos6502_t * mos6502_init();
 void mos6502_destroy(mos6502_t * mos6502);

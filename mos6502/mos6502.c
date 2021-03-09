@@ -6,7 +6,7 @@
 
 #include <stdlib.h>
 
-/* --- Emulator ---*/
+/* --- Emulator --- */
 
 mos6502_t * mos6502_init() {
 
@@ -24,7 +24,7 @@ mos6502_t * mos6502_init() {
     /* Initialize new IC emulator */
     icemu_t * ic = icemu_init(&def);
 
-    /* Initialize new MOS6502 emulator */
+    /* Initialize new device emulator */
     mos6502_t * mos6502 = malloc(sizeof(mos6502_t));
 
     mos6502->ic = ic;
@@ -96,12 +96,12 @@ bit_t mos6502_get_pin_nmi(const mos6502_t * mos6502) {
     return icemu_read_node(mos6502->ic, PIN_NMI, PULL_FLOAT);
 }
 
-bit_t mos6502_get_pin_res(const mos6502_t * mos6502) {
-    return icemu_read_node(mos6502->ic, PIN_RES, PULL_FLOAT);
-}
-
 bit_t mos6502_get_pin_rdy(const mos6502_t * mos6502) {
     return icemu_read_node(mos6502->ic, PIN_RDY, PULL_FLOAT);
+}
+
+bit_t mos6502_get_pin_res(const mos6502_t * mos6502) {
+    return icemu_read_node(mos6502->ic, PIN_RES, PULL_FLOAT);
 }
 
 bit_t mos6502_get_pin_rw(const mos6502_t * mos6502) {
@@ -212,10 +212,6 @@ unsigned char mos6502_get_reg_y(const mos6502_t * mos6502) {
 
 /* --- Pin modifiers --- */
 
-void mos6502_set_pin_clk(mos6502_t * mos6502, bit_t data, bool_t sync) {
-    icemu_write_node(mos6502->ic, PIN_CLK, data, sync);
-}
-
 void mos6502_set_pin_db(mos6502_t * mos6502, unsigned char data, bool_t sync) {
     icemu_write_node(mos6502->ic, PIN_DB_0, data >> 0 & 0x01, false);
     icemu_write_node(mos6502->ic, PIN_DB_1, data >> 1 & 0x01, false);
@@ -229,6 +225,10 @@ void mos6502_set_pin_db(mos6502_t * mos6502, unsigned char data, bool_t sync) {
     if (sync) {
         icemu_sync(mos6502->ic);
     }
+}
+
+void mos6502_set_pin_clk(mos6502_t * mos6502, bit_t data, bool_t sync) {
+    icemu_write_node(mos6502->ic, PIN_CLK, data, sync);
 }
 
 void mos6502_set_pin_irq(mos6502_t * mos6502, bit_t data, bool_t sync) {
