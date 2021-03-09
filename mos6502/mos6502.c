@@ -42,6 +42,80 @@ void mos6502_sync(mos6502_t * mos6502) {
     icemu_sync(mos6502->ic);
 }
 
+/* --- Pin accessors --- */
+
+unsigned short mos6502_get_pin_ab(const mos6502_t * mos6502) {
+    return 0x0 |
+        icemu_read_node(mos6502->ic, PIN_AB0, PULL_DOWN) << 0 |
+        icemu_read_node(mos6502->ic, PIN_AB1, PULL_DOWN) << 1 |
+        icemu_read_node(mos6502->ic, PIN_AB2, PULL_DOWN) << 2 |
+        icemu_read_node(mos6502->ic, PIN_AB3, PULL_DOWN) << 3 |
+        icemu_read_node(mos6502->ic, PIN_AB4, PULL_DOWN) << 4 |
+        icemu_read_node(mos6502->ic, PIN_AB5, PULL_DOWN) << 5 |
+        icemu_read_node(mos6502->ic, PIN_AB6, PULL_DOWN) << 6 |
+        icemu_read_node(mos6502->ic, PIN_AB7, PULL_DOWN) << 7 |
+        icemu_read_node(mos6502->ic, PIN_AB8, PULL_DOWN) << 8 |
+        icemu_read_node(mos6502->ic, PIN_AB9, PULL_DOWN) << 9 |
+        icemu_read_node(mos6502->ic, PIN_AB10, PULL_DOWN) << 10 |
+        icemu_read_node(mos6502->ic, PIN_AB11, PULL_DOWN) << 11 |
+        icemu_read_node(mos6502->ic, PIN_AB12, PULL_DOWN) << 12 |
+        icemu_read_node(mos6502->ic, PIN_AB13, PULL_DOWN) << 13 |
+        icemu_read_node(mos6502->ic, PIN_AB14, PULL_DOWN) << 14 |
+        icemu_read_node(mos6502->ic, PIN_AB15, PULL_DOWN) << 15;
+}
+
+unsigned char mos6502_get_pin_db(const mos6502_t * mos6502) {
+    return 0x0 |
+        icemu_read_node(mos6502->ic, PIN_DB0, PULL_DOWN) << 0 |
+        icemu_read_node(mos6502->ic, PIN_DB1, PULL_DOWN) << 1 |
+        icemu_read_node(mos6502->ic, PIN_DB2, PULL_DOWN) << 2 |
+        icemu_read_node(mos6502->ic, PIN_DB3, PULL_DOWN) << 3 |
+        icemu_read_node(mos6502->ic, PIN_DB4, PULL_DOWN) << 4 |
+        icemu_read_node(mos6502->ic, PIN_DB5, PULL_DOWN) << 5 |
+        icemu_read_node(mos6502->ic, PIN_DB6, PULL_DOWN) << 6 |
+        icemu_read_node(mos6502->ic, PIN_DB7, PULL_DOWN) << 7;
+}
+
+bit_t mos6502_get_pin_clk(const mos6502_t * mos6502) {
+    return icemu_read_node(mos6502->ic, PIN_CLK, PULL_FLOAT);
+}
+
+bit_t mos6502_get_pin_clk1(const mos6502_t * mos6502) {
+    return icemu_read_node(mos6502->ic, PIN_CLK1, PULL_FLOAT);
+}
+
+bit_t mos6502_get_pin_clk2(const mos6502_t * mos6502) {
+    return icemu_read_node(mos6502->ic, PIN_CLK2, PULL_FLOAT);
+}
+
+bit_t mos6502_get_pin_irq(const mos6502_t * mos6502) {
+    return icemu_read_node(mos6502->ic, PIN_IRQ, PULL_FLOAT);
+}
+
+bit_t mos6502_get_pin_nmi(const mos6502_t * mos6502) {
+    return icemu_read_node(mos6502->ic, PIN_NMI, PULL_FLOAT);
+}
+
+bit_t mos6502_get_pin_res(const mos6502_t * mos6502) {
+    return icemu_read_node(mos6502->ic, PIN_RES, PULL_FLOAT);
+}
+
+bit_t mos6502_get_pin_rdy(const mos6502_t * mos6502) {
+    return icemu_read_node(mos6502->ic, PIN_RDY, PULL_FLOAT);
+}
+
+bit_t mos6502_get_pin_rw(const mos6502_t * mos6502) {
+    return icemu_read_node(mos6502->ic, PIN_RW, PULL_FLOAT);
+}
+
+bit_t mos6502_get_pin_so(const mos6502_t * mos6502) {
+    return icemu_read_node(mos6502->ic, PIN_SO, PULL_FLOAT);
+}
+
+bit_t mos6502_get_pin_sync(const mos6502_t * mos6502) {
+    return icemu_read_node(mos6502->ic, PIN_SYNC, PULL_FLOAT);
+}
+
 /* --- Register accessors --- */
 
 unsigned short mos6502_get_reg_pc(const mos6502_t * mos6502) {
@@ -64,6 +138,30 @@ unsigned short mos6502_get_reg_pc(const mos6502_t * mos6502) {
         icemu_read_node(mos6502->ic, REG_PCH7, PULL_DOWN) << 15;
 }
 
+unsigned char mos6502_get_reg_a(const mos6502_t * mos6502) {
+    return 0x0 |
+        icemu_read_node(mos6502->ic, REG_A0, PULL_DOWN) << 0 |
+        icemu_read_node(mos6502->ic, REG_A1, PULL_DOWN) << 1 |
+        icemu_read_node(mos6502->ic, REG_A2, PULL_DOWN) << 2 |
+        icemu_read_node(mos6502->ic, REG_A3, PULL_DOWN) << 3 |
+        icemu_read_node(mos6502->ic, REG_A4, PULL_DOWN) << 4 |
+        icemu_read_node(mos6502->ic, REG_A5, PULL_DOWN) << 5 |
+        icemu_read_node(mos6502->ic, REG_A6, PULL_DOWN) << 6 |
+        icemu_read_node(mos6502->ic, REG_A7, PULL_DOWN) << 7;
+}
+
+unsigned char mos6502_get_reg_i(const mos6502_t * mos6502) {
+    return 0x0 |
+        icemu_read_node(mos6502->ic, REG_I0, PULL_DOWN) << 0 |
+        icemu_read_node(mos6502->ic, REG_I1, PULL_DOWN) << 1 |
+        icemu_read_node(mos6502->ic, REG_I2, PULL_DOWN) << 2 |
+        icemu_read_node(mos6502->ic, REG_I3, PULL_DOWN) << 3 |
+        icemu_read_node(mos6502->ic, REG_I4, PULL_DOWN) << 4 |
+        icemu_read_node(mos6502->ic, REG_I5, PULL_DOWN) << 5 |
+        icemu_read_node(mos6502->ic, REG_I6, PULL_DOWN) << 6 |
+        icemu_read_node(mos6502->ic, REG_I7, PULL_DOWN) << 7;
+}
+
 unsigned char mos6502_get_reg_p(const mos6502_t * mos6502) {
     return 0x0 |
         icemu_read_node(mos6502->ic, REG_P0, PULL_DOWN) << 0 |
@@ -76,16 +174,16 @@ unsigned char mos6502_get_reg_p(const mos6502_t * mos6502) {
         icemu_read_node(mos6502->ic, REG_P7, PULL_DOWN) << 7;
 }
 
-unsigned char mos6502_get_reg_a(const mos6502_t * mos6502) {
+unsigned char mos6502_get_reg_sp(const mos6502_t * mos6502) {
     return 0x0 |
-        icemu_read_node(mos6502->ic, REG_A0, PULL_DOWN) << 0 |
-        icemu_read_node(mos6502->ic, REG_A1, PULL_DOWN) << 1 |
-        icemu_read_node(mos6502->ic, REG_A2, PULL_DOWN) << 2 |
-        icemu_read_node(mos6502->ic, REG_A3, PULL_DOWN) << 3 |
-        icemu_read_node(mos6502->ic, REG_A4, PULL_DOWN) << 4 |
-        icemu_read_node(mos6502->ic, REG_A5, PULL_DOWN) << 5 |
-        icemu_read_node(mos6502->ic, REG_A6, PULL_DOWN) << 6 |
-        icemu_read_node(mos6502->ic, REG_A7, PULL_DOWN) << 7;
+        icemu_read_node(mos6502->ic, REG_SP0, PULL_DOWN) << 0 |
+        icemu_read_node(mos6502->ic, REG_SP1, PULL_DOWN) << 1 |
+        icemu_read_node(mos6502->ic, REG_SP2, PULL_DOWN) << 2 |
+        icemu_read_node(mos6502->ic, REG_SP3, PULL_DOWN) << 3 |
+        icemu_read_node(mos6502->ic, REG_SP4, PULL_DOWN) << 4 |
+        icemu_read_node(mos6502->ic, REG_SP5, PULL_DOWN) << 5 |
+        icemu_read_node(mos6502->ic, REG_SP6, PULL_DOWN) << 6 |
+        icemu_read_node(mos6502->ic, REG_SP7, PULL_DOWN) << 7;
 }
 
 unsigned char mos6502_get_reg_x(const mos6502_t * mos6502) {
@@ -112,111 +210,13 @@ unsigned char mos6502_get_reg_y(const mos6502_t * mos6502) {
         icemu_read_node(mos6502->ic, REG_Y7, PULL_DOWN) << 7;
 }
 
-unsigned char mos6502_get_reg_sp(const mos6502_t * mos6502) {
-    return 0x0 |
-        icemu_read_node(mos6502->ic, REG_SP0, PULL_DOWN) << 0 |
-        icemu_read_node(mos6502->ic, REG_SP1, PULL_DOWN) << 1 |
-        icemu_read_node(mos6502->ic, REG_SP2, PULL_DOWN) << 2 |
-        icemu_read_node(mos6502->ic, REG_SP3, PULL_DOWN) << 3 |
-        icemu_read_node(mos6502->ic, REG_SP4, PULL_DOWN) << 4 |
-        icemu_read_node(mos6502->ic, REG_SP5, PULL_DOWN) << 5 |
-        icemu_read_node(mos6502->ic, REG_SP6, PULL_DOWN) << 6 |
-        icemu_read_node(mos6502->ic, REG_SP7, PULL_DOWN) << 7;
-}
-
-unsigned char mos6502_get_reg_i(const mos6502_t * mos6502) {
-    return 0x0 |
-        icemu_read_node(mos6502->ic, REG_I0, PULL_DOWN) << 0 |
-        icemu_read_node(mos6502->ic, REG_I1, PULL_DOWN) << 1 |
-        icemu_read_node(mos6502->ic, REG_I2, PULL_DOWN) << 2 |
-        icemu_read_node(mos6502->ic, REG_I3, PULL_DOWN) << 3 |
-        icemu_read_node(mos6502->ic, REG_I4, PULL_DOWN) << 4 |
-        icemu_read_node(mos6502->ic, REG_I5, PULL_DOWN) << 5 |
-        icemu_read_node(mos6502->ic, REG_I6, PULL_DOWN) << 6 |
-        icemu_read_node(mos6502->ic, REG_I7, PULL_DOWN) << 7;
-}
-
-/* --- Pin accessors --- */
-
-unsigned short mos6502_get_ab(const mos6502_t * mos6502) {
-    return 0x0 |
-        icemu_read_node(mos6502->ic, PIN_AB0, PULL_DOWN) << 0 |
-        icemu_read_node(mos6502->ic, PIN_AB1, PULL_DOWN) << 1 |
-        icemu_read_node(mos6502->ic, PIN_AB2, PULL_DOWN) << 2 |
-        icemu_read_node(mos6502->ic, PIN_AB3, PULL_DOWN) << 3 |
-        icemu_read_node(mos6502->ic, PIN_AB4, PULL_DOWN) << 4 |
-        icemu_read_node(mos6502->ic, PIN_AB5, PULL_DOWN) << 5 |
-        icemu_read_node(mos6502->ic, PIN_AB6, PULL_DOWN) << 6 |
-        icemu_read_node(mos6502->ic, PIN_AB7, PULL_DOWN) << 7 |
-        icemu_read_node(mos6502->ic, PIN_AB8, PULL_DOWN) << 8 |
-        icemu_read_node(mos6502->ic, PIN_AB9, PULL_DOWN) << 9 |
-        icemu_read_node(mos6502->ic, PIN_AB10, PULL_DOWN) << 10 |
-        icemu_read_node(mos6502->ic, PIN_AB11, PULL_DOWN) << 11 |
-        icemu_read_node(mos6502->ic, PIN_AB12, PULL_DOWN) << 12 |
-        icemu_read_node(mos6502->ic, PIN_AB13, PULL_DOWN) << 13 |
-        icemu_read_node(mos6502->ic, PIN_AB14, PULL_DOWN) << 14 |
-        icemu_read_node(mos6502->ic, PIN_AB15, PULL_DOWN) << 15;
-}
-
-unsigned char mos6502_get_db(const mos6502_t * mos6502) {
-    return 0x0 |
-        icemu_read_node(mos6502->ic, PIN_DB0, PULL_DOWN) << 0 |
-        icemu_read_node(mos6502->ic, PIN_DB1, PULL_DOWN) << 1 |
-        icemu_read_node(mos6502->ic, PIN_DB2, PULL_DOWN) << 2 |
-        icemu_read_node(mos6502->ic, PIN_DB3, PULL_DOWN) << 3 |
-        icemu_read_node(mos6502->ic, PIN_DB4, PULL_DOWN) << 4 |
-        icemu_read_node(mos6502->ic, PIN_DB5, PULL_DOWN) << 5 |
-        icemu_read_node(mos6502->ic, PIN_DB6, PULL_DOWN) << 6 |
-        icemu_read_node(mos6502->ic, PIN_DB7, PULL_DOWN) << 7;
-}
-
-bit_t mos6502_get_clk(const mos6502_t * mos6502) {
-    return icemu_read_node(mos6502->ic, PIN_CLK, PULL_FLOAT);
-}
-
-bit_t mos6502_get_clk1(const mos6502_t * mos6502) {
-    return icemu_read_node(mos6502->ic, PIN_CLK1, PULL_FLOAT);
-}
-
-bit_t mos6502_get_clk2(const mos6502_t * mos6502) {
-    return icemu_read_node(mos6502->ic, PIN_CLK2, PULL_FLOAT);
-}
-
-bit_t mos6502_get_irq(const mos6502_t * mos6502) {
-    return icemu_read_node(mos6502->ic, PIN_IRQ, PULL_FLOAT);
-}
-
-bit_t mos6502_get_nmi(const mos6502_t * mos6502) {
-    return icemu_read_node(mos6502->ic, PIN_NMI, PULL_FLOAT);
-}
-
-bit_t mos6502_get_res(const mos6502_t * mos6502) {
-    return icemu_read_node(mos6502->ic, PIN_RES, PULL_FLOAT);
-}
-
-bit_t mos6502_get_rdy(const mos6502_t * mos6502) {
-    return icemu_read_node(mos6502->ic, PIN_RDY, PULL_FLOAT);
-}
-
-bit_t mos6502_get_rw(const mos6502_t * mos6502) {
-    return icemu_read_node(mos6502->ic, PIN_RW, PULL_FLOAT);
-}
-
-bit_t mos6502_get_so(const mos6502_t * mos6502) {
-    return icemu_read_node(mos6502->ic, PIN_SO, PULL_FLOAT);
-}
-
-bit_t mos6502_get_sync(const mos6502_t * mos6502) {
-    return icemu_read_node(mos6502->ic, PIN_SYNC, PULL_FLOAT);
-}
-
 /* --- Pin modifiers --- */
 
-void mos6502_set_clk(mos6502_t * mos6502, bit_t state, bool_t sync) {
-    icemu_write_node(mos6502->ic, PIN_CLK, state, sync);
+void mos6502_set_pin_clk(mos6502_t * mos6502, bit_t data, bool_t sync) {
+    icemu_write_node(mos6502->ic, PIN_CLK, data, sync);
 }
 
-void mos6502_set_db(mos6502_t * mos6502, unsigned char data, bool_t sync) {
+void mos6502_set_pin_db(mos6502_t * mos6502, unsigned char data, bool_t sync) {
     icemu_write_node(mos6502->ic, PIN_DB0, data >> 0 & 0x01, false);
     icemu_write_node(mos6502->ic, PIN_DB1, data >> 1 & 0x01, false);
     icemu_write_node(mos6502->ic, PIN_DB2, data >> 2 & 0x01, false);
@@ -231,22 +231,22 @@ void mos6502_set_db(mos6502_t * mos6502, unsigned char data, bool_t sync) {
     }
 }
 
-void mos6502_set_irq(mos6502_t * mos6502, bit_t state, bool_t sync) {
-    icemu_write_node(mos6502->ic, PIN_IRQ, state, sync);
+void mos6502_set_pin_irq(mos6502_t * mos6502, bit_t data, bool_t sync) {
+    icemu_write_node(mos6502->ic, PIN_IRQ, data, sync);
 }
 
-void mos6502_set_nmi(mos6502_t * mos6502, bit_t state, bool_t sync) {
-    icemu_write_node(mos6502->ic, PIN_NMI, state, sync);
+void mos6502_set_pin_nmi(mos6502_t * mos6502, bit_t data, bool_t sync) {
+    icemu_write_node(mos6502->ic, PIN_NMI, data, sync);
 }
 
-void mos6502_set_res(mos6502_t * mos6502, bit_t state, bool_t sync) {
-    icemu_write_node(mos6502->ic, PIN_RES, state, sync);
+void mos6502_set_pin_rdy(mos6502_t * mos6502, bit_t data, bool_t sync) {
+    icemu_write_node(mos6502->ic, PIN_RDY, data, sync);
 }
 
-void mos6502_set_rdy(mos6502_t * mos6502, bit_t state, bool_t sync) {
-    icemu_write_node(mos6502->ic, PIN_RDY, state, sync);
+void mos6502_set_pin_res(mos6502_t * mos6502, bit_t data, bool_t sync) {
+    icemu_write_node(mos6502->ic, PIN_RES, data, sync);
 }
 
-void mos6502_set_so(mos6502_t * mos6502, bit_t state, bool_t sync) {
-    icemu_write_node(mos6502->ic, PIN_SO, state, sync);
+void mos6502_set_pin_so(mos6502_t * mos6502, bit_t data, bool_t sync) {
+    icemu_write_node(mos6502->ic, PIN_SO, data, sync);
 }

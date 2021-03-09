@@ -7,6 +7,46 @@
 
 #include <stddef.h>
 
+/* Pin nodes */
+typedef enum {
+    PIN_AB0  = 268,
+    PIN_AB1  = 451,
+    PIN_AB2  = 1340,
+    PIN_AB3  = 211,
+    PIN_AB4  = 435,
+    PIN_AB5  = 736,
+    PIN_AB6  = 887,
+    PIN_AB7  = 1493,
+    PIN_AB8  = 230,
+    PIN_AB9  = 148,
+    PIN_AB10 = 1443,
+    PIN_AB11 = 399,
+    PIN_AB12 = 1237,
+    PIN_AB13 = 349,
+    PIN_AB14 = 672,
+    PIN_AB15 = 195,
+    PIN_CLK  = 1171,
+    PIN_CLK1 = 1163,
+    PIN_CLK2 = 421,
+    PIN_DB0  = 1005,
+    PIN_DB1  = 82,
+    PIN_DB2  = 945,
+    PIN_DB3  = 650,
+    PIN_DB4  = 1393,
+    PIN_DB5  = 175,
+    PIN_DB6  = 1591,
+    PIN_DB7  = 1349,
+    PIN_IRQ  = 103,
+    PIN_NMI  = 1297,
+    PIN_RDY  = 89,
+    PIN_RES  = 159,
+    PIN_RW   = 1156,
+    PIN_SO   = 1672,
+    PIN_SYNC = 539,
+    PIN_VCC  = 657,
+    PIN_VSS  = 558
+} mos6502_pin_t;
+
 /* Register nodes */
 typedef enum {
     REG_PCL0 = 1139,
@@ -74,46 +114,6 @@ typedef enum {
     REG_I6   = 337,
     REG_I7   = 1328
 } mos6502_reg_t;
-
-/* Pin nodes */
-typedef enum {
-    PIN_AB0  = 268,
-    PIN_AB1  = 451,
-    PIN_AB2  = 1340,
-    PIN_AB3  = 211,
-    PIN_AB4  = 435,
-    PIN_AB5  = 736,
-    PIN_AB6  = 887,
-    PIN_AB7  = 1493,
-    PIN_AB8  = 230,
-    PIN_AB9  = 148,
-    PIN_AB10 = 1443,
-    PIN_AB11 = 399,
-    PIN_AB12 = 1237,
-    PIN_AB13 = 349,
-    PIN_AB14 = 672,
-    PIN_AB15 = 195,
-    PIN_CLK  = 1171,
-    PIN_CLK1 = 1163,
-    PIN_CLK2 = 421,
-    PIN_DB0  = 1005,
-    PIN_DB1  = 82,
-    PIN_DB2  = 945,
-    PIN_DB3  = 650,
-    PIN_DB4  = 1393,
-    PIN_DB5  = 175,
-    PIN_DB6  = 1591,
-    PIN_DB7  = 1349,
-    PIN_IRQ  = 103,
-    PIN_NMI  = 1297,
-    PIN_RDY  = 89,
-    PIN_RES  = 159,
-    PIN_RW   = 1156,
-    PIN_SO   = 1672,
-    PIN_SYNC = 539,
-    PIN_VCC  = 657,
-    PIN_VSS  = 558
-} mos6502_pin_t;
 
 const size_t MOS6502_ON = PIN_VCC;
 const size_t MOS6502_OFF = PIN_VSS;

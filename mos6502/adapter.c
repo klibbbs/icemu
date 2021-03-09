@@ -30,7 +30,7 @@ typedef struct {
 } pin_1_func_t;
 
 static const pin_16_func_t MOS6502_PIN_16_HEX_MAP[] = {
-    { "ab.pin", mos6502_get_ab, NULL },
+    { "ab.pin", mos6502_get_pin_ab, NULL },
     { "pc.reg", mos6502_get_reg_pc, NULL },
 };
 
@@ -38,7 +38,7 @@ static const size_t MOS6502_PIN_16_HEX_COUNT =
     sizeof(MOS6502_PIN_16_HEX_MAP) / sizeof(pin_16_func_t);
 
 static const pin_8_func_t MOS6502_PIN_8_HEX_MAP[] = {
-    { "db.pin", mos6502_get_db, mos6502_set_db },
+    { "db.pin", mos6502_get_pin_db, mos6502_set_pin_db },
     { "a.reg", mos6502_get_reg_a, NULL },
     { "x.reg", mos6502_get_reg_x, NULL },
     { "y.reg", mos6502_get_reg_y, NULL },
@@ -57,16 +57,16 @@ static const size_t MOS6502_PIN_8_BIN_COUNT =
     sizeof(MOS6502_PIN_8_BIN_MAP) / sizeof(pin_8_func_t);
 
 static const pin_1_func_t MOS6502_PIN_1_MAP[] = {
-    { "clk.pin", mos6502_get_clk, mos6502_set_clk },
-    { "clk1.pin", mos6502_get_clk1, NULL },
-    { "clk2.pin", mos6502_get_clk2, NULL },
-    { "irq.pin", mos6502_get_irq, mos6502_set_irq },
-    { "nmi.pin", mos6502_get_nmi, mos6502_set_nmi },
-    { "res.pin", mos6502_get_res, mos6502_set_res },
-    { "rdy.pin", mos6502_get_rdy, mos6502_set_rdy },
-    { "rw.pin", mos6502_get_rw, NULL },
-    { "so.pin", mos6502_get_so, mos6502_set_so },
-    { "sync.pin", mos6502_get_sync, NULL },
+    { "clk.pin", mos6502_get_pin_clk, mos6502_set_pin_clk },
+    { "clk1.pin", mos6502_get_pin_clk1, NULL },
+    { "clk2.pin", mos6502_get_pin_clk2, NULL },
+    { "irq.pin", mos6502_get_pin_irq, mos6502_set_pin_irq },
+    { "nmi.pin", mos6502_get_pin_nmi, mos6502_set_pin_nmi },
+    { "res.pin", mos6502_get_pin_res, mos6502_set_pin_res },
+    { "rdy.pin", mos6502_get_pin_rdy, mos6502_set_pin_rdy },
+    { "rw.pin", mos6502_get_pin_rw, NULL },
+    { "so.pin", mos6502_get_pin_so, mos6502_set_pin_so },
+    { "sync.pin", mos6502_get_pin_sync, NULL },
 };
 
 static const size_t MOS6502_PIN_1_COUNT = sizeof(MOS6502_PIN_1_MAP) / sizeof(pin_1_func_t);
