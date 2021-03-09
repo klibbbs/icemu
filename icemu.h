@@ -64,7 +64,6 @@ typedef enum {
 typedef struct {
     nx_t on;
     nx_t off;
-    nx_t clock;
 
     const pull_t * nodes;
     nx_t nodes_count;

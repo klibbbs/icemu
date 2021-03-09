@@ -14,7 +14,6 @@ mos6502_t * mos6502_init() {
     icemu_def_t def = {
         MOS6502_ON,
         MOS6502_OFF,
-        MOS6502_CLOCK,
         MOS6502_NODE_DEFS,
         sizeof(MOS6502_NODE_DEFS) / sizeof(MOS6502_NODE_DEFS[0]),
         MOS6502_TRANSISTOR_DEFS,
