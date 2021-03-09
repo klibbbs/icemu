@@ -13,7 +13,7 @@ typedef unsigned short perfect6502_addr_t;
 typedef unsigned char perfect6502_word_t;
 
 typedef struct {
-  perfect6502_word_t memory[PERFECT6502_MEMORY_ADDR_SPACE];
+    perfect6502_word_t memory[PERFECT6502_MEMORY_ADDR_SPACE];
 } perfect6502_memory_t;
 
 /* --- Functions --- */

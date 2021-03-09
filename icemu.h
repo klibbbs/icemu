@@ -6,15 +6,15 @@
 /* --- Types --- */
 
 typedef enum {
-  false,
-  true
+    false,
+    true
 } bool_t;
 
 typedef enum {
-  BIT_ZERO = 0,
-  BIT_ONE  = 1,
-  BIT_Z    = -1,
-  BIT_META = -2
+    BIT_ZERO = 0,
+    BIT_ONE  = 1,
+    BIT_Z    = -1,
+    BIT_META = -2
 } bit_t;
 
 char bit_char(bit_t bit);
@@ -24,15 +24,15 @@ char bit_char(bit_t bit);
 typedef size_t nx_t;
 
 typedef enum {
-  PULL_DOWN  = -1,
-  PULL_FLOAT = 0,
-  PULL_UP    = 1
+    PULL_DOWN  = -1,
+    PULL_FLOAT = 0,
+    PULL_UP    = 1
 } pull_t;
 
 typedef struct {
-  pull_t load;
-  bit_t state;
-  bool_t dirty;
+    pull_t load;
+    bit_t state;
+    bool_t dirty;
 } node_t;
 
 /* --- Transistor --- */
@@ -40,63 +40,63 @@ typedef struct {
 typedef size_t tx_t;
 
 typedef enum {
-  TRANSISTOR_NMOS = 1,
-  TRANSISTOR_PMOS = 2
+    TRANSISTOR_NMOS = 1,
+    TRANSISTOR_PMOS = 2
 } transistor_type_t;
 
 typedef struct {
-  transistor_type_t type;
-  nx_t gate;
-  nx_t c1;
-  nx_t c2;
-  bool_t dirty;
+    transistor_type_t type;
+    nx_t gate;
+    nx_t c1;
+    nx_t c2;
+    bool_t dirty;
 } transistor_t;
 
 /* --- IC --- */
 
 typedef enum {
-  LEVEL_FLOAT = 0,
-  LEVEL_CAP   = 1,
-  LEVEL_LOAD  = 2,
-  LEVEL_POWER = 3
+    LEVEL_FLOAT = 0,
+    LEVEL_CAP   = 1,
+    LEVEL_LOAD  = 2,
+    LEVEL_POWER = 3
 } level_t;
 
 typedef struct {
-  nx_t on;
-  nx_t off;
-  nx_t clock;
+    nx_t on;
+    nx_t off;
+    nx_t clock;
 
-  const pull_t * nodes;
-  nx_t nodes_count;
+    const pull_t * nodes;
+    nx_t nodes_count;
 
-  const transistor_t * transistors;
-  tx_t transistors_count;
+    const transistor_t * transistors;
+    tx_t transistors_count;
 } icemu_def_t;
 
 typedef struct {
-  bool_t synced;
+    bool_t synced;
 
-  nx_t on;
-  nx_t off;
+    nx_t on;
+    nx_t off;
 
-  node_t * nodes;
-  size_t nodes_count;
+    node_t * nodes;
+    size_t nodes_count;
 
-  transistor_t * transistors;
-  size_t transistors_count;
+    transistor_t * transistors;
+    size_t transistors_count;
 
-  tx_t ** node_gates;
-  tx_t * node_gates_lists;
-  size_t * node_gates_counts;
+    tx_t ** node_gates;
+    tx_t * node_gates_lists;
+    size_t * node_gates_counts;
 
-  tx_t ** node_channels;
-  tx_t * node_channels_lists;
-  size_t * node_channels_counts;
+    tx_t ** node_channels;
+    tx_t * node_channels_lists;
+    size_t * node_channels_counts;
 
-  nx_t * network_nodes;
-  size_t network_nodes_count;
-  level_t network_level_down;
-  level_t network_level_up;
+    nx_t * network_nodes;
+    size_t network_nodes_count;
+    level_t network_level_down;
+    level_t network_level_up;
 } icemu_t;
 
 icemu_t * icemu_init(const icemu_def_t * def);

@@ -4,7 +4,7 @@
 #include "../icemu.h"
 
 typedef struct {
-  icemu_t * ic;
+    icemu_t * ic;
 } mos6502_t;
 
 mos6502_t * mos6502_init();
