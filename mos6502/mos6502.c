@@ -14,10 +14,11 @@ mos6502_t * mos6502_init() {
     icemu_def_t def = {
         MOS6502_ON,
         MOS6502_OFF,
-        MOS6502_NODE_DEFS,
-        sizeof(MOS6502_NODE_DEFS) / sizeof(MOS6502_NODE_DEFS[0]),
+        MOS6502_NODE_COUNT,
+        MOS6502_LOAD_DEFS,
+        sizeof(MOS6502_LOAD_DEFS) / sizeof(load_t),
         MOS6502_TRANSISTOR_DEFS,
-        sizeof(MOS6502_TRANSISTOR_DEFS) / sizeof(MOS6502_TRANSISTOR_DEFS[0]),
+        sizeof(MOS6502_TRANSISTOR_DEFS) / sizeof(transistor_t)
     };
 
     /* Initialize new IC emulator */

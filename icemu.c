@@ -69,6 +69,7 @@ bool_t transistor_is_open(const transistor_t * transistor, const node_t * gate) 
 
 icemu_t * icemu_init(const icemu_def_t * def) {
     nx_t n;
+    lx_t l;
     tx_t t, cur;
 
     icemu_t * ic = malloc(sizeof(icemu_t));
@@ -82,9 +83,13 @@ icemu_t * icemu_init(const icemu_def_t * def) {
     ic->nodes = malloc(sizeof(node_t) * ic->nodes_count);
 
     for (n = 0; n < ic->nodes_count; n++) {
-        ic->nodes[n].load  = def->nodes[n];
+        ic->nodes[n].load  = PULL_FLOAT;
         ic->nodes[n].state = BIT_Z;
         ic->nodes[n].dirty = false;
+    }
+
+    for (l = 0; l < def->loads_count; l++) {
+        ic->nodes[def->loads[l].node].load = def->loads[l].load;
     }
 
     /* Allocate and initialize transistors */

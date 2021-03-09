@@ -35,6 +35,15 @@ typedef struct {
     bool_t dirty;
 } node_t;
 
+/* --- Load --- */
+
+typedef size_t lx_t;
+
+typedef struct {
+    pull_t load;
+    nx_t node;
+} load_t;
+
 /* --- Transistor --- */
 
 typedef size_t tx_t;
@@ -65,11 +74,13 @@ typedef struct {
     nx_t on;
     nx_t off;
 
-    const pull_t * nodes;
-    nx_t nodes_count;
+    size_t nodes_count;
+
+    const load_t * loads;
+    size_t loads_count;
 
     const transistor_t * transistors;
-    tx_t transistors_count;
+    size_t transistors_count;
 } icemu_def_t;
 
 typedef struct {
