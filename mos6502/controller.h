@@ -1,8 +1,8 @@
 #ifndef INCLUDE_MOS6502_CONTROLLER_H
 #define INCLUDE_MOS6502_CONTROLLER_H
 
-#include "memory.h"
 #include "mos6502.h"
+#include "memory.h"
 
 #include <stddef.h>
 

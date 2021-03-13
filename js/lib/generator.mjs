@@ -51,6 +51,7 @@ export class Generator {
         this.files[`${dir}adapter.c`] = generateC_adapter_c(C, this.spec, this.layout);
         this.files[`${dir}memory.h`] = generateC_memory_h(C, this.spec, this.layout);
         this.files[`${dir}memory.c`] = generateC_memory_c(C, this.spec, this.layout);
+        this.files[`${dir}controller.h`] = generateC_controller_h(C, this.spec, this.layout);
 
         // Write to disk
         Object.entries(this.files).forEach(([file, data]) => {
@@ -806,5 +807,27 @@ function generateC_memory_c(C, spec, layout) {
             `${C.device}_memory_t * memory, ${C.device}_addr_t addr, ${C.device}_word_t word) {`,
         tab(1, `memory->memory[addr >> ${Math.log2(layout.memory.word / 8)}] = word;`),
         '}',
+    ]);
+}
+
+function generateC_controller_h(C, spec, layout) {
+    const include_guard = `INCLUDE_${C.device_caps}_CONTROLLER_H`;
+
+    return join ([
+        `#ifndef ${include_guard}`,
+        `#define ${include_guard}`,
+        '',
+        `#include "${C.device}.h"`,
+        '#include "memory.h"',
+        '',
+        '#include <stddef.h>',
+        '',
+        `void ${C.device}_controller_reset(${C.device_type} * ${C.device});`,
+        `void ${C.device}_controller_step(` +
+            `${C.device_type} * ${C.device}, ${C.device}_memory_t * memory);`,
+        `void ${C.device}_controller_run(` +
+            `${C.device_type} * ${C.device}, ${C.device}_memory_t * memory, size_t cycles);`,
+        '',
+        `#endif /* ${include_guard} */`,
     ]);
 }
