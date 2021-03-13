@@ -176,7 +176,7 @@ function generateC_device_c(C, spec, layout) {
     return join([
         `#include "${C.device}.h"`,
         '',
-        '#include "definitions.h"',
+        '#include "layout.h"',
         '',
         '#include "../icemu.h"',
         '',
@@ -186,8 +186,8 @@ function generateC_device_c(C, spec, layout) {
         '',
         `${C.device_type} * ${C.device}_init() {`,
         '',
-        tab(1, comment('Create IC definition')),
-        tab(1, 'icemu_def_t def = {'),
+        tab(1, comment('Construct IC layout')),
+        tab(1, 'const icemu_layout_t layout = {'),
         tab(2, [
             `${C.device_caps}_ON,`,
             `${C.device_caps}_OFF,`,
@@ -199,7 +199,7 @@ function generateC_device_c(C, spec, layout) {
         tab(1, '};'),
         '',
         tab(1, comment('Initialize new IC emulator')),
-        tab(1, 'icemu_t * ic = icemu_init(&def);'),
+        tab(1, 'icemu_t * ic = icemu_init(&layout);'),
         '',
         tab(1, comment('Initialize new device emulator')),
         tab(1, `${C.device_type} * ${C.device} = malloc(sizeof(${C.device_type}));`),

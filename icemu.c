@@ -67,7 +67,7 @@ bool_t transistor_is_open(const transistor_t * transistor, const node_t * gate) 
 
 /* --- Public functions  --- */
 
-icemu_t * icemu_init(const icemu_def_t * def) {
+icemu_t * icemu_init(const icemu_layout_t * layout) {
     nx_t n;
     lx_t l;
     tx_t t, cur;
@@ -75,11 +75,11 @@ icemu_t * icemu_init(const icemu_def_t * def) {
     icemu_t * ic = malloc(sizeof(icemu_t));
 
     ic->synced = false;
-    ic->on = def->on;
-    ic->off = def->off;
+    ic->on = layout->on;
+    ic->off = layout->off;
 
     /* Allocate and initialize nodes */
-    ic->nodes_count = def->nodes_count;
+    ic->nodes_count = layout->nodes_count;
     ic->nodes = malloc(sizeof(node_t) * ic->nodes_count);
 
     for (n = 0; n < ic->nodes_count; n++) {
@@ -88,19 +88,19 @@ icemu_t * icemu_init(const icemu_def_t * def) {
         ic->nodes[n].dirty = false;
     }
 
-    for (l = 0; l < def->loads_count; l++) {
-        ic->nodes[def->loads[l].node].load = def->loads[l].load;
+    for (l = 0; l < layout->loads_count; l++) {
+        ic->nodes[layout->loads[l].node].load = layout->loads[l].load;
     }
 
     /* Allocate and initialize transistors */
-    ic->transistors_count = def->transistors_count;
+    ic->transistors_count = layout->transistors_count;
     ic->transistors = malloc(sizeof(transistor_t) * ic->transistors_count);
 
     for (t = 0; t < ic->transistors_count; t++) {
-        ic->transistors[t].type  = def->transistors[t].type;
-        ic->transistors[t].gate  = def->transistors[t].gate;
-        ic->transistors[t].c1    = def->transistors[t].c1;
-        ic->transistors[t].c2    = def->transistors[t].c2;
+        ic->transistors[t].type  = layout->transistors[t].type;
+        ic->transistors[t].gate  = layout->transistors[t].gate;
+        ic->transistors[t].c1    = layout->transistors[t].c1;
+        ic->transistors[t].c2    = layout->transistors[t].c2;
         ic->transistors[t].dirty = false;
     }
 

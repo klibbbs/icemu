@@ -1,6 +1,6 @@
 #include "mos6502.h"
 
-#include "definitions.h"
+#include "layout.h"
 
 #include "../icemu.h"
 
@@ -10,8 +10,8 @@
 
 mos6502_t * mos6502_init() {
 
-    /* Create IC definition */
-    icemu_def_t def = {
+    /* Construct IC layout */
+    const icemu_layout_t layout = {
         MOS6502_ON,
         MOS6502_OFF,
         MOS6502_NODE_COUNT,
@@ -22,7 +22,7 @@ mos6502_t * mos6502_init() {
     };
 
     /* Initialize new IC emulator */
-    icemu_t * ic = icemu_init(&def);
+    icemu_t * ic = icemu_init(&layout);
 
     /* Initialize new device emulator */
     mos6502_t * mos6502 = malloc(sizeof(mos6502_t));

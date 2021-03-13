@@ -81,7 +81,7 @@ typedef struct {
 
     const transistor_t * transistors;
     size_t transistors_count;
-} icemu_def_t;
+} icemu_layout_t;
 
 typedef struct {
     bool_t synced;
@@ -109,7 +109,7 @@ typedef struct {
     level_t network_level_up;
 } icemu_t;
 
-icemu_t * icemu_init(const icemu_def_t * def);
+icemu_t * icemu_init(const icemu_layout_t * layout);
 void icemu_destroy(icemu_t * ic);
 void icemu_sync(icemu_t * ic);
 
