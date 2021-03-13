@@ -8,6 +8,15 @@ export class Layout {
         this.nodeIds = spec.nodeIds;
         this.nodeNames = spec.nodeNames;
 
+        // Build memory model
+        this.memory = {
+            word: spec.memory.word,
+            word_type: Math.pow(2, Math.ceil(Math.max(0, Math.log2(spec.memory.word / 8)))) * 8,
+            addr: spec.memory.address,
+            addr_type: Math.pow(2, Math.ceil(Math.max(0, Math.log2(spec.memory.address / 8)))) * 8,
+            count: Math.pow(2, spec.memory.address) * 8 / spec.memory.word,
+        };
+
         // Build pin sets
         const pins = [].concat(spec.inputs, spec.outputs).filter((v, i, a) => a.indexOf(v) === i);
         const regs = spec.registers.filter((v, i, a) => a.indexOf(v) === i);

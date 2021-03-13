@@ -6,6 +6,12 @@ export class Spec {
         this.id = validateIdentifier('id', spec.id);
         this.name = validateString('name', spec.name);
 
+        // Memory model
+        this.memory = validateStruct('memory', spec.memory, {
+            word: (field, val) => validateWidth(field, val),
+            address: (field, val) => validateInt(field, val, 1),
+        });
+
         // Node names
         this.nodeNames = validateMap('nodes', spec.nodes, validateIdentifier, validateNodeSet);
 
@@ -65,9 +71,35 @@ export class Spec {
 
 // --- Validators ---
 
+function validateInt(field, val, min, max) {
+    if (val !== parseInt(val, 10)) {
+        throw new TypeError(`Field '${field}' must be an integer`);
+    }
+
+    if (min !== undefined && min != null && val < min) {
+        throw new TypeError(`Field '${field}' may not be less than ${min}`);
+    }
+
+    if (max !== undefined && max != null && val > max) {
+        throw new TypeError(`Field '${field}' may not be greater than ${max}`);
+    }
+
+    return val;
+}
+
 function validateString(field, val) {
     if (typeof val !== 'string') {
         throw new TypeError(`Field '${field}' must be a string`);
+    }
+
+    return val;
+}
+
+function validateWidth(field, val) {
+    validateInt(field, val, 8);
+
+    if (Math.log2(val / 8) % 0) {
+        throw new TypeError(`Field '${field}' must be a legal data width`);
     }
 
     return val;
@@ -97,6 +129,24 @@ function validateTuple(field, val, validators) {
     }
 
     return val;
+}
+
+function validateStruct(field, val, validators) {
+    if (typeof val !== 'object' || val === null || Array.isArray(val)) {
+        throw new TypeError(`Field '${field}' must be an object`);
+    }
+
+    let obj = {};
+
+    for (const [key, validator] of Object.entries(validators)) {
+        if (val[key] === undefined) {
+            throw new TypeError(`Field ${field} is missing key '${key}'`);
+        }
+
+        obj[key] = validator(`${field}.${key}`, val[key]);
+    }
+
+    return obj;
 }
 
 function validateArray(field, val, validator) {

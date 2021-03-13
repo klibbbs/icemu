@@ -49,6 +49,8 @@ export class Generator {
         this.files[`${dir}${C.device}.c`] = generateC_device_c(C, this.spec, this.layout);
         this.files[`${dir}adapter.h`] = generateC_adapter_h(C, this.spec, this.layout);
         this.files[`${dir}adapter.c`] = generateC_adapter_c(C, this.spec, this.layout);
+        this.files[`${dir}memory.h`] = generateC_memory_h(C, this.spec, this.layout);
+        this.files[`${dir}memory.c`] = generateC_memory_c(C, this.spec, this.layout);
 
         // Write to disk
         Object.entries(this.files).forEach(([file, data]) => {
@@ -739,6 +741,70 @@ function generateC_adapter_c(C, spec, layout) {
             '',
             `${C.device}_memory_write(${C.device}_instance->memory, addr, data);`,
         ]),
+        '}',
+    ]);
+}
+
+function generateC_memory_h(C, spec, layout) {
+    const include_guard = `INCLUDE_${C.device_caps}_MEMORY_H`;
+
+    const addr_bits = Math.pow(2, Math.ceil(Math.max(0, Math.log2(spec.memory.address / 8)))) * 8;
+    const word_count = Math.pow(2, spec.memory.address) * 8 / spec.memory.word;
+
+    return join([
+        `#ifndef ${include_guard}`,
+        `#define ${include_guard}`,
+        '',
+        comment('Constants', 2),
+        '',
+        `enum { ${C.device_caps}_MEMORY_ADDR_WIDTH = ${layout.memory.addr} };`,
+        `enum { ${C.device_caps}_MEMORY_WORD_WIDTH = ${layout.memory.word} };`,
+        `enum { ${C.device_caps}_MEMORY_WORD_COUNT = ${layout.memory.count} };`,
+        '',
+        comment('Types', 2),
+        '',
+        `typedef ${C.type[layout.memory.addr_type]} ${C.device}_addr_t;`,
+        `typedef ${C.type[layout.memory.word_type]} ${C.device}_word_t;`,
+        '',
+        'typedef struct {',
+        tab(1, `${C.device}_word_t memory[${C.device_caps}_MEMORY_WORD_COUNT];`),
+        `} ${C.device}_memory_t;`,
+        '',
+        comment('Functions', 2),
+        '',
+        `${C.device}_memory_t * ${C.device}_memory_init();`,
+        `void ${C.device}_memory_destroy(${C.device}_memory_t * memory);`,
+        `${C.device}_word_t ${C.device}_memory_read(` +
+            `const ${C.device}_memory_t * memory, ${C.device}_addr_t addr);`,
+        `void ${C.device}_memory_write(` +
+            `${C.device}_memory_t * memory, ${C.device}_addr_t addr, ${C.device}_word_t word);`,
+        '',
+        `#endif /* ${include_guard} */`,
+    ]);
+}
+
+function generateC_memory_c(C, spec, layout) {
+    return join([
+        '#include "memory.h"',
+        '',
+        '#include <stdlib.h>',
+        '',
+        `${C.device}_memory_t * ${C.device}_memory_init() {`,
+        tab(1, `return (${C.device}_memory_t *)calloc(1, sizeof(${C.device}_memory_t));`),
+        '}',
+        '',
+        `void ${C.device}_memory_destroy(${C.device}_memory_t * memory) {`,
+        tab(1, 'free(memory);'),
+        '}',
+        '',
+        `${C.device}_word_t ${C.device}_memory_read(` +
+            `const ${C.device}_memory_t * memory, ${C.device}_addr_t addr) {`,
+        tab(1, `return memory->memory[addr >> ${Math.log2(layout.memory.word / 8)}];`),
+        '}',
+        '',
+        `void ${C.device}_memory_write(` +
+            `${C.device}_memory_t * memory, ${C.device}_addr_t addr, ${C.device}_word_t word) {`,
+        tab(1, `memory->memory[addr >> ${Math.log2(layout.memory.word / 8)}] = word;`),
         '}',
     ]);
 }

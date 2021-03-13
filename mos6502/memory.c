@@ -11,9 +11,9 @@ void mos6502_memory_destroy(mos6502_memory_t * memory) {
 }
 
 mos6502_word_t mos6502_memory_read(const mos6502_memory_t * memory, mos6502_addr_t addr) {
-    return memory->memory[addr];
+    return memory->memory[addr >> 0];
 }
 
 void mos6502_memory_write(mos6502_memory_t * memory, mos6502_addr_t addr, mos6502_word_t word) {
-    memory->memory[addr] = word;
+    memory->memory[addr >> 0] = word;
 }
