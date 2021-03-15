@@ -7,6 +7,12 @@
 
 #include <stddef.h>
 
+/* Source nodes */
+typedef enum {
+    SRC_VCC   = 657,
+    SRC_VSS   = 558
+} mos6502_src_t;
+
 /* Pin nodes */
 typedef enum {
     PIN_AB_0  = 268,
@@ -42,13 +48,35 @@ typedef enum {
     PIN_RES   = 159,
     PIN_RW    = 1156,
     PIN_SO    = 1672,
-    PIN_SYNC  = 539,
-    PIN_VCC   = 657,
-    PIN_VSS   = 558
+    PIN_SYNC  = 539
 } mos6502_pin_t;
 
 /* Register nodes */
 typedef enum {
+    REG_A_0   = 737,
+    REG_A_1   = 1234,
+    REG_A_2   = 978,
+    REG_A_3   = 162,
+    REG_A_4   = 727,
+    REG_A_5   = 858,
+    REG_A_6   = 1136,
+    REG_A_7   = 1653,
+    REG_I_0   = 328,
+    REG_I_1   = 1626,
+    REG_I_2   = 1384,
+    REG_I_3   = 1576,
+    REG_I_4   = 1112,
+    REG_I_5   = 1329,
+    REG_I_6   = 337,
+    REG_I_7   = 1328,
+    REG_P_0   = 687,
+    REG_P_1   = 1444,
+    REG_P_2   = 1421,
+    REG_P_3   = 439,
+    REG_P_4   = 1119,
+    REG_P_5   = 657,
+    REG_P_6   = 77,
+    REG_P_7   = 1370,
     REG_PC_0  = 1139,
     REG_PC_1  = 1022,
     REG_PC_2  = 655,
@@ -65,22 +93,14 @@ typedef enum {
     REG_PC_13 = 49,
     REG_PC_14 = 1551,
     REG_PC_15 = 205,
-    REG_P_0   = 687,
-    REG_P_1   = 1444,
-    REG_P_2   = 1421,
-    REG_P_3   = 439,
-    REG_P_4   = 1119,
-    REG_P_5   = 0, /* Should be floating; does not exist */
-    REG_P_6   = 77,
-    REG_P_7   = 1370,
-    REG_A_0   = 737,
-    REG_A_1   = 1234,
-    REG_A_2   = 978,
-    REG_A_3   = 162,
-    REG_A_4   = 727,
-    REG_A_5   = 858,
-    REG_A_6   = 1136,
-    REG_A_7   = 1653,
+    REG_SP_0  = 1403,
+    REG_SP_1  = 183,
+    REG_SP_2  = 81,
+    REG_SP_3  = 1532,
+    REG_SP_4  = 1702,
+    REG_SP_5  = 1098,
+    REG_SP_6  = 1212,
+    REG_SP_7  = 1435,
     REG_X_0   = 1216,
     REG_X_1   = 98,
     REG_X_2   = 1,
@@ -96,27 +116,11 @@ typedef enum {
     REG_Y_4   = 989,
     REG_Y_5   = 615,
     REG_Y_6   = 115,
-    REG_Y_7   = 843,
-    REG_SP_0  = 1403,
-    REG_SP_1  = 183,
-    REG_SP_2  = 81,
-    REG_SP_3  = 1532,
-    REG_SP_4  = 1702,
-    REG_SP_5  = 1098,
-    REG_SP_6  = 1212,
-    REG_SP_7  = 1435,
-    REG_I_0   = 328,
-    REG_I_1   = 1626,
-    REG_I_2   = 1384,
-    REG_I_3   = 1576,
-    REG_I_4   = 1112,
-    REG_I_5   = 1329,
-    REG_I_6   = 337,
-    REG_I_7   = 1328
+    REG_Y_7   = 843
 } mos6502_reg_t;
 
-const size_t MOS6502_ON = PIN_VCC;
-const size_t MOS6502_OFF = PIN_VSS;
+const nx_t MOS6502_ON  = SRC_VCC;
+const nx_t MOS6502_OFF = SRC_VSS;
 
 const size_t MOS6502_NODE_COUNT = 1725;
 
