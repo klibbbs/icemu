@@ -7,6 +7,8 @@
 
 #include <stddef.h>
 
+/* --- Node constants --- */
+
 /* Source nodes */
 typedef enum {
     SRC_VCC   = 657,
@@ -119,10 +121,14 @@ typedef enum {
     REG_Y_7   = 843
 } mos6502_reg_t;
 
+/* --- Device constants --- */
+
 const nx_t MOS6502_ON  = SRC_VCC;
 const nx_t MOS6502_OFF = SRC_VSS;
 
 const size_t MOS6502_NODE_COUNT = 1725;
+
+/* --- Component definitions --- */
 
 const load_t MOS6502_LOAD_DEFS[] = {
     {PULL_UP, 0},

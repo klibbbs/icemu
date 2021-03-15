@@ -18,6 +18,7 @@ export class Layout {
         };
 
         // Build pin sets
+        const srcs = [spec.on, spec.off];
         const pins = [].concat(spec.inputs, spec.outputs).filter((v, i, a) => a.indexOf(v) === i);
         const regs = spec.registers.filter((v, i, a) => a.indexOf(v) === i);
 
@@ -45,11 +46,15 @@ export class Layout {
             ].sort((a, b) => a.id.localeCompare(b.id)),
         );
 
-        // Normalize loads
-        this.loads = spec.loads;
+        // Build source pins
+        this.on = buildPin(spec.on, this.nodeNames[spec.on], 'src', false, false);
+        this.off = buildPin(spec.off, this.nodeNames[spec.off], 'src', false, false);
 
-        // Normalize transistors
-        this.transistors = spec.transistors;
+        // Build loads
+        this.loads = spec.loads.map(l => buildLoad(l));
+
+        // Build transistors
+        this.transistors = spec.transistors.map(t => buildTransistor(t));
     }
 
     printInfo() {
@@ -81,5 +86,20 @@ function buildPin(name, nodes, type, binary, writable) {
         bits: bits,
         base: (bits === 1) ? 10 : binary ? 2 : 16,
         writable: writable,
+    };
+}
+
+function buildLoad(tuple) {
+    return {
+        type: tuple[0],
+        node: tuple[1],
+    };
+}
+
+function buildTransistor(tuple) {
+    return {
+        type: tuple[0],
+        gate: tuple[1],
+        channel: [tuple[2], tuple[3]], // TODO: Sort
     };
 }

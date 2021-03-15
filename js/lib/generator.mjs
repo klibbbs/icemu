@@ -42,6 +42,26 @@ export class Generator {
                     return (`${pin.type}_${pin.id}_${idx}`).toUpperCase();
                 }
             },
+            getLoadEnum: (load) => {
+                switch (load.type) {
+                    case 'on':
+                        return 'PULL_UP';
+                    case 'off':
+                        return 'PULL_DOWN';
+                    default:
+                        throw new TypeError(`Unsupported load type '${type}'`);
+                }
+            },
+            getTransistorEnum: (transistor) => {
+                switch (transistor.type) {
+                    case 'nmos':
+                        return 'TRANSISTOR_NMOS';
+                    case 'pmos':
+                        return 'TRANSISTOR_PMOS';
+                    default:
+                        throw new TypeError(`Unsupported transistor type '${type}'`);
+                }
+            },
         };
 
         // Generate source files
@@ -52,6 +72,7 @@ export class Generator {
         this.files[`${dir}memory.h`] = generateC_memory_h(C, this.spec, this.layout);
         this.files[`${dir}memory.c`] = generateC_memory_c(C, this.spec, this.layout);
         this.files[`${dir}controller.h`] = generateC_controller_h(C, this.spec, this.layout);
+        this.files[`${dir}layout.h`] = generateC_layout_h(C, this.spec, this.layout);
 
         // Write to disk
         Object.entries(this.files).forEach(([file, data]) => {
@@ -401,7 +422,7 @@ function generateC_adapter_c(C, spec, layout) {
         '',
         ...(layout.pins.filter(p => p.bits === 16).length ? [
             `static const pin_16_func_t ${C.device_caps}_PIN_16_MAP[] = {`,
-            tab(1, layout.pins.filter(p => p.bits === 16).map((p, idx) => (
+            tab(1, layout.pins.filter(p => p.bits === 16).map(p => (
                 `{ "${p.id}.${p.type}", ${p.base}, ${C.device}_get_${p.type}_${p.id}, ` +
                     (p.writable ? `${C.device}_set_${p.type}_${p.id}` : 'NULL') + ' },'
             ))),
@@ -413,7 +434,7 @@ function generateC_adapter_c(C, spec, layout) {
         '',
         ...(layout.pins.filter(p => p.bits === 8).length ? [
             `static const pin_8_func_t ${C.device_caps}_PIN_8_MAP[] = {`,
-            tab(1, layout.pins.filter(p => p.bits === 8).map((p, idx) => (
+            tab(1, layout.pins.filter(p => p.bits === 8).map(p => (
                 `{ "${p.id}.${p.type}", ${p.base}, ${C.device}_get_${p.type}_${p.id}, ` +
                     (p.writable ? `${C.device}_set_${p.type}_${p.id}` : 'NULL') + ' },'
             ))),
@@ -425,7 +446,7 @@ function generateC_adapter_c(C, spec, layout) {
         '',
         ...(layout.pins.filter(p => p.bits === 1).length ? [
             `static const pin_1_func_t ${C.device_caps}_PIN_1_MAP[] = {`,
-            tab(1, layout.pins.filter(p => p.bits === 1).map((p, idx) => (
+            tab(1, layout.pins.filter(p => p.bits === 1).map(p => (
                 `{ "${p.id}.${p.type}", ${C.device}_get_${p.type}_${p.id}, ` +
                     (p.writable ? `${C.device}_set_${p.type}_${p.id}` : 'NULL') + ' },'
             ))),
@@ -827,6 +848,84 @@ function generateC_controller_h(C, spec, layout) {
             `${C.device_type} * ${C.device}, ${C.device}_memory_t * memory);`,
         `void ${C.device}_controller_run(` +
             `${C.device_type} * ${C.device}, ${C.device}_memory_t * memory, size_t cycles);`,
+        '',
+        `#endif /* ${include_guard} */`,
+    ]);
+}
+
+function generateC_layout_h(C, spec, layout) {
+    const include_guard = `INCLUDE_${C.device_caps}_LAYOUT_H`;
+
+    const syms = [].concat(...layout.pins.map(p => {
+        if (p.bits === 1) {
+            return [{ type: p.type, node: p.nodes[0], sym: C.getPinSym(p) }];
+        } else {
+            return p.nodes.map((n, idx) => ({ type: p.type, node: n, sym: C.getPinSym(p, idx) }));
+        }
+    }));
+
+    const syms_width = Math.max(...syms.map(p => p.sym.length));
+
+    return join ([
+        `#ifndef ${include_guard}`,
+        `#define ${include_guard}`,
+        '',
+        `#include "${C.device}.h"`,
+        '',
+        '#include "../icemu.h"',
+        '',
+        '#include <stddef.h>',
+        '',
+        comment('Node constants', 2),
+        '',
+        comment('Source nodes'),
+        'typedef enum {',
+        tab(1, [
+            `${C.getPinSym(layout.on).padEnd(syms_width)} = ${layout.on.nodes[0]},`,
+            `${C.getPinSym(layout.off).padEnd(syms_width)} = ${layout.off.nodes[0]}`,
+        ]),
+        `} ${C.device}_src_t;`,
+        '',
+        ...(syms.filter(p => p.type === 'pin').length ? [
+            comment('Pin nodes'),
+            'typedef enum {',
+            tab(1, syms.filter(p => p.type === 'pin').map(p => (
+                `${p.sym.padEnd(syms_width)} = ${p.node}`
+            )).join(",\n")),
+            `} ${C.device}_pin_t;`,
+        ] : []),
+        '',
+        ...(syms.filter(p => p.type === 'reg').length ? [
+            comment('Register nodes'),
+            'typedef enum {',
+            tab(1, syms.filter(p => p.type === 'reg').map(p => (
+                `${p.sym.padEnd(syms_width)} = ${p.node}`
+            )).join(",\n")),
+            `} ${C.device}_reg_t;`,
+        ] : []),
+        '',
+        comment('Device constants', 2),
+        '',
+        `const nx_t ${C.device_caps}_ON  = ${C.getPinSym(layout.on)};`,
+        `const nx_t ${C.device_caps}_OFF = ${C.getPinSym(layout.off)};`,
+        '',
+        `const size_t ${C.device_caps}_NODE_COUNT = ${Math.max(...layout.nodeIds) + 1};`,
+        '',
+        comment('Component definitions', 2),
+        '',
+        ...(layout.loads.length ? [
+            `const load_t ${C.device_caps}_LOAD_DEFS[] = {`,
+            tab(1, layout.loads.map(l => `{${C.getLoadEnum(l)}, ${l.node}}`).join(",\n")),
+            '};',
+        ] : []),
+        '',
+        ...(layout.transistors.length ? [
+            `const transistor_t ${C.device_caps}_TRANSISTOR_DEFS[] = {`,
+            tab(1, layout.transistors.map(t => (
+                `{${C.getTransistorEnum(t)}, ${t.gate}, ${t.channel[0]}, ${t.channel[1]}}`
+            )).join(",\n")),
+            '};',
+        ] : []),
         '',
         `#endif /* ${include_guard} */`,
     ]);

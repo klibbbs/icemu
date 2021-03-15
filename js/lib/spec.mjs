@@ -16,8 +16,8 @@ export class Spec {
         this.nodeNames = validateMap('nodes', spec.nodes, validateIdentifier, validateNodeSet);
 
         // Node assignments
-        this.on = validateNodeName('on', spec.on, this.nodeNames);
-        this.off = validateNodeName('off', spec.off, this.nodeNames);
+        this.on = validateSingleNodeName('on', spec.on, this.nodeNames);
+        this.off = validateSingleNodeName('off', spec.off, this.nodeNames);
 
         this.inputs = validateArray('inputs', spec.inputs, (field, val) => {
             return validateNodeName(field, val, this.nodeNames);
@@ -214,6 +214,16 @@ function validateNodeName(field, val, nodeNames) {
 
     if (nodeNames[val] === undefined) {
         throw new TypeError(`Node name in field '${field}' is not defined`);
+    }
+
+    return val;
+}
+
+function validateSingleNodeName(field, val, nodeNames) {
+    validateNodeName(field, val, nodeNames);
+
+    if (Array.isArray(nodeNames[val]) && nodeNames[val].length > 1) {
+        throw new TypeError(`Node ${field} must be singular`);
     }
 
     return val;
