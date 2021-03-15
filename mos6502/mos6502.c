@@ -16,9 +16,9 @@ mos6502_t * mos6502_init() {
         MOS6502_OFF,
         MOS6502_NODE_COUNT,
         MOS6502_LOAD_DEFS,
-        sizeof(MOS6502_LOAD_DEFS) / sizeof(load_t),
+        MOS6502_LOAD_COUNT,
         MOS6502_TRANSISTOR_DEFS,
-        sizeof(MOS6502_TRANSISTOR_DEFS) / sizeof(transistor_t)
+        MOS6502_TRANSISTOR_COUNT
     };
 
     /* Initialize new IC emulator */

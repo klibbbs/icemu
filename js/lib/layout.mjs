@@ -50,26 +50,46 @@ export class Layout {
 
         this.pins = [].concat(
             ...[
-                ...pins_rw_hex.map(n => buildPin(n, this.nodeNames[n], 'pin', false, true)),
-                ...pins_rw_bin.map(n => buildPin(n, this.nodeNames[n], 'pin', true, true)),
-                ...pins_ro_hex.map(n => buildPin(n, this.nodeNames[n], 'pin', false, false)),
-                ...pins_ro_bin.map(n => buildPin(n, this.nodeNames[n], 'pin', true, false)),
+                ...pins_rw_hex.map(n => this.buildPin(n, this.nodeNames[n], 'pin', false, true)),
+                ...pins_rw_bin.map(n => this.buildPin(n, this.nodeNames[n], 'pin', true, true)),
+                ...pins_ro_hex.map(n => this.buildPin(n, this.nodeNames[n], 'pin', false, false)),
+                ...pins_ro_bin.map(n => this.buildPin(n, this.nodeNames[n], 'pin', true, false)),
             ].sort((a, b) => a.id.localeCompare(b.id)),
             ...[
-                ...regs_ro_hex.map(n => buildPin(n, this.nodeNames[n], 'reg', false, false)),
-                ...regs_ro_bin.map(n => buildPin(n, this.nodeNames[n], 'reg', true, false)),
+                ...regs_ro_hex.map(n => this.buildPin(n, this.nodeNames[n], 'reg', false, false)),
+                ...regs_ro_bin.map(n => this.buildPin(n, this.nodeNames[n], 'reg', true, false)),
             ].sort((a, b) => a.id.localeCompare(b.id)),
         );
 
         // Build source pins
-        this.on = buildPin(spec.on, this.nodeNames[spec.on], 'src', false, false);
-        this.off = buildPin(spec.off, this.nodeNames[spec.off], 'src', false, false);
+        this.on = this.buildPin(spec.on, this.nodeNames[spec.on], 'src', false, false);
+        this.off = this.buildPin(spec.off, this.nodeNames[spec.off], 'src', false, false);
 
-        // Build loads
-        this.loads = spec.loads.map(l => this.buildLoad(l));
+        // Build unique load list
+        this.loads = spec.loads.map(l => this.buildLoad(l))
+            .sort((a, b) => this.compareLoads(a, b))
+            .filter((l, i, a) => {
+                for (const [idx, elem] of a.entries()) {
+                    if (this.compareLoads(elem, l) === 0) {
+                        return idx === i;
+                    }
+                }
 
-        // Build transistors
-        this.transistors = spec.transistors.map(t => this.buildTransistor(t));
+                return false;
+            });
+
+        // Build unique transistor list
+        this.transistors = spec.transistors.map(t => this.buildTransistor(t))
+            .sort((a, b) => this.compareTransistors(a, b))
+            .filter((t, i, a) => {
+                for (const [idx, elem] of a.entries()) {
+                    if (this.compareTransistors(elem, t) === 0) {
+                        return idx === i;
+                    }
+                }
+
+                return false;
+            });
     }
 
     printInfo() {
@@ -79,12 +99,45 @@ export class Layout {
         console.log(`Transistors: ${this.transistors.length}`);
     }
 
+    // --- Pin ---
+
+    buildPin(name, nodes, type, binary, writable) {
+        const len = nodes.length,
+              bits = (len === 1) ? 1 : Math.pow(2, Math.ceil(Math.max(0, Math.log2(len / 8)))) * 8;
+
+        if (len < 1) {
+            throw new TypeError(`Node set for pin '${name}' cannot be empty`);
+        } else if (bits > Layout.MAX_WIDTH) {
+            throw new TypeError(
+                `Pin ${name} with ${bits} bits is wider than supported max of ${Layout.MAX_WIDTH}`);
+        }
+
+        return {
+            id: name,
+            name: `${name}.${type}`,
+            type: type,
+            nodes: nodes,
+            bits: bits,
+            base: (bits === 1) ? 10 : binary ? 2 : 16,
+            writable: writable,
+        };
+    }
+
+    // --- Load ---
+
     buildLoad(tuple) {
         return {
             type: tuple[0],
             node: this.nodesById[tuple[1]],
         };
     }
+
+    compareLoads(a, b) {
+        return a.type.localeCompare(b.type) ||
+            a.node - b.node;
+    }
+
+    // --- Transistor ---
 
     buildTransistor(tuple) {
         return {
@@ -93,28 +146,11 @@ export class Layout {
             channel: [this.nodesById[tuple[2]], this.nodesById[tuple[3]]].sort((a, b) => a - b),
         };
     }
-}
 
-// --- Constructors ---
-
-function buildPin(name, nodes, type, binary, writable) {
-    const len = nodes.length,
-        bits = (len === 1) ? 1 : Math.pow(2, Math.ceil(Math.max(0, Math.log2(len / 8)))) * 8;
-
-    if (len < 1) {
-        throw new TypeError(`Node set for pin '${name}' cannot be empty`);
-    } else if (bits > Layout.MAX_WIDTH) {
-        throw new TypeError(
-            `Pin ${name} with ${bits} bits is wider than supported max of ${Layout.MAX_WIDTH}`);
+    compareTransistors(a, b) {
+        return a.type.localeCompare(b.type) ||
+            a.gate - b.gate ||
+            a.channel[0] - b.channel[0] ||
+            a.channel[1] - b.channel[1];
     }
-
-    return {
-        id: name,
-        name: `${name}.${type}`,
-        type: type,
-        nodes: nodes,
-        bits: bits,
-        base: (bits === 1) ? 10 : binary ? 2 : 16,
-        writable: writable,
-    };
 }
