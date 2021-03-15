@@ -66,10 +66,10 @@ export class Layout {
         this.off = buildPin(spec.off, this.nodeNames[spec.off], 'src', false, false);
 
         // Build loads
-        this.loads = spec.loads.map(l => buildLoad(l, this.nodesById));
+        this.loads = spec.loads.map(l => this.buildLoad(l));
 
         // Build transistors
-        this.transistors = spec.transistors.map(t => buildTransistor(t, this.nodesById));
+        this.transistors = spec.transistors.map(t => this.buildTransistor(t));
     }
 
     printInfo() {
@@ -77,6 +77,21 @@ export class Layout {
         console.log(`Pins:        ${this.pins.length}`);
         console.log(`Loads:       ${this.loads.length}`);
         console.log(`Transistors: ${this.transistors.length}`);
+    }
+
+    buildLoad(tuple) {
+        return {
+            type: tuple[0],
+            node: this.nodesById[tuple[1]],
+        };
+    }
+
+    buildTransistor(tuple) {
+        return {
+            type: tuple[0],
+            gate: this.nodesById[tuple[1]],
+            channel: [this.nodesById[tuple[2]], this.nodesById[tuple[3]]].sort((a, b) => a - b),
+        };
     }
 }
 
@@ -101,20 +116,5 @@ function buildPin(name, nodes, type, binary, writable) {
         bits: bits,
         base: (bits === 1) ? 10 : binary ? 2 : 16,
         writable: writable,
-    };
-}
-
-function buildLoad(tuple, nodesById) {
-    return {
-        type: tuple[0],
-        node: nodesById[tuple[1]],
-    };
-}
-
-function buildTransistor(tuple, nodesById) {
-    return {
-        type: tuple[0],
-        gate: nodesById[tuple[1]],
-        channel: [nodesById[tuple[2]], nodesById[tuple[3]]], // TODO: Sort
     };
 }
