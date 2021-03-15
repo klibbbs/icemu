@@ -9,7 +9,7 @@ export class Generator {
     }
 
     printInfo() {
-        const width = Math.max(Object.keys(this.files).map(k => k.length));
+        const width = Math.max(...Object.keys(this.files).map(k => k.length));
 
         Object.entries(this.files).forEach(([file, data]) => {
             const lines = (data.match(/\n/g) || []).length;
@@ -909,7 +909,7 @@ function generateC_layout_h(C, spec, layout) {
         `const nx_t ${C.device_caps}_ON  = ${C.getPinSym(layout.on)};`,
         `const nx_t ${C.device_caps}_OFF = ${C.getPinSym(layout.off)};`,
         '',
-        `const size_t ${C.device_caps}_NODE_COUNT = ${Math.max(...layout.nodeIds) + 1};`,
+        `const size_t ${C.device_caps}_NODE_COUNT = ${layout.nodeCount};`,
         '',
         comment('Component definitions', 2),
         '',

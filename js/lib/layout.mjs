@@ -4,9 +4,24 @@ export class Layout {
 
     constructor(spec) {
 
-        // TODO: Normalize nodes
-        this.nodeIds = spec.nodeIds;
-        this.nodeNames = spec.nodeNames;
+        // Normalize nodes
+        this.nodeIds = spec.nodeIds.sort((a, b) => {
+            if (typeof(a) === 'number' && typeof(b) === 'number') {
+                return a - b;
+            } else {
+                return String(a).localeCompare(String(b));
+            }
+        });
+
+        this.nodesById = Object.fromEntries(Object.entries(this.nodeIds).map(([idx, elem]) => {
+            return [elem, idx];
+        }));
+
+        this.nodeNames = Object.fromEntries(Object.entries(spec.nodeNames).map(([name, nodes]) => {
+            return [name, nodes.map(n => this.nodesById[n])];
+        }));
+
+        this.nodeCount = this.nodeIds.length;
 
         // Build memory model
         this.memory = {
@@ -51,10 +66,10 @@ export class Layout {
         this.off = buildPin(spec.off, this.nodeNames[spec.off], 'src', false, false);
 
         // Build loads
-        this.loads = spec.loads.map(l => buildLoad(l));
+        this.loads = spec.loads.map(l => buildLoad(l, this.nodesById));
 
         // Build transistors
-        this.transistors = spec.transistors.map(t => buildTransistor(t));
+        this.transistors = spec.transistors.map(t => buildTransistor(t, this.nodesById));
     }
 
     printInfo() {
@@ -89,17 +104,17 @@ function buildPin(name, nodes, type, binary, writable) {
     };
 }
 
-function buildLoad(tuple) {
+function buildLoad(tuple, nodesById) {
     return {
         type: tuple[0],
-        node: tuple[1],
+        node: nodesById[tuple[1]],
     };
 }
 
-function buildTransistor(tuple) {
+function buildTransistor(tuple, nodesById) {
     return {
         type: tuple[0],
-        gate: tuple[1],
-        channel: [tuple[2], tuple[3]], // TODO: Sort
+        gate: nodesById[tuple[1]],
+        channel: [nodesById[tuple[2]], nodesById[tuple[3]]], // TODO: Sort
     };
 }
