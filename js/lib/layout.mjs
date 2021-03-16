@@ -68,28 +68,12 @@ export class Layout {
         // Build unique load list
         this.loads = spec.loads.map(l => this.buildLoad(l))
             .sort((a, b) => this.compareLoads(a, b))
-            .filter((l, i, a) => {
-                for (const [idx, elem] of a.entries()) {
-                    if (this.compareLoads(elem, l) === 0) {
-                        return idx === i;
-                    }
-                }
-
-                return false;
-            });
+            .filter((v, i, a) => a.findIndex(l => this.compareLoads(v, l) === 0) === i);
 
         // Build unique transistor list
         this.transistors = spec.transistors.map(t => this.buildTransistor(t))
             .sort((a, b) => this.compareTransistors(a, b))
-            .filter((t, i, a) => {
-                for (const [idx, elem] of a.entries()) {
-                    if (this.compareTransistors(elem, t) === 0) {
-                        return idx === i;
-                    }
-                }
-
-                return false;
-            });
+            .filter((v, i, a) => a.findIndex(t => this.compareTransistors(v, t) === 0) === i);
     }
 
     printInfo() {
