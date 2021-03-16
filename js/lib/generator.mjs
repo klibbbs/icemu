@@ -59,7 +59,20 @@ export class Generator {
                     case 'pmos':
                         return 'TRANSISTOR_PMOS';
                     default:
-                        throw new TypeError(`Unsupported transistor type '${type}'`);
+                        throw new TypeError(`Unsupported transistor type '${transistor.type}'`);
+                }
+            },
+            getTopologyEnum: (transistor) => {
+                switch (transistor.topology) {
+                    case 'single':
+                        return 'TOPOLOGY_SINGLE';
+                    case 'parallel':
+                        return 'TOPOLOGY_PARELLEL';
+                    case 'series':
+                        return 'TOPOLOGY_SERIES';
+                    default:
+                        throw new TypeError(
+                            `Unsupported transistor topology '${transistor.topology}'`);
                 }
             },
         };
@@ -216,7 +229,8 @@ function generateC_device_c(C, spec, layout) {
             `${C.device_caps}_LOAD_DEFS,`,
             `${C.device_caps}_LOAD_COUNT,`,
             `${C.device_caps}_TRANSISTOR_DEFS,`,
-            `${C.device_caps}_TRANSISTOR_COUNT`,
+            `${C.device_caps}_TRANSISTOR_COUNT,`,
+            `${C.device_caps}_TRANSISTOR_GATE_COUNT`,
         ]),
         tab(1, '};'),
         '',
@@ -915,6 +929,7 @@ function generateC_layout_h(C, spec, layout) {
         `const size_t ${C.device_caps}_NODE_COUNT = ${layout.nodeCount};`,
         `const size_t ${C.device_caps}_LOAD_COUNT = ${layout.loads.length};`,
         `const size_t ${C.device_caps}_TRANSISTOR_COUNT = ${layout.transistors.length};`,
+        `const size_t ${C.device_caps}_TRANSISTOR_GATE_COUNT = ${layout.transistors.length};`,
         '',
         comment('Component definitions', 2),
         '',
@@ -925,11 +940,20 @@ function generateC_layout_h(C, spec, layout) {
         ] : []),
         '',
         ...(layout.transistors.length ? [
+            `const nx_t ${C.device_caps}_TRANSISTOR_GATES[][1] = {`,
+            tab(1, layout.transistors.map(t => `{${t.gates[0]}}`).join(",\n")),
+            '};',
+            '',
             `const transistor_t ${C.device_caps}_TRANSISTOR_DEFS[] = {`,
-            tab(1, layout.transistors.map(t => (
-                `{${C.getTransistorEnum(t)}, ${t.gate}, ${t.channel[0]}, ${t.channel[1]}}`
+            tab(1, layout.transistors.map((t, i) => (
+                `{` +
+                    `${C.getTransistorEnum(t)}, ${C.getTopologyEnum(t)}, ` +
+                    `${C.device_caps}_TRANSISTOR_GATES[${i}], ${t.gates.length}, ` +
+                    `${t.channel[0]}, ${t.channel[1]}` +
+                    `}`
             )).join(",\n")),
             '};',
+            '',
         ] : []),
         '',
         `#endif /* ${include_guard} */`,

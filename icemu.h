@@ -53,9 +53,17 @@ typedef enum {
     TRANSISTOR_PMOS = 2
 } transistor_type_t;
 
+typedef enum {
+    TOPOLOGY_SINGLE   = 0,
+    TOPOLOGY_PARALLEL = 1,
+    TOPOLOGY_SERIES   = 2
+} topology_t;
+
 typedef struct {
     transistor_type_t type;
-    nx_t gate;
+    topology_t topology;
+    const nx_t * gates;
+    size_t gates_count;
     nx_t c1;
     nx_t c2;
     bool_t dirty;
@@ -81,6 +89,7 @@ typedef struct {
 
     const transistor_t * transistors;
     size_t transistors_count;
+    size_t gates_count;
 } icemu_layout_t;
 
 typedef struct {

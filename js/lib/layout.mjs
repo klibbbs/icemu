@@ -126,15 +126,38 @@ export class Layout {
     buildTransistor(tuple) {
         return {
             type: tuple[0],
-            gate: this.nodesById[tuple[1]],
+            topology: 'single',
+            gates: [this.nodesById[tuple[1]]],
             channel: [this.nodesById[tuple[2]], this.nodesById[tuple[3]]].sort((a, b) => a - b),
         };
     }
 
     compareTransistors(a, b) {
         return a.type.localeCompare(b.type) ||
-            a.gate - b.gate ||
+            this.compareGates(a.gates, b.gates) ||
             a.channel[0] - b.channel[0] ||
             a.channel[1] - b.channel[1];
+    }
+
+    findParallelTransistor(t) {
+        return this.transistors.findIndex(v => {
+            return v.topology !== 'series' &&
+                v.channel[0] === t.channel[0] &&
+                v.channel[1] === t.channel[1];
+        });
+    }
+
+    // --- Gate ---
+
+    compareGates(a, b) {
+        for (let g = 0; g < a.length && g < b.length; g++) {
+            if (a[g] === b[g]) {
+                continue;
+            } else {
+                return a[g] - b[g];
+            }
+        }
+
+        return a.length - b.length;
     }
 }
