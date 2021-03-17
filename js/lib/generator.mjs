@@ -926,7 +926,7 @@ function generateC_layout_h(C, spec, layout) {
         '',
         comment('Component counts', 2),
         '',
-        `const size_t ${C.device_caps}_NODE_COUNT = ${layout.nodeCount};`,
+        `const size_t ${C.device_caps}_NODE_COUNT = ${Object.keys(layout.nodes).length};`,
         `const size_t ${C.device_caps}_LOAD_COUNT = ${layout.loads.length};`,
         `const size_t ${C.device_caps}_TRANSISTOR_COUNT = ${layout.transistors.length};`,
         `const size_t ${C.device_caps}_TRANSISTOR_GATE_COUNT = ${layout.transistors.length};`,

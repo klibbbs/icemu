@@ -4,24 +4,7 @@ export class Layout {
 
     constructor(spec) {
 
-        // Normalize nodes
-        this.nodeIds = spec.nodeIds.sort((a, b) => {
-            if (typeof(a) === 'number' && typeof(b) === 'number') {
-                return a - b;
-            } else {
-                return String(a).localeCompare(String(b));
-            }
-        });
-
-        this.nodesById = Object.fromEntries(Object.entries(this.nodeIds).map(([idx, elem]) => {
-            return [elem, idx];
-        }));
-
-        this.nodeNames = Object.fromEntries(Object.entries(spec.nodeNames).map(([name, nodes]) => {
-            return [name, nodes.map(n => this.nodesById[n])];
-        }));
-
-        this.nodeCount = this.nodeIds.length;
+        // --- Build components ---
 
         // Build memory model
         this.memory = {
@@ -50,114 +33,127 @@ export class Layout {
 
         this.pins = [].concat(
             ...[
-                ...pins_rw_hex.map(n => this.buildPin(n, this.nodeNames[n], 'pin', false, true)),
-                ...pins_rw_bin.map(n => this.buildPin(n, this.nodeNames[n], 'pin', true, true)),
-                ...pins_ro_hex.map(n => this.buildPin(n, this.nodeNames[n], 'pin', false, false)),
-                ...pins_ro_bin.map(n => this.buildPin(n, this.nodeNames[n], 'pin', true, false)),
+                ...pins_rw_hex.map(n => buildPin(n, spec.nodeNames[n], 'pin', false, true)),
+                ...pins_rw_bin.map(n => buildPin(n, spec.nodeNames[n], 'pin', true, true)),
+                ...pins_ro_hex.map(n => buildPin(n, spec.nodeNames[n], 'pin', false, false)),
+                ...pins_ro_bin.map(n => buildPin(n, spec.nodeNames[n], 'pin', true, false)),
             ].sort((a, b) => a.id.localeCompare(b.id)),
             ...[
-                ...regs_ro_hex.map(n => this.buildPin(n, this.nodeNames[n], 'reg', false, false)),
-                ...regs_ro_bin.map(n => this.buildPin(n, this.nodeNames[n], 'reg', true, false)),
+                ...regs_ro_hex.map(n => buildPin(n, spec.nodeNames[n], 'reg', false, false)),
+                ...regs_ro_bin.map(n => buildPin(n, spec.nodeNames[n], 'reg', true, false)),
             ].sort((a, b) => a.id.localeCompare(b.id)),
         );
 
         // Build source pins
-        this.on = this.buildPin(spec.on, this.nodeNames[spec.on], 'src', false, false);
-        this.off = this.buildPin(spec.off, this.nodeNames[spec.off], 'src', false, false);
+        this.on = buildPin(spec.on, spec.nodeNames[spec.on], 'src', false, false);
+        this.off = buildPin(spec.off, spec.nodeNames[spec.off], 'src', false, false);
 
         // Build unique load list
-        this.loads = spec.loads.map(l => this.buildLoad(l))
-            .sort((a, b) => this.compareLoads(a, b))
-            .filter((v, i, a) => a.findIndex(l => this.compareLoads(v, l) === 0) === i);
+        this.loads = spec.loads.map(l => buildLoad(l))
+            .sort((a, b) => compareLoads(a, b))
+            .filter((v, i, a) => a.findIndex(l => compareLoads(v, l) === 0) === i);
 
         // Build unique transistor list
-        this.transistors = spec.transistors.map(t => this.buildTransistor(t))
-            .sort((a, b) => this.compareTransistors(a, b))
-            .filter((v, i, a) => a.findIndex(t => this.compareTransistors(v, t) === 0) === i);
+        this.transistors = spec.transistors.map(t => buildTransistor(t))
+            .sort((a, b) => compareTransistors(a, b))
+            .filter((v, i, a) => a.findIndex(t => compareTransistors(v, t) === 0) === i);
+
+        // --- Normalize nodes ---
+
+        // Map nodes to unique indices
+        this.nodes = Object.fromEntries(
+            spec.nodeIds.sort((a, b) => compareScalar(a, b)).map((node, idx) => [node, idx])
+        );
+
+        // Replace nodes with indices in pins, loads, and transistors
+        this.pins.forEach(p => { p.nodes = p.nodes.map(n => this.nodes[n]) });
+        this.on.nodes = this.on.nodes.map(n => this.nodes[n]);
+        this.off.nodes = this.off.nodes.map(n => this.nodes[n]);
+        this.loads.forEach(l => { l.node = this.nodes[l.node] });
+        this.transistors.forEach(t => {
+            t.gates = t.gates.map(n => this.nodes[n]);
+            t.channel = t.channel.map(n => this.nodes[n]);
+        });
     }
 
     printInfo() {
-        console.log(`Nodes:       ${this.nodeIds.length}`);
+        console.log(`Nodes:       ${Object.keys(this.nodes).length}`);
         console.log(`Pins:        ${this.pins.length}`);
         console.log(`Loads:       ${this.loads.length}`);
         console.log(`Transistors: ${this.transistors.length}`);
     }
+}
 
-    // --- Pin ---
+// --- Builders ---
 
-    buildPin(name, nodes, type, binary, writable) {
-        const len = nodes.length,
-              bits = (len === 1) ? 1 : Math.pow(2, Math.ceil(Math.max(0, Math.log2(len / 8)))) * 8;
+function buildPin(name, nodes, type, binary, writable) {
+    const len = nodes.length,
+          bits = (len === 1) ? 1 : Math.pow(2, Math.ceil(Math.max(0, Math.log2(len / 8)))) * 8;
 
-        if (len < 1) {
-            throw new TypeError(`Node set for pin '${name}' cannot be empty`);
-        } else if (bits > Layout.MAX_WIDTH) {
-            throw new TypeError(
-                `Pin ${name} with ${bits} bits is wider than supported max of ${Layout.MAX_WIDTH}`);
+    if (len < 1) {
+        throw new TypeError(`Node set for pin '${name}' cannot be empty`);
+    } else if (bits > Layout.MAX_WIDTH) {
+        throw new TypeError(
+            `Pin ${name} with ${bits} bits is wider than supported max of ${Layout.MAX_WIDTH}`);
+    }
+
+    return {
+        id: name,
+        name: `${name}.${type}`,
+        type: type,
+        nodes: nodes,
+        bits: bits,
+        base: (bits === 1) ? 10 : binary ? 2 : 16,
+        writable: writable,
+    };
+}
+
+function buildLoad(tuple) {
+    return {
+        type: tuple[0],
+        node: tuple[1],
+    };
+}
+
+function buildTransistor(tuple) {
+    return {
+        type: tuple[0],
+        topology: 'single',
+        gates: [tuple[1]],
+        gatesId: null,
+        channel: [tuple[2], tuple[3]].sort((a, b) => a - b),
+    };
+}
+
+// --- Comparators ---
+
+function compareScalar(a, b) {
+    if (typeof(a) === 'number' && typeof(b) === 'number') {
+        return a - b;
+    } else {
+        return String(a).localeCompare(String(b));
+    }
+}
+
+function compareArrays(a, b) {
+    for (let i = 0; i < a.length && i < b.length; i++) {
+        if (a[i] === b[i]) {
+            continue;
+        } else {
+            return a[i] - b[i];
         }
-
-        return {
-            id: name,
-            name: `${name}.${type}`,
-            type: type,
-            nodes: nodes,
-            bits: bits,
-            base: (bits === 1) ? 10 : binary ? 2 : 16,
-            writable: writable,
-        };
     }
 
-    // --- Load ---
+    return a.length - b.length;
+}
 
-    buildLoad(tuple) {
-        return {
-            type: tuple[0],
-            node: this.nodesById[tuple[1]],
-        };
-    }
+function compareLoads(a, b) {
+    return a.type.localeCompare(b.type) || a.node - b.node;
+}
 
-    compareLoads(a, b) {
-        return a.type.localeCompare(b.type) ||
-            a.node - b.node;
-    }
-
-    // --- Transistor ---
-
-    buildTransistor(tuple) {
-        return {
-            type: tuple[0],
-            topology: 'single',
-            gates: [this.nodesById[tuple[1]]],
-            channel: [this.nodesById[tuple[2]], this.nodesById[tuple[3]]].sort((a, b) => a - b),
-        };
-    }
-
-    compareTransistors(a, b) {
-        return a.type.localeCompare(b.type) ||
-            this.compareGates(a.gates, b.gates) ||
-            a.channel[0] - b.channel[0] ||
-            a.channel[1] - b.channel[1];
-    }
-
-    findParallelTransistor(t) {
-        return this.transistors.findIndex(v => {
-            return v.topology !== 'series' &&
-                v.channel[0] === t.channel[0] &&
-                v.channel[1] === t.channel[1];
-        });
-    }
-
-    // --- Gate ---
-
-    compareGates(a, b) {
-        for (let g = 0; g < a.length && g < b.length; g++) {
-            if (a[g] === b[g]) {
-                continue;
-            } else {
-                return a[g] - b[g];
-            }
-        }
-
-        return a.length - b.length;
-    }
+function compareTransistors(a, b) {
+    return a.type.localeCompare(b.type) ||
+        a.gatesId - b.gatesId ||
+        compareArrays(a.gates, b.gates) ||
+        compareArrays(a.channel, b.channel);
 }
