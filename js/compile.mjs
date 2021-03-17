@@ -27,7 +27,9 @@ spec.printInfo();
 
 // Construct layout from device spec
 try {
-    var layout = new Layout(spec);
+    var layout = new Layout(spec, {
+        reduceTransistors: false,
+    });
 } catch (e) {
     console.error(`Error compiling device layout: ${e.message}`);
     process.exit(1);

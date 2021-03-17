@@ -2,7 +2,7 @@ export class Layout {
 
     MAX_WIDTH = 16;
 
-    constructor(spec) {
+    constructor(spec, options) {
 
         // --- Build components ---
 
@@ -58,6 +58,36 @@ export class Layout {
             .sort((a, b) => compareTransistors(a, b))
             .filter((v, i, a) => a.findIndex(t => compareTransistors(v, t) === 0) === i);
 
+        // --- Reduce components ---
+
+        if (options.reduceTransistors) {
+
+            // Reduce parallel transistors
+            this.transistors.forEach((t, i, a) => {
+                if (t.reduced || t.topology === 'series') {
+                    return;
+                }
+
+                a.forEach((t2, i2) => {
+                    if (i === i2 || t2.reduced || t2.topology === 'series') {
+                        return;
+                    }
+
+                    if (t.channel[0] === t2.channel[0] && t.channel[1] === t2.channel[1]) {
+                        t.topology = 'parallel';
+                        t.gates = t.gates.concat(t2.gates);
+                        t2.reduced = true;
+                    }
+                });
+            });
+
+            // Reduce series transistors
+            // TODO
+
+            // Remove reduced transistors
+            this.transistors = this.transistors.filter(t => !t.reduced);
+        }
+
         // --- Normalize nodes ---
 
         // Map nodes to unique indices
@@ -74,13 +104,38 @@ export class Layout {
             t.gates = t.gates.map(n => this.nodes[n]);
             t.channel = t.channel.map(n => this.nodes[n]);
         });
+
+        // --- Build gates ---
+
+        // Find unique gate sets
+        this.gates = this.transistors.map(t => t.gates)
+            .filter((v, i, a) => a.findIndex(g => compareArrays(v, g) === 0) === i)
+            .sort((a, b) => compareArrays(a, b));
+
+        // Map transistors to gate sets
+        this.transistors.forEach(t => {
+            t.gatesId = this.gates.findIndex(g => compareArrays(t.gates, g) === 0);
+        });
+
+        this.transistors.sort((a, b) => compareTransistors(a, b));
+
+        // --- Calculate counts ---
+
+        this.counts = {
+            nodes: Object.keys(this.nodes).length,
+            pins: this.pins.length,
+            loads: this.loads.length,
+            transistors: this.transistors.length,
+            gates: this.transistors.reduce((total, t) => total + t.gates.length, 0),
+        };
     }
 
     printInfo() {
-        console.log(`Nodes:       ${Object.keys(this.nodes).length}`);
-        console.log(`Pins:        ${this.pins.length}`);
-        console.log(`Loads:       ${this.loads.length}`);
-        console.log(`Transistors: ${this.transistors.length}`);
+        console.log(`Nodes:       ${this.counts.nodes}`);
+        console.log(`Pins:        ${this.counts.pins}`);
+        console.log(`Loads:       ${this.counts.loads}`);
+        console.log(`Transistors: ${this.counts.transistors}`);
+        console.log(`Gates:       ${this.counts.gates}`);
     }
 }
 
