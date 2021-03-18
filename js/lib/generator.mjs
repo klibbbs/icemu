@@ -67,7 +67,7 @@ export class Generator {
                     case 'single':
                         return 'TOPOLOGY_SINGLE';
                     case 'parallel':
-                        return 'TOPOLOGY_PARELLEL';
+                        return 'TOPOLOGY_PARALLEL';
                     case 'series':
                         return 'TOPOLOGY_SERIES';
                     default:
@@ -940,7 +940,7 @@ function generateC_layout_h(C, spec, layout) {
         ] : []),
         '',
         ...(layout.transistors.length ? [
-            `const nx_t ${C.device_caps}_TRANSISTOR_GATES[][1] = {`,
+            `const nx_t ${C.device_caps}_TRANSISTOR_GATES[][${layout.gatesWidth}] = {`,
             tab(1, layout.gates.map(g => `{${g.join(", ")}}`).join(",\n")),
             '};',
             '',

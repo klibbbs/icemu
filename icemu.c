@@ -425,15 +425,38 @@ void icemu_transistor_resolve(icemu_t * ic, tx_t t) {
 }
 
 bool_t icemu_transistor_open(const icemu_t * ic, tx_t t) {
-    const transistor_t * transistor = &ic->transistors[t];
-    const node_t * gate = &ic->nodes[transistor->gates[0]];
+    transistor_t * transistor = &ic->transistors[t];
+    nx_t g;
 
-    switch (transistor->type) {
-        case TRANSISTOR_NMOS:
-            return gate->state == BIT_ONE;
-        case TRANSISTOR_PMOS:
-            return gate->state == BIT_ZERO;
+    for (g = 0; g < transistor->gates_count; g++) {
+        bit_t state = ic->nodes[transistor->gates[g]].state;
+
+        switch (transistor->topology) {
+            case TOPOLOGY_SINGLE:
+                return
+                    (transistor->type == TRANSISTOR_NMOS && state == BIT_ONE) ||
+                    (transistor->type == TRANSISTOR_PMOS && state == BIT_ZERO);
+
+            case TOPOLOGY_PARALLEL:
+                if ((transistor->type == TRANSISTOR_NMOS && state == BIT_ONE) ||
+                    (transistor->type == TRANSISTOR_PMOS && state == BIT_ZERO)) {
+
+                    return true;
+                } else {
+                    break;
+                }
+            case TOPOLOGY_SERIES:
+                if ((transistor->type == TRANSISTOR_NMOS && state == BIT_ZERO) ||
+                    (transistor->type == TRANSISTOR_PMOS && state == BIT_ONE)) {
+
+                    return false;
+                } else {
+                    break;
+                }
+            default:
+                return false;
+        }
     }
 
-    return false;
+    return transistor->topology == TOPOLOGY_SERIES;
 }

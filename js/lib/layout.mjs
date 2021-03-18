@@ -128,6 +128,8 @@ export class Layout {
             transistors: this.transistors.length,
             gates: this.transistors.reduce((total, t) => total + t.gates.length, 0),
         };
+
+        this.gatesWidth = Math.max(...this.gates.map(g => g.length));
     }
 
     printInfo() {
