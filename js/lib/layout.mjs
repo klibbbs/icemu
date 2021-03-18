@@ -15,6 +15,10 @@ export class Layout {
             count: Math.pow(2, spec.memory.address) * 8 / spec.memory.word,
         };
 
+        // Build source pins
+        this.on = buildPin(spec.on, spec.nodeNames[spec.on], 'src', false, false);
+        this.off = buildPin(spec.off, spec.nodeNames[spec.off], 'src', false, false);
+
         // Build pin sets
         const srcs = [spec.on, spec.off];
         const pins = [].concat(spec.inputs, spec.outputs).filter((v, i, a) => a.indexOf(v) === i);
@@ -44,10 +48,6 @@ export class Layout {
             ].sort((a, b) => a.id.localeCompare(b.id)),
         );
 
-        // Build source pins
-        this.on = buildPin(spec.on, spec.nodeNames[spec.on], 'src', false, false);
-        this.off = buildPin(spec.off, spec.nodeNames[spec.off], 'src', false, false);
-
         // Build unique load list
         this.loads = spec.loads.map(l => buildLoad(l))
             .sort((a, b) => compareLoads(a, b))
@@ -61,46 +61,21 @@ export class Layout {
         // --- Reduce components ---
 
         if (options.reduceTransistors) {
-
-            // Reduce self-connected transistors
-            this.transistors.forEach(t => {
-                if (t.channel[0] === t.channel[1]) {
-                    t.reduced = true;
-                }
-            });
-
-            // Reduce parallel transistors
-            this.transistors.forEach((t, i, a) => {
-                if (t.reduced || t.topology === 'series') {
-                    return;
-                }
-
-                a.forEach((t2, i2) => {
-                    if (i === i2 || t2.reduced || t2.topology === 'series') {
-                        return;
-                    }
-
-                    if (t.channel[0] === t2.channel[0] && t.channel[1] === t2.channel[1]) {
-                        t.topology = 'parallel';
-                        t.gates = t.gates.concat(t2.gates);
-                        t2.reduced = true;
-                    }
-                });
-            });
-
-            // Reduce series transistors
-            // TODO
-
-            // Remove reduced transistors
-            this.transistors = this.transistors.filter(t => !t.reduced);
+            while (this.reduceTransistors());
         }
 
         // --- Normalize nodes ---
 
         // Map nodes to unique indices
-        this.nodes = Object.fromEntries(
-            spec.nodeIds.sort((a, b) => compareScalar(a, b)).map((node, idx) => [node, idx])
-        );
+        const nodeIds = [].concat(
+            this.on.nodes,
+            this.off.nodes,
+            ...this.pins.map(p => p.nodes),
+            this.loads.map(l => l.node),
+            ...this.transistors.filter(t => !t.reduced).map(t => t.channel.concat(t.gates)),
+        ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => compareScalar(a, b));
+
+        this.nodes = Object.fromEntries(nodeIds.map((node, idx) => [node, idx]));
 
         // Replace nodes with indices in pins, loads, and transistors
         this.pins.forEach(p => { p.nodes = p.nodes.map(n => this.nodes[n]) });
@@ -137,6 +112,124 @@ export class Layout {
         };
 
         this.gatesWidth = Math.max(...this.gates.map(g => g.length));
+    }
+
+    reduceTransistors() {
+
+        // Reverse-map nodes to components
+        const pinsByNode = this.pins.reduce((map, p, i) => {
+            p.nodes.forEach(n => {
+                if (map[n]) {
+                    map[n].push(i);
+                } else {
+                    map[n] = [i];
+                }
+            });
+
+            return map;
+        }, {});
+
+        const loadsByNode = Object.fromEntries(this.loads.map((l, i) => [l.node, i]));
+
+        const transistorsByGate = this.transistors.reduce((map, t, i) => {
+            t.gates.forEach(g => {
+                if (map[g]) {
+                    map[g].push(i);
+                } else {
+                    map[g] = [i];
+                }
+            });
+
+            return map;
+        }, {});
+
+        const transistorsByChannel = this.transistors.reduce((map, t, i) => {
+            t.channel.forEach(c => {
+                if (map[c]) {
+                    map[c].push(i);
+                } else {
+                    map[c] = [i];
+                }
+            });
+
+            return map;
+        }, {});
+
+        // Reduce self-connected transistors
+        this.transistors.forEach(t => {
+            if (t.channel[0] === t.channel[1]) {
+                t.reduced = true;
+            }
+        });
+
+        // Reduce parallel transistors
+        this.transistors.forEach((t, i, a) => {
+            if (t.reduced || t.topology === 'series') {
+                return;
+            }
+
+            transistorsByChannel[t.channel[0]].forEach(i2 => {
+                let t2 = this.transistors[i2];
+
+                if (i === i2 || t2.reduced || t2.topology === 'series') {
+                    return;
+                }
+
+                if (t.channel[1] === t2.channel[1] && t.type === t2.type) {
+                    t.topology = 'parallel';
+                    t.gates = t.gates.concat(t2.gates);
+                    t2.reduced = true;
+                }
+            });
+        });
+
+        // Reduce series transistors
+        this.transistors.forEach((t, i, a) => {
+            if (t.reduced || t.topology === 'parallel') {
+                return;
+            }
+
+            t.channel.forEach(n => {
+                if (this.on.nodes[0] === n ||
+                    this.off.nodes[0] === n ||
+                    pinsByNode[n] ||
+                    loadsByNode[n] ||
+                    transistorsByGate[n]) {
+                    return;
+                }
+
+                if (transistorsByChannel[n].length !== 2) {
+                    return;
+                }
+
+                let t2 = this.transistors[transistorsByChannel[n].filter(i2 => i2 !== i)[0]];
+
+                if (t2.reduced || t2.topology === 'parallel') {
+                    return;
+                }
+
+                const n1 = t.channel.filter(c => c !== n)[0];
+                const n2 = t2.channel.filter(c => c !== n)[0];
+
+                t.topology = 'series';
+                t.gates = t.gates.concat(t2.gates);
+                t.channel = [n1, n2].sort((a, b) => a - b);
+                t2.reduced = true;
+            });
+        });
+
+        // Remove reduced transistors
+        let reduced = false;
+
+        this.transistors = this.transistors.filter(t => {
+            if (t.reduced) {
+                reduced = true;
+            }
+
+            return !t.reduced;
+        });
+
+        return reduced;
     }
 
     printInfo() {

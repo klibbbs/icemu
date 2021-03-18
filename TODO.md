@@ -5,6 +5,5 @@
 - Implement remaining icescript commands
 - First pass performance profiling of transistor-level emulation
 - Tool for exploring netlist "neighborhoods"
-- Series/parallel gate refactoring
 - Boolean network refactoring
 - Component refactoring
