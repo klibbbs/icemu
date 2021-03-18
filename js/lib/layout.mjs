@@ -62,6 +62,13 @@ export class Layout {
 
         if (options.reduceTransistors) {
 
+            // Reduce self-connected transistors
+            this.transistors.forEach(t => {
+                if (t.channel[0] === t.channel[1]) {
+                    t.reduced = true;
+                }
+            });
+
             // Reduce parallel transistors
             this.transistors.forEach((t, i, a) => {
                 if (t.reduced || t.topology === 'series') {
