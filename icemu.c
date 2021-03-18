@@ -14,7 +14,7 @@ static void icemu_network_reset(icemu_t * ic);
 static void icemu_network_add(icemu_t * ic, nx_t n);
 static void icemu_network_resolve(icemu_t * ic, unsigned int iter);
 static void icemu_transistor_resolve(icemu_t * ic, tx_t t);
-static bool_t icemu_transistor_open(const icemu_t * ic, tx_t t);
+static bit_t icemu_transistor_state(const icemu_t * ic, const transistor_t * transistor);
 
 /* =========== */
 /*    Types    */
@@ -79,6 +79,7 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
         ic->transistors[t].gates_count = layout->transistors[t].gates_count;
         ic->transistors[t].c1          = layout->transistors[t].c1;
         ic->transistors[t].c2          = layout->transistors[t].c2;
+        ic->transistors[t].state       = BIT_Z;
         ic->transistors[t].dirty       = false;
     }
 
@@ -305,11 +306,10 @@ void icemu_network_add(icemu_t * ic, nx_t n) {
     /* Search for transistor channels connected to this node */
     for (c = 0; c < ic->node_channels_counts[n]; c++) {
         tx_t t = ic->node_channels[n][c];
+        transistor_t * transistor = &ic->transistors[t];
 
         /* If the transistor is enabled, recursively expand the network to the other terminal */
-        if (icemu_transistor_open(ic, t)) {
-            const transistor_t * transistor = &ic->transistors[t];
-
+        if (transistor->state == BIT_ONE) {
             if (transistor->c1 == n) {
                 icemu_network_add(ic, transistor->c2);
             } else if (transistor->c2 == n) {
@@ -414,18 +414,21 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
 void icemu_transistor_resolve(icemu_t * ic, tx_t t) {
     transistor_t * transistor = &ic->transistors[t];
 
-    /* Update dirty flags for affected nodes */
-    if (transistor->dirty) {
+    /* Recalculate transistor state */
+    bit_t state = icemu_transistor_state(ic, transistor);
+
+    /* Update dirty flags for affected nodes if the state changed */
+    if (state != transistor->state) {
         ic->nodes[transistor->c1].dirty = true;
         ic->nodes[transistor->c2].dirty = true;
     }
 
-    /* Clear transistor dirty flag */
+    /* Update transistor state and clear dirty flag */
+    transistor->state = state;
     transistor->dirty = false;
 }
 
-bool_t icemu_transistor_open(const icemu_t * ic, tx_t t) {
-    transistor_t * transistor = &ic->transistors[t];
+bit_t icemu_transistor_state(const icemu_t * ic, const transistor_t * transistor) {
     nx_t g;
 
     for (g = 0; g < transistor->gates_count; g++) {
@@ -441,7 +444,7 @@ bool_t icemu_transistor_open(const icemu_t * ic, tx_t t) {
                 if ((transistor->type == TRANSISTOR_NMOS && state == BIT_ONE) ||
                     (transistor->type == TRANSISTOR_PMOS && state == BIT_ZERO)) {
 
-                    return true;
+                    return BIT_ONE;
                 } else {
                     break;
                 }
@@ -449,14 +452,14 @@ bool_t icemu_transistor_open(const icemu_t * ic, tx_t t) {
                 if ((transistor->type == TRANSISTOR_NMOS && state == BIT_ZERO) ||
                     (transistor->type == TRANSISTOR_PMOS && state == BIT_ONE)) {
 
-                    return false;
+                    return BIT_ZERO;
                 } else {
                     break;
                 }
             default:
-                return false;
+                return BIT_ZERO;
         }
     }
 
-    return transistor->topology == TOPOLOGY_SERIES;
+    return transistor->topology == TOPOLOGY_SERIES ? BIT_ONE : BIT_ZERO;
 }

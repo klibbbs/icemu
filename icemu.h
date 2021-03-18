@@ -66,6 +66,7 @@ typedef struct {
     size_t gates_count;
     nx_t c1;
     nx_t c2;
+    bit_t state;
     bool_t dirty;
 } transistor_t;
 
