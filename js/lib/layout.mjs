@@ -6,15 +6,6 @@ export class Layout {
 
         // --- Build components ---
 
-        // Build memory model
-        this.memory = {
-            word: spec.memory.word,
-            word_type: Math.pow(2, Math.ceil(Math.max(0, Math.log2(spec.memory.word / 8)))) * 8,
-            addr: spec.memory.address,
-            addr_type: Math.pow(2, Math.ceil(Math.max(0, Math.log2(spec.memory.address / 8)))) * 8,
-            count: Math.pow(2, spec.memory.address) * 8 / spec.memory.word,
-        };
-
         // Build source pins
         this.on = buildPin(spec.on, spec.nodeNames[spec.on], 'src', false, false);
         this.off = buildPin(spec.off, spec.nodeNames[spec.off], 'src', false, false);
