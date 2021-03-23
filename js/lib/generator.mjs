@@ -400,7 +400,7 @@ function generateC_adapter_c(C, spec, layout) {
         '',
         comment('Pin mapping', 2),
         '',
-        ...(layout.pins.filter(p => p.bits === 16).length ? [
+        ...(layout.pins.filter(p => p.bits === 16 && p.readable).length ? [
             'typedef struct {',
             tab(1, [
                 'const char * pin;',
@@ -412,7 +412,7 @@ function generateC_adapter_c(C, spec, layout) {
             '} pin_16_func_t;',
         ] : []),
         '',
-        ...(layout.pins.filter(p => p.bits === 8).length ? [
+        ...(layout.pins.filter(p => p.bits === 8 && p.readable).length ? [
             'typedef struct {',
             tab(1, [
                 'const char * pin;',
@@ -424,7 +424,7 @@ function generateC_adapter_c(C, spec, layout) {
             '} pin_8_func_t;',
         ] : []),
         '',
-        ...(layout.pins.filter(p => p.bits === 1).length ? [
+        ...(layout.pins.filter(p => p.bits === 1 && p.readable).length ? [
             'typedef struct {',
             tab(1, [
                 'const char * pin;',
@@ -435,9 +435,9 @@ function generateC_adapter_c(C, spec, layout) {
             '} pin_1_func_t;',
         ] : []),
         '',
-        ...(layout.pins.filter(p => p.bits === 16).length ? [
+        ...(layout.pins.filter(p => p.bits === 16 && p.readable).length ? [
             `static const pin_16_func_t ${C.device_caps}_PIN_16_MAP[] = {`,
-            tab(1, layout.pins.filter(p => p.bits === 16).map(p => (
+            tab(1, layout.pins.filter(p => p.bits === 16 & p.readable).map(p => (
                 `{ "${p.id}.${p.type}", ${p.base}, ${C.device}_get_${p.type}_${p.id}, ` +
                     (p.writable ? `${C.device}_set_${p.type}_${p.id}` : 'NULL') + ' },'
             ))),
@@ -447,9 +447,9 @@ function generateC_adapter_c(C, spec, layout) {
                 `sizeof(${C.device_caps}_PIN_16_MAP) / sizeof(pin_16_func_t);`
         ] : []),
         '',
-        ...(layout.pins.filter(p => p.bits === 8).length ? [
+        ...(layout.pins.filter(p => p.bits === 8 && p.readable).length ? [
             `static const pin_8_func_t ${C.device_caps}_PIN_8_MAP[] = {`,
-            tab(1, layout.pins.filter(p => p.bits === 8).map(p => (
+            tab(1, layout.pins.filter(p => p.bits === 8 && p.readable).map(p => (
                 `{ "${p.id}.${p.type}", ${p.base}, ${C.device}_get_${p.type}_${p.id}, ` +
                     (p.writable ? `${C.device}_set_${p.type}_${p.id}` : 'NULL') + ' },'
             ))),
@@ -459,9 +459,9 @@ function generateC_adapter_c(C, spec, layout) {
                 `sizeof(${C.device_caps}_PIN_8_MAP) / sizeof(pin_8_func_t);`
         ] : []),
         '',
-        ...(layout.pins.filter(p => p.bits === 1).length ? [
+        ...(layout.pins.filter(p => p.bits === 1 && p.readable).length ? [
             `static const pin_1_func_t ${C.device_caps}_PIN_1_MAP[] = {`,
-            tab(1, layout.pins.filter(p => p.bits === 1).map(p => (
+            tab(1, layout.pins.filter(p => p.bits === 1 && p.readable).map(p => (
                 `{ "${p.id}.${p.type}", ${C.device}_get_${p.type}_${p.id}, ` +
                     (p.writable ? `${C.device}_set_${p.type}_${p.id}` : 'NULL') + ' },'
             ))),
