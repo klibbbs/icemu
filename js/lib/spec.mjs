@@ -1,56 +1,133 @@
+const SCHEMAS = {
+    device: {
+        id: true,
+        name: true,
+        nodes: {},
+        on: true,
+        off: true,
+        outputs: true,
+    },
+    inverter: {
+        nodes: {
+            a: 1,
+            q: 1,
+        },
+    }
+};
+
 export class Spec {
 
-    constructor(spec) {
+    constructor(spec, schema) {
+
+        // Device type
+        this.type = validateEnum('type', spec.type, Object.keys(SCHEMAS));
+
+        this.schema = SCHEMAS[this.type];
 
         // Device info
-        this.id = validateIdentifier('id', spec.id);
-        this.name = validateString('name', spec.name);
+        if (this.schema.id || spec.id) {
+            this.id = validateIdentifier('id', spec.id);
+        }
+
+        if (this.schema.name || spec.name) {
+            this.name = validateString('name', spec.name);
+        }
 
         // Memory model
-        this.memory = validateStruct('memory', spec.memory, {
-            word: (field, val) => validateWidth(field, val),
-            address: (field, val) => validateInt(field, val, 1),
-        });
+        if (this.schema.memory || spec.memory) {
+            this.memory = validateStruct('memory', spec.memory, {
+                word: (field, val) => validateWidth(field, val),
+                address: (field, val) => validateInt(field, val, 1),
+            });
+        }
 
         // Node names
         this.nodeNames = validateMap('nodes', spec.nodes, validateIdentifier, validateNodeSet);
 
+        for (const [name, width] of Object.entries(this.schema.nodes)) {
+            if (this.nodeNames[name] === undefined) {
+                throw new TypeError(`Node '${name}' is required by type '${this.type}'`);
+            }
+
+            if (this.nodeNames[name].length !== width) {
+                throw new TypeError(`Node '${name}' must have width ${width}`);
+            }
+        }
+
         // Node assignments
-        this.on = validateSingleNodeName('on', spec.on, this.nodeNames);
-        this.off = validateSingleNodeName('off', spec.off, this.nodeNames);
+        if (this.schema.on || spec.on) {
+            this.on = validateSingleNodeName('on', spec.on, this.nodeNames);
+        }
 
-        this.inputs = validateArray('inputs', spec.inputs, (field, val) => {
-            return validateNodeName(field, val, this.nodeNames);
-        });
+        if (this.schema.off || spec.off) {
+            this.off = validateSingleNodeName('off', spec.off, this.nodeNames);
+        }
 
-        this.outputs = validateArray('outputs', spec.outputs, (field, val) => {
-            return validateNodeName(field, val, this.nodeNames);
-        });
+        if (this.schema.inputs || spec.inputs) {
+            this.inputs = validateArray('inputs', spec.inputs, (field, val) => {
+                return validateNodeName(field, val, this.nodeNames);
+            });
+        } else {
+            this.inputs = [];
+        }
 
-        this.registers = validateArray('registers', spec.registers, (field, val) => {
-            return validateNodeName(field, val, this.nodeNames);
-        });
+        if (this.schema.outputs || spec.outputs) {
+            this.outputs = validateArray('outputs', spec.outputs, (field, val) => {
+                return validateNodeName(field, val, this.nodeNames);
+            });
+        } else {
+            this.outputs = [];
+        }
 
-        this.flags = validateArray('flags', spec.flags, (field, val) => {
-            return validateNodeName(field, val, this.nodeNames);
-        });
+        if (this.schema.registers || spec.registers) {
+            this.registers = validateArray('registers', spec.registers, (field, val) => {
+                return validateNodeName(field, val, this.nodeNames);
+            });
+        } else {
+            this.registers = [];
+        }
+
+        if (this.schema.flags || spec.flags) {
+            this.flags = validateArray('flags', spec.flags, (field, val) => {
+                return validateNodeName(field, val, this.nodeNames);
+            });
+        } else {
+            this.flags = [];
+        }
 
         // Components
-        this.loads = validateArray('loads', spec.loads, (field, val) => {
-            return validateTuple(field, val, [
-                (field, val) => validateEnum(field, val, ['on', 'off']),
-                validateNode
-            ])
-        });
+        if (spec.loads) {
+            this.loads = validateArray('loads', spec.loads, (field, val) => {
+                return validateTuple(field, val, [
+                    (field, val) => validateEnum(field, val, ['on', 'off']),
+                    validateNode
+                ])
+            });
+        } else {
+            this.loads = [];
+        }
 
-        this.transistors = validateArray('transistors', spec.transistors, (field, val) => {
-            return validateTuple(field, val, [
-                (field, val) => validateEnum(field, val, ['nmos', 'pmos']),
-                validateNode,
-                validateNode,
-                validateNode,
-            ])
-        });
+        if (spec.transistors) {
+            this.transistors = validateArray('transistors', spec.transistors, (field, val) => {
+                return validateTuple(field, val, [
+                    (field, val) => validateEnum(field, val, ['nmos', 'pmos']),
+                    validateNode,
+                    validateNode,
+                    validateNode,
+                ])
+            });
+        } else {
+            this.transistors = [];
+        }
+
+        // Circuits
+        if (spec.circuits) {
+            this.circuits = validateArray('circuits', spec.circuits, (field, val) => {
+                return validateSpec(field, val);
+            });
+        } else {
+            this.circuits = [];
+        }
 
         // Collect unique list of all referenced nodes
         this.nodeIds = [].concat(
@@ -76,15 +153,19 @@ function validateInt(field, val, min, max) {
         throw new TypeError(`Field '${field}' must be an integer`);
     }
 
-    if (min !== undefined && min != null && val < min) {
+    if (min !== undefined && val < min) {
         throw new TypeError(`Field '${field}' may not be less than ${min}`);
     }
 
-    if (max !== undefined && max != null && val > max) {
+    if (max !== undefined && val > max) {
         throw new TypeError(`Field '${field}' may not be greater than ${max}`);
     }
 
     return val;
+}
+
+function validateIndex(field, val) {
+    return validateInt(field, val, 0);
 }
 
 function validateString(field, val) {
@@ -149,11 +230,31 @@ function validateStruct(field, val, validators) {
     return obj;
 }
 
-function validateArray(field, val, validator) {
+function validateArray(field, val, min, max, validator) {
+    if (typeof min === 'function') {
+        validator = min;
+        min = max = undefined;
+    } else if (typeof max === 'function') {
+        validator = max;
+        max = min;
+    }
+
     if (Array.isArray(val)) {
-        for (const [idx, elem] of Object.entries(val)) {
-            validator(`${field}[${idx}]`, elem);
+        if (min !== undefined && min === max && val.length !== min) {
+            throw new TypeError(`Field '${field}' must have exactly ${min} elements`);
         }
+
+        if (min !== undefined && val.length < min) {
+            throw new TypeError(`Field '${field}' must have at least ${min} elements`);
+        }
+
+        if (max !== undefined && val.length > max) {
+            throw new TypeError(`Field '${field}' must have at most ${max} elements`);
+        }
+
+        return val.map((elem, idx) => {
+            return validator(`${field}[${idx}]`, elem);
+        });
     } else {
         throw new TypeError(`Field '${field}' must be an array`);
     }
@@ -169,7 +270,7 @@ function validateMap(field, val, keyValidator, valueValidator) {
     let obj = {};
 
     for (const [key, value] of Object.entries(val)) {
-        obj[keyValidator(`${val}.keys.${key}`, key)] = valueValidator(`${val}.${key}`, value);
+        obj[keyValidator(`${field}.keys.${key}`, key)] = valueValidator(`${field}.${key}`, value);
     }
 
     return obj;
@@ -193,19 +294,19 @@ function validateNode(field, val) {
     return val;
 }
 
-function validateNodeSet(field, val) {
+function validateNodeSet(field, val, width) {
     if (Array.isArray(val)) {
-        if (val.length === 0) {
-            throw new TypeError(`Node set '${field}' cannot be empty`);
+        if (width === undefined) {
+            return validateArray(field, val, 1, undefined, validateIndex);
+        } else {
+            return validateArray(field, val, width, width, validateIndex);
         }
-
-        for (const [idx, elem] of Object.entries(val)) {
-            validateNode(`${field}[${idx}]`, elem);
-        }
-
-        return val;
     } else {
-        return [validateNode(field, val)];
+        if (width > 1) {
+            throw new TypeError(`Field '${field}' must be an array of length ${width}`);
+        }
+
+        return [validateIndex(field, val)];
     }
 }
 
@@ -227,4 +328,12 @@ function validateSingleNodeName(field, val, nodeNames) {
     }
 
     return val;
+}
+
+function validateSpec(field, val) {
+    try {
+        return new Spec(val);
+    } catch (e) {
+        throw new TypeError(`${e.message} in ${field}`);
+    }
 }

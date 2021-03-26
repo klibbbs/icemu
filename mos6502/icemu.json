@@ -1,6 +1,7 @@
 {
     "id": "mos6502",
     "name": "MOS Technology 6502",
+    "type": "device",
     "memory": {
         "word": 8,
         "address": 16
@@ -34,6 +35,25 @@
     "outputs": ["ab", "clk1", "clk2", "db", "rw", "sync"],
     "registers": ["a", "i", "p", "pc", "sp", "x", "y"],
     "flags": ["p"],
+    "circuits": [
+        {
+            "type": "inverter",
+            "nodes": {
+                "a": 0,
+                "q": 1,
+                "vss": 2
+            },
+            "off": "vss",
+            "inputs": ["a"],
+            "outputs": ["q"],
+            "loads": [
+                ["on", 1]
+            ],
+            "transistors": [
+                ["nmos", 0, 1, 2]
+            ]
+        }
+    ],
     "loads": [
         ["on", 0],
         ["on", 3],
