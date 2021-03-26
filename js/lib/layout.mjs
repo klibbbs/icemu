@@ -4,15 +4,13 @@ import { Transistor } from './transistor.mjs';
 
 export class Layout {
 
-    MAX_WIDTH = 16;
-
     constructor(spec, options) {
 
         // --- Build components ---
 
         // Build pin sets
-        this.on = new Pin(spec.on, 'src', spec.nodeNames[spec.on], Pin.NONE);
-        this.off = new Pin(spec.off, 'src', spec.nodeNames[spec.off], Pin.NONE);
+        this.on = spec.on ? new Pin(spec.on, 'src', spec.nodeNames[spec.on], Pin.NONE) : null;
+        this.off = spec.off ? new Pin(spec.off, 'src', spec.nodeNames[spec.off], Pin.NONE) : null;
 
         const pins = [].concat(spec.inputs, spec.outputs).filter((v, i, a) => a.indexOf(v) === i);
         const regs = spec.registers.filter((v, i, a) => a.indexOf(v) === i);
@@ -32,7 +30,7 @@ export class Layout {
             [
                 this.on,
                 this.off,
-            ],
+            ].filter(Boolean),
             ...[
                 ...pins_rw_hex.map(n => new Pin(n, 'pin', spec.nodeNames[n], Pin.READ_WRITE)),
                 ...pins_rw_bin.map(n => new Pin(n, 'pin', spec.nodeNames[n], Pin.READ_WRITE, 2)),
@@ -55,6 +53,9 @@ export class Layout {
             .sort((a, b) => compareTransistors(a, b))
             .filter((v, i, a) => a.findIndex(t => compareTransistors(v, t) === 0) === i);
 
+        // Build node-to-component maps
+        this.buildComponentMaps();
+
         // --- Reduce components ---
 
         if (options.reduceTransistors) {
@@ -68,7 +69,7 @@ export class Layout {
             ...this.pins.map(p => p.nodes),
             this.loads.map(l => l.node),
             ...this.transistors.filter(t => !t.reduced).map(t => t.channel.concat(t.gates)),
-        ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => compareScalar(a, b));
+        ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
 
         this.nodes = Object.fromEntries(nodeIds.map((node, idx) => [node, idx]));
 
@@ -109,45 +110,6 @@ export class Layout {
 
     reduceTransistors() {
 
-        // Reverse-map nodes to components
-        const pinsByNode = this.pins.reduce((map, p, i) => {
-            p.nodes.forEach(n => {
-                if (map[n]) {
-                    map[n].push(i);
-                } else {
-                    map[n] = [i];
-                }
-            });
-
-            return map;
-        }, {});
-
-        const loadsByNode = Object.fromEntries(this.loads.map((l, i) => [l.node, i]));
-
-        const transistorsByGate = this.transistors.reduce((map, t, i) => {
-            t.gates.forEach(g => {
-                if (map[g]) {
-                    map[g].push(i);
-                } else {
-                    map[g] = [i];
-                }
-            });
-
-            return map;
-        }, {});
-
-        const transistorsByChannel = this.transistors.reduce((map, t, i) => {
-            t.channel.forEach(c => {
-                if (map[c]) {
-                    map[c].push(i);
-                } else {
-                    map[c] = [i];
-                }
-            });
-
-            return map;
-        }, {});
-
         // Reduce self-connected transistors
         this.transistors.forEach(t => {
             if (t.channel[0] === t.channel[1]) {
@@ -161,7 +123,7 @@ export class Layout {
                 return;
             }
 
-            transistorsByChannel[t.channel[0]].forEach(i2 => {
+            this.transistorsByChannel[t.channel[0]].forEach(i2 => {
                 let t2 = this.transistors[i2];
 
                 if (i === i2 || t2.reduced || t2.topology === 'series') {
@@ -183,17 +145,17 @@ export class Layout {
             }
 
             t.channel.forEach(n => {
-                if (pinsByNode[n] ||
-                    loadsByNode[n] ||
-                    transistorsByGate[n]) {
+                if (this.pinsByNode[n] ||
+                    this.loadsByNode[n] ||
+                    this.transistorsByGate[n]) {
                     return;
                 }
 
-                if (transistorsByChannel[n].length !== 2) {
+                if (this.transistorsByChannel[n].length !== 2) {
                     return;
                 }
 
-                let t2 = this.transistors[transistorsByChannel[n].filter(i2 => i2 !== i)[0]];
+                let t2 = this.transistors[this.transistorsByChannel[n].filter(i2 => i2 !== i)[0]];
 
                 if (t2.reduced || t2.topology === 'parallel') {
                     return;
@@ -220,7 +182,45 @@ export class Layout {
             return !t.reduced;
         });
 
+        // Rebuild node-to-component maps
+        this.buildComponentMaps();
+
         return reduced;
+    }
+
+    reduceCircuit(circuit) {
+        return false;
+    }
+
+    buildComponentMaps() {
+        function appendToMap(map, n, idx) {
+            if (map[n]) {
+                map[n].push(idx);
+            } else {
+                map[n] = [idx];
+            }
+        }
+
+        // Build node-to-component maps
+        this.pinsByNode = this.pins.reduce((map, p, idx) => {
+            p.nodes.forEach(n => appendToMap(map, n, idx));
+
+            return map;
+        }, {});
+
+        this.loadsByNode = Object.fromEntries(this.loads.map((l, idx) => [l.node, idx]));
+
+        this.transistorsByGate = this.transistors.reduce((map, t, idx) => {
+            t.gates.forEach(g => appendToMap(map, g, idx));
+
+            return map;
+        }, {});
+
+        this.transistorsByChannel = this.transistors.reduce((map, t, idx) => {
+            t.channel.forEach(c => appendToMap(map, c, idx));
+
+            return map;
+        }, {});
     }
 
     printInfo() {
@@ -233,14 +233,6 @@ export class Layout {
 }
 
 // --- Comparators ---
-
-function compareScalar(a, b) {
-    if (typeof(a) === 'number' && typeof(b) === 'number') {
-        return a - b;
-    } else {
-        return String(a).localeCompare(String(b));
-    }
-}
 
 function compareArrays(a, b) {
     for (let i = 0; i < a.length && i < b.length; i++) {
