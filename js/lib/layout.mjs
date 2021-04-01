@@ -67,10 +67,6 @@ export class Layout {
 
         // --- Reduce components ---
 
-        if (options.reduceTransistors) {
-            while (this.reduceTransistors());
-        }
-
         if (options.reduceCircuits) {
             spec.circuits.map(c => new Layout(c, {})).forEach(circuit => {
                 while (this.reduceCircuit(circuit));
@@ -83,7 +79,7 @@ export class Layout {
         const nodeIds = [].concat(
             ...this.pins.map(p => p.nodes),
             this.loads.map(l => l.node),
-            ...this.transistors.filter(t => !t.reduced).map(t => t.channel.concat(t.gates)),
+            ...this.transistors.map(t => [t.gate, t.channel[0], t.channel[1]]),
             ...this.latches.map(d => [d.data, d.out, d.nout]),
         ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
 
@@ -91,30 +87,19 @@ export class Layout {
 
         // Replace nodes with unique indices in each component
         this.pins.forEach(p => { p.nodes = p.nodes.map(n => this.nodes[n]) });
+
         this.loads.forEach(l => { l.node = this.nodes[l.node] });
+
         this.transistors.forEach(t => {
-            t.gates = t.gates.map(n => this.nodes[n]);
+            t.gate = this.nodes[t.gate];
             t.channel = t.channel.map(n => this.nodes[n]);
         });
+
         this.latches.forEach(d => {
             d.data = this.nodes[d.data];
             d.out = this.nodes[d.out];
             d.nout = this.nodes[d.nout];
         });
-
-        // --- Build gates ---
-
-        // Find unique gate sets
-        this.gates = this.transistors.map(t => t.gates)
-            .filter((v, i, a) => a.findIndex(g => compareArrays(v, g) === 0) === i)
-            .sort((a, b) => compareArrays(a, b));
-
-        // Map transistors to gate sets
-        this.transistors.forEach(t => {
-            t.gatesId = this.gates.findIndex(g => compareArrays(t.gates, g) === 0);
-        });
-
-        this.transistors.sort((a, b) => compareTransistors(a, b));
 
         // --- Calculate counts ---
 
@@ -123,91 +108,8 @@ export class Layout {
             pins: this.pins.length,
             loads: this.loads.length,
             transistors: this.transistors.length,
-            gates: this.transistors.reduce((total, t) => total + t.gates.length, 0),
             latches: this.latches.length,
         };
-
-        this.gatesWidth = Math.max(...this.gates.map(g => g.length));
-    }
-
-    reduceTransistors() {
-
-        // Reduce self-connected transistors
-        this.transistors.forEach(t => {
-            if (t.channel[0] === t.channel[1]) {
-                t.reduced = true;
-            }
-        });
-
-        // Reduce parallel transistors
-        this.transistors.forEach((t, i, a) => {
-            if (t.reduced || t.topology === 'series') {
-                return;
-            }
-
-            this.transistorsByChannel[t.channel[0]].forEach(i2 => {
-                let t2 = this.transistors[i2];
-
-                if (i === i2 || t2.reduced || t2.topology === 'series') {
-                    return;
-                }
-
-                if (t.channel[1] === t2.channel[1] && t.type === t2.type) {
-                    t.topology = 'parallel';
-                    t.gates = t.gates.concat(t2.gates);
-                    t2.reduced = true;
-                }
-            });
-        });
-
-        // Reduce series transistors
-        this.transistors.forEach((t, i, a) => {
-            if (t.reduced || t.topology === 'parallel') {
-                return;
-            }
-
-            t.channel.forEach(n => {
-                if (this.pinsByNode[n] ||
-                    this.loadsByNode[n] ||
-                    this.transistorsByGate[n]) {
-                    return;
-                }
-
-                if (this.transistorsByChannel[n].length !== 2) {
-                    return;
-                }
-
-                let t2 = this.transistors[this.transistorsByChannel[n].filter(i2 => i2 !== i)[0]];
-
-                if (t2.reduced || t2.topology === 'parallel') {
-                    return;
-                }
-
-                const n1 = t.channel.filter(c => c !== n)[0];
-                const n2 = t2.channel.filter(c => c !== n)[0];
-
-                t.topology = 'series';
-                t.gates = t.gates.concat(t2.gates);
-                t.channel = [n1, n2].sort((a, b) => a - b);
-                t2.reduced = true;
-            });
-        });
-
-        // Remove reduced transistors
-        let reduced = false;
-
-        this.transistors = this.transistors.filter(t => {
-            if (t.reduced) {
-                reduced = true;
-            }
-
-            return !t.reduced;
-        });
-
-        // Rebuild node-to-component maps
-        this.buildComponentMaps();
-
-        return reduced;
     }
 
     reduceCircuit(circuit) {
@@ -384,7 +286,7 @@ export class Layout {
             testState.circuit.transistors[ctx] = dtx;
             testState.device.transistors[dtx] = ctx;
 
-            testState = matchNodes(ct.gates[0], dt.gates[0], testState);
+            testState = matchNodes(ct.gate, dt.gate, testState);
 
             if (!testState) {
                 return false;
@@ -512,13 +414,14 @@ export class Layout {
         this.loadsByNode = Object.fromEntries(this.loads.map((l, lx) => [l.node, lx]));
 
         this.transistorsByGate = this.transistors.reduce((map, t, tx) => {
-            t.gates.forEach(g => appendToMap(map, g, tx));
+            appendToMap(map, t.gate, tx);
 
             return map;
         }, {});
 
         this.transistorsByChannel = this.transistors.reduce((map, t, tx) => {
-            t.channel.forEach(c => appendToMap(map, c, tx));
+            appendToMap(map, t.channel[0], tx);
+            appendToMap(map, t.channel[1], tx);
 
             return map;
         }, {});
@@ -529,7 +432,6 @@ export class Layout {
         console.log(`Pins:        ${this.counts.pins}`);
         console.log(`Loads:       ${this.counts.loads}`);
         console.log(`Transistors: ${this.counts.transistors}`);
-        console.log(`Gates:       ${this.counts.gates}`);
         console.log(`Latches:     ${this.counts.latches}`);
     }
 }
@@ -554,8 +456,7 @@ function compareLoads(a, b) {
 
 function compareTransistors(a, b) {
     return a.type.localeCompare(b.type) ||
-        a.gatesId - b.gatesId ||
-        compareArrays(a.gates, b.gates) ||
+        a.gate - b.gate ||
         compareArrays(a.channel, b.channel);
 }
 

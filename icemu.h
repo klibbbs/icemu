@@ -53,17 +53,9 @@ typedef enum {
     TRANSISTOR_PMOS = 2
 } transistor_type_t;
 
-typedef enum {
-    TOPOLOGY_SINGLE   = 0,
-    TOPOLOGY_PARALLEL = 1,
-    TOPOLOGY_SERIES   = 2
-} topology_t;
-
 typedef struct {
     transistor_type_t type;
-    topology_t topology;
-    const nx_t * gates;
-    size_t gates_count;
+    nx_t gate;
     nx_t c1;
     nx_t c2;
     bit_t state;

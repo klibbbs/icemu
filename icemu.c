@@ -44,7 +44,7 @@ char bit_char(bit_t bit) {
 /* --- Public functions  --- */
 
 icemu_t * icemu_init(const icemu_layout_t * layout) {
-    nx_t n, g;
+    nx_t n;
     lx_t l;
     tx_t t, cur;
 
@@ -73,25 +73,21 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
     ic->transistors = malloc(sizeof(transistor_t) * ic->transistors_count);
 
     for (t = 0; t < ic->transistors_count; t++) {
-        ic->transistors[t].type        = layout->transistors[t].type;
-        ic->transistors[t].topology    = layout->transistors[t].topology;
-        ic->transistors[t].gates       = layout->transistors[t].gates;
-        ic->transistors[t].gates_count = layout->transistors[t].gates_count;
-        ic->transistors[t].c1          = layout->transistors[t].c1;
-        ic->transistors[t].c2          = layout->transistors[t].c2;
-        ic->transistors[t].state       = BIT_Z;
-        ic->transistors[t].dirty       = false;
+        ic->transistors[t].type  = layout->transistors[t].type;
+        ic->transistors[t].gate  = layout->transistors[t].gate;
+        ic->transistors[t].c1    = layout->transistors[t].c1;
+        ic->transistors[t].c2    = layout->transistors[t].c2;
+        ic->transistors[t].state = BIT_Z;
+        ic->transistors[t].dirty = false;
     }
 
     /* Allocate and initialize map of nodes to transistor gates */
     ic->node_gates = malloc(sizeof(*ic->node_gates) * ic->nodes_count);
-    ic->node_gates_lists = malloc(sizeof(*ic->node_gates_lists) * layout->gates_count);
+    ic->node_gates_lists = malloc(sizeof(*ic->node_gates_lists) * ic->transistors_count);
     ic->node_gates_counts = calloc(ic->nodes_count, sizeof(*ic->node_gates_counts));
 
     for (t = 0; t < ic->transistors_count; t++) {
-        for (g = 0; g < ic->transistors[t].gates_count; g++) {
-            ic->node_gates_counts[ic->transistors[t].gates[g]]++;
-        }
+        ic->node_gates_counts[ic->transistors[t].gate]++;
     }
 
     for (n = 0, cur = 0; n < ic->nodes_count; n++) {
@@ -105,9 +101,7 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
     }
 
     for (t = 0; t < ic->transistors_count; t++) {
-        for (g = 0; g < ic->transistors[t].gates_count; g++) {
-            *(--ic->node_gates[ic->transistors[t].gates[g]]) = t;
-        }
+        *(--ic->node_gates[ic->transistors[t].gate]) = t;
     }
 
     /* Allocate and initialize map of nodes to transistors channels */
@@ -429,37 +423,14 @@ void icemu_transistor_resolve(icemu_t * ic, tx_t t) {
 }
 
 bit_t icemu_transistor_state(const icemu_t * ic, const transistor_t * transistor) {
-    nx_t g;
+    bit_t state = ic->nodes[transistor->gate].state;
 
-    for (g = 0; g < transistor->gates_count; g++) {
-        bit_t state = ic->nodes[transistor->gates[g]].state;
-
-        switch (transistor->topology) {
-            case TOPOLOGY_SINGLE:
-                return
-                    (transistor->type == TRANSISTOR_NMOS && state == BIT_ONE) ||
-                    (transistor->type == TRANSISTOR_PMOS && state == BIT_ZERO);
-
-            case TOPOLOGY_PARALLEL:
-                if ((transistor->type == TRANSISTOR_NMOS && state == BIT_ONE) ||
-                    (transistor->type == TRANSISTOR_PMOS && state == BIT_ZERO)) {
-
-                    return BIT_ONE;
-                } else {
-                    break;
-                }
-            case TOPOLOGY_SERIES:
-                if ((transistor->type == TRANSISTOR_NMOS && state == BIT_ZERO) ||
-                    (transistor->type == TRANSISTOR_PMOS && state == BIT_ONE)) {
-
-                    return BIT_ZERO;
-                } else {
-                    break;
-                }
-            default:
-                return BIT_ZERO;
-        }
+    switch (transistor->type) {
+        case TRANSISTOR_NMOS:
+            return state == BIT_ONE;
+        case TRANSISTOR_PMOS:
+            return state == BIT_ZERO;
     }
 
-    return transistor->topology == TOPOLOGY_SERIES ? BIT_ONE : BIT_ZERO;
+    return BIT_ZERO;
 }

@@ -229,8 +229,7 @@ function generateC_device_c(C, spec, layout) {
             `${C.device_caps}_LOAD_DEFS,`,
             `${C.device_caps}_LOAD_COUNT,`,
             `${C.device_caps}_TRANSISTOR_DEFS,`,
-            `${C.device_caps}_TRANSISTOR_COUNT,`,
-            `${C.device_caps}_TRANSISTOR_GATE_COUNT`,
+            `${C.device_caps}_TRANSISTOR_COUNT`,
         ]),
         tab(1, '};'),
         '',
@@ -932,7 +931,6 @@ function generateC_layout_h(C, spec, layout) {
         `const size_t ${C.device_caps}_NODE_COUNT = ${layout.counts.nodes};`,
         `const size_t ${C.device_caps}_LOAD_COUNT = ${layout.counts.loads};`,
         `const size_t ${C.device_caps}_TRANSISTOR_COUNT = ${layout.counts.transistors};`,
-        `const size_t ${C.device_caps}_TRANSISTOR_GATE_COUNT = ${layout.counts.gates};`,
         '',
         comment('Component definitions', 2),
         '',
@@ -943,17 +941,9 @@ function generateC_layout_h(C, spec, layout) {
         ] : []),
         '',
         ...(layout.transistors.length ? [
-            `const nx_t ${C.device_caps}_TRANSISTOR_GATES[][${layout.gatesWidth}] = {`,
-            tab(1, layout.gates.map(g => `{${g.join(", ")}}`).join(",\n")),
-            '};',
-            '',
             `const transistor_t ${C.device_caps}_TRANSISTOR_DEFS[] = {`,
             tab(1, layout.transistors.map((t, i) => (
-                `{` +
-                    `${C.getTransistorEnum(t)}, ${C.getTopologyEnum(t)}, ` +
-                    `${C.device_caps}_TRANSISTOR_GATES[${t.gatesId}], ${t.gates.length}, ` +
-                    `${t.channel[0]}, ${t.channel[1]}` +
-                    `}`
+                `{${C.getTransistorEnum(t)}, ${t.gate}, ${t.channel[0]}, ${t.channel[1]}}`
             )).join(",\n")),
             '};',
             '',
