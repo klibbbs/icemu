@@ -4,4 +4,8 @@ export class Load {
         this.type = type;
         this.node = node;
     }
+
+    getAllNodes() {
+        return [this.node];
+    }
 }

@@ -19,4 +19,8 @@ export class Pin {
         this.readable = (mode === Pin.READ_ONLY) || (mode === Pin.READ_WRITE);
         this.writable = (mode === Pin.READ_WRITE);
     }
+
+    getAllNodes() {
+        return this.nodes;
+    }
 }

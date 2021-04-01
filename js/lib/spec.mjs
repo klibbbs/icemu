@@ -8,11 +8,7 @@ const SCHEMAS = {
         outputs: true,
     },
     latch: {
-        nodes: {
-            d: 1,
-            q: 1,
-            _q: 1,
-        },
+        args: true,
     }
 };
 
@@ -32,6 +28,12 @@ export class Spec {
 
         if (this.schema.name || spec.name) {
             this.name = validateString('name', spec.name);
+        }
+
+        if (this.schema.args || spec.args) {
+            this.args = validateArray('args', spec.args, validateString);
+        } else {
+            this.schema.args = [];
         }
 
         // Memory model
@@ -59,13 +61,15 @@ export class Spec {
             }
         }
 
-        for (const [name, width] of Object.entries(this.schema.nodes)) {
-            if (this.nodeNames[name] === undefined) {
-                throw new TypeError(`Node '${name}' is required by type '${this.type}'`);
-            }
+        if (this.schema.nodes) {
+            for (const [name, width] of Object.entries(this.schema.nodes)) {
+                if (this.nodeNames[name] === undefined) {
+                    throw new TypeError(`Node '${name}' is required by type '${this.type}'`);
+                }
 
-            if (this.nodeNames[name].length !== width) {
-                throw new TypeError(`Node '${name}' must have width ${width}`);
+                if (this.nodeNames[name].length !== width) {
+                    throw new TypeError(`Node '${name}' must have width ${width}`);
+                }
             }
         }
 

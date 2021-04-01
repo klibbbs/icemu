@@ -1,6 +1,7 @@
 import { Pin } from './pin.mjs';
 import { Load } from './load.mjs';
 import { Transistor } from './transistor.mjs';
+import { Latch } from './latch.mjs';
 
 export class Layout {
 
@@ -8,8 +9,9 @@ export class Layout {
 
         // --- Build components ---
 
-        // Device properties
+        // Device parameters
         this.type = spec.type;
+        this.args = spec.args;
 
         // Build pin sets
         this.on = spec.on ? new Pin(spec.on, 'src', spec.nodeNames[spec.on], Pin.ON) : null;
@@ -77,10 +79,10 @@ export class Layout {
 
         // Map nodes to unique indices
         const nodeIds = [].concat(
-            ...this.pins.map(p => p.nodes),
-            this.loads.map(l => l.node),
-            ...this.transistors.map(t => [t.gate, t.channel[0], t.channel[1]]),
-            ...this.latches.map(d => [d.data, d.out, d.nout]),
+            ...this.pins.map(p => p.getAllNodes()),
+            ...this.loads.map(l => l.getAllNodes()),
+            ...this.transistors.map(t => t.getAllNodes()),
+            ...this.latches.map(d => d.getAllNodes()),
         ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
 
         this.nodes = Object.fromEntries(nodeIds.map((node, idx) => [node, idx]));
@@ -119,10 +121,12 @@ export class Layout {
         function copyState(state) {
             return {
                 device: {
+                    nodes: Object.fromEntries(Object.entries(state.device.nodes)),
                     loads: Object.fromEntries(Object.entries(state.device.loads)),
                     transistors: Object.fromEntries(Object.entries(state.device.transistors)),
                 },
                 circuit: {
+                    nodes: Object.fromEntries(Object.entries(state.circuit.nodes)),
                     loads: Object.fromEntries(Object.entries(state.circuit.loads)),
                     transistors: Object.fromEntries(Object.entries(state.circuit.transistors)),
                 },
@@ -131,6 +135,15 @@ export class Layout {
 
         // Component matchers
         function matchNodes(cnx, dnx, state) {
+
+            // Check if nodes are already matched or already in use
+            if (state.circuit.nodes[cnx] === dnx && state.device.nodes[dnx] === cnx) {
+                return state;
+            }
+
+            if (state.circuit.nodes[cnx] !== undefined || state.device.nodes[dnx] !== undefined) {
+                return false;
+            }
 
             // Fetch pins
             let cpx = circuit.pinsByNode[cnx],
@@ -147,7 +160,7 @@ export class Layout {
             }
 
             // Check if the circuit pin is an edge node
-            let edge = cpin && cpin.type === 'src' || cpin.type === 'pin';
+            let edge = cpin && (cpin.type === 'src' || cpin.type === 'pin');
 
             // Device pins must be circuit edge pins
             if (!edge && dpin && dpin.type !== 'src') {
@@ -192,9 +205,15 @@ export class Layout {
                 }
             }
 
+            // Update state
+            let testState = copyState(state);
+
+            testState.circuit.nodes[cnx] = dnx;
+            testState.device.nodes[dnx] = cnx;
+
             // Match loads
             if (clx) {
-                if (state = findLoad(clx, [dlx], state)) {
+                if (testState = findLoad(clx, [dlx], testState)) {
                     // Continue
                 } else {
                     return false;
@@ -204,7 +223,7 @@ export class Layout {
             // Match transistors
             if (ctgs) {
                 if (!ctgs.every(ctx => {
-                    if (state = findTransistor(ctx, dtgs, state)) {
+                    if (testState = findTransistor(ctx, dtgs, testState)) {
                         return true;
                     } else {
                         return false;
@@ -216,7 +235,7 @@ export class Layout {
 
             if (ctcs) {
                 if (!ctcs.every(ctx => {
-                    if (state = findTransistor(ctx, dtcs, state)) {
+                    if (testState = findTransistor(ctx, dtcs, testState)) {
                         return true;
                     } else {
                         return false;
@@ -226,7 +245,7 @@ export class Layout {
                 }
             }
 
-            return state;
+            return testState;
         }
 
         function matchLoads(clx, dlx, state) {
@@ -337,10 +356,12 @@ export class Layout {
         // Match
         let state = {
             device: {
+                nodes: {},
                 loads: {},
                 transistors: {},
             },
             circuit: {
+                nodes: {},
                 loads: {},
                 transistors: {},
             },
@@ -366,10 +387,34 @@ export class Layout {
             return false;
         }
 
-        // Create new component
+        // Create a new component
+        const args = circuit.args.map((arg, idx) => {
+            const sigil = arg[0];
+
+            if (sigil === '$' || sigil === '@') {
+                const id = arg.substring(1),
+                      pin = circuit.pins.filter(p => p.id === id)[0];
+
+                if (pin === undefined) {
+                    throw new Error(`Argument ${idx} in '${circuit.type}' expects valid pin`);
+                }
+
+                if (sigil === '$') {
+                    if (pin.nodes.length !== 1) {
+                        throw new Error(`Argument ${idx} in '${circuit.type}' expects scalar pin`);
+                    }
+
+                    return state.circuit.nodes[pin.nodes[0]];
+                } else {
+                    return pin.nodes.map(n => state.circuit.nodes[n]);
+                }
+            } else {
+                return arg;
+            }
+        });
+
         if (circuit.type === 'latch') {
-            // TODO
-            console.log('Found latch');
+            device.latches.push(new Latch(...args));
         } else {
             throw new Error(`Unsupported circuit type '${circuit.type}'`);
         }
