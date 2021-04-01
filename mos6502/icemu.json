@@ -38,6 +38,7 @@
     "circuits": [
         {
             "type": "latch",
+            "args": ["nmos_d", "$q", "$_q", "$d"],
             "nodes": {
                 "d": 0,
                 "p": 4,

@@ -7,32 +7,66 @@ import { Generator } from './lib/generator.mjs';
 const STYLE_BOLD = '\x1B[0;1m';
 const STYLE_NONE = '\x1B[0;0m';
 
-// Find icemu.json file
-const file = 'icemu.json';
+// Find spec file to use
 const dir = (process.argv.length > 2 ? process.argv[2] + '/' : '').replace(/\/+$/, '/');
-const path = `${dir}${file}`;
 
-// Construct device spec from JSON
-console.log(`${STYLE_BOLD}Validating device spec...${STYLE_NONE}`);
+const specFile = 'icemu.json',
+      specPath = `${dir}${specFile}`,
+      cacheFile = 'icemu.cache.json',
+      cachePath = `${dir}${cacheFile}`;
 
-try {
-    var spec = new Spec(JSON.parse(fs.readFileSync(path, { encoding: 'ascii' })));
-} catch (e) {
-    console.error(`Error parsing ${path}: ${e.message}`);
+if (!fs.existsSync(specPath)) {
+    console.error(`Error: Could not find file '${specPath}'`);
     process.exit(1);
 }
 
-// Construct layout from device spec
-console.log(`${STYLE_BOLD}Compiling device layout...${STYLE_NONE}`);
+// Construct original spec from JSON
+console.log(`${STYLE_BOLD}Validating device spec...${STYLE_NONE}`);
 
 try {
-    var layout = new Layout(spec, {
-        reduceTransistors: false,
+    var spec = new Spec(JSON.parse(fs.readFileSync(specPath, { encoding: 'ascii' })));
+} catch (e) {
+    console.error(`Error parsing ${specPath}: ${e.message}`);
+    process.exit(1);
+}
+
+// Construct cached spec from JSON
+if (fs.existsSync(cachePath)) {
+    console.log(`${STYLE_BOLD}Validating device spec (from cache)...${STYLE_NONE}`);
+
+    try {
+        var cacheSpec = new Spec(JSON.parse(fs.readFileSync(cachePath, { encoding: 'ascii' })));
+    } catch (e) {
+        console.error(`Error parsing ${cachePath}: ${e.message}`);
+        process.exit(1);
+    }
+}
+
+// Construct layout from device spec
+if (cacheSpec) {
+    console.log(`${STYLE_BOLD}Compiling device layout (from cache)...${STYLE_NONE}`);
+} else {
+    console.log(`${STYLE_BOLD}Compiling device layout...${STYLE_NONE}`);
+}
+
+const activeSpec = cacheSpec ? cacheSpec : spec;
+
+try {
+    var layout = new Layout(activeSpec, {
         reduceCircuits: false,
     });
 } catch (e) {
-    throw e;
     console.error(`Error compiling device layout: ${e.message}`);
+    process.exit(1);
+}
+
+// Write new cached spec file
+try {
+    var newSpec = layout.buildSpec();
+
+    fs.writeFileSync(cachePath, JSON.stringify(newSpec, null, "    "));
+} catch (e) {
+    console.error(`Error caching compiled spec: ${e.message}`);
     process.exit(1);
 }
 
@@ -40,7 +74,7 @@ try {
 console.log(`${STYLE_BOLD}Generating source code...${STYLE_NONE}`);
 
 try {
-    var generator = new Generator(spec, layout);
+    var generator = new Generator(newSpec, layout);
 
     generator.generateAll(dir);
 } catch (e) {
@@ -52,6 +86,12 @@ try {
 console.log()
 console.log(`${STYLE_BOLD}Device Spec${STYLE_NONE}`);
 spec.printInfo();
+
+if (cacheSpec) {
+    console.log()
+    console.log(`${STYLE_BOLD}Device Spec (from cache)${STYLE_NONE}`);
+    cacheSpec.printInfo();
+}
 
 console.log();
 console.log(`${STYLE_BOLD}Device Layout${STYLE_NONE}`);

@@ -33,7 +33,7 @@ export class Spec {
         if (this.schema.args || spec.args) {
             this.args = validateArray('args', spec.args, validateString);
         } else {
-            this.schema.args = [];
+            this.args = [];
         }
 
         // Memory model

@@ -6,6 +6,7 @@ import { Latch } from './latch.mjs';
 export class Layout {
 
     constructor(spec, options) {
+        this.spec = spec;
 
         // --- Build components ---
 
@@ -50,19 +51,19 @@ export class Layout {
         );
 
         // Build unique load list
-        this.loads = spec.loads.map(l => new Load(...l))
+        this.loads = spec.loads.map(l => Load.fromSpec(l))
             .sort((a, b) => compareLoads(a, b))
             .filter((v, i, a) => a.findIndex(l => compareLoads(v, l) === 0) === i);
 
         // Build unique transistor list
-        this.transistors = spec.transistors.map(t => new Transistor(t[0], t[1], [t[2], t[3]]))
+        this.transistors = spec.transistors.map(t => Transistor.fromSpec(t))
             .sort((a, b) => compareTransistors(a, b))
             .filter((v, i, a) => a.findIndex(t => compareTransistors(v, t) === 0) === i);
 
         // Build unique latch list
-        this.latches = spec.latches.map(d => new Latch())
+        this.latches = spec.latches.map(h => Latch.fromSpec(h))
             .sort((a, b) => compareLatches(a, b))
-            .filter((v, i, a) => a.findIndex(d => compareLatches(v, d) === 0) === i);
+            .filter((v, i, a) => a.findIndex(h => compareLatches(v, h) === 0) === i);
 
         // Build node-to-component maps
         this.buildComponentMaps();
@@ -70,7 +71,9 @@ export class Layout {
         // --- Reduce components ---
 
         if (options.reduceCircuits) {
-            spec.circuits.map(c => new Layout(c, {})).forEach(circuit => {
+            this.circuits = spec.circuits.map(c => new Layout(c, {}));
+
+            this.circuits.forEach(circuit => {
                 while (this.reduceCircuit(circuit));
             });
         }
@@ -82,7 +85,7 @@ export class Layout {
             ...this.pins.map(p => p.getAllNodes()),
             ...this.loads.map(l => l.getAllNodes()),
             ...this.transistors.map(t => t.getAllNodes()),
-            ...this.latches.map(d => d.getAllNodes()),
+            ...this.latches.map(h => h.getAllNodes()),
         ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
 
         this.nodes = Object.fromEntries(nodeIds.map((node, idx) => [node, idx]));
@@ -97,10 +100,10 @@ export class Layout {
             t.channel = t.channel.map(n => this.nodes[n]);
         });
 
-        this.latches.forEach(d => {
-            d.data = this.nodes[d.data];
-            d.out = this.nodes[d.out];
-            d.nout = this.nodes[d.nout];
+        this.latches.forEach(h => {
+            h.data = this.nodes[h.data];
+            h.out = this.nodes[h.out];
+            h.nout = this.nodes[h.nout];
         });
 
         // --- Calculate counts ---
@@ -419,6 +422,8 @@ export class Layout {
             throw new Error(`Unsupported circuit type '${circuit.type}'`);
         }
 
+        console.log(`Reducing '${circuit.type}' circuit...`);
+
         // Reduce components within circuit
         Object.values(state.circuit.loads).forEach(dlx => {
             device.loads[dlx].reduced = true;
@@ -478,6 +483,29 @@ export class Layout {
         console.log(`Loads:       ${this.counts.loads}`);
         console.log(`Transistors: ${this.counts.transistors}`);
         console.log(`Latches:     ${this.counts.latches}`);
+    }
+
+    buildSpec() {
+        return {
+            id: this.spec.id,
+            name: this.spec.name,
+            type: this.spec.type,
+            args: this.spec.args,
+            memory: this.spec.memory,
+            nodes: Object.fromEntries(Object.entries(this.spec.nodeNames).map(([name, set]) => {
+                return [name, set.map(n => this.nodes[n])];
+            })),
+            on: this.spec.on,
+            off: this.spec.off,
+            inputs: this.spec.inputs,
+            outputs: this.spec.outputs,
+            registers: this.spec.registers,
+            flags: this.spec.flags,
+            circuits: this.circuits ? this.circuits.map(c => c.buildSpec()) : undefined,
+            loads: this.loads.map(l => l.getSpec()),
+            transistors: this.transistors.map(t => t.getSpec()),
+            latches: this.latches.map(h => h.getSpec()),
+        };
     }
 }
 
