@@ -76,7 +76,7 @@ typedef enum {
     REG_P_2   = 1403,
     REG_P_3   = 434,
     REG_P_4   = 1108,
-    REG_P_5   = 649,
+    REG_P_5   = 1704,
     REG_P_6   = 76,
     REG_P_7   = 1352,
     REG_PC_0  = 1127,
@@ -128,7 +128,7 @@ const nx_t MOS6502_OFF = SRC_VSS;
 
 /* --- Component counts --- */
 
-const size_t MOS6502_NODE_COUNT = 1704;
+const size_t MOS6502_NODE_COUNT = 1705;
 const size_t MOS6502_LOAD_COUNT = 1018;
 const size_t MOS6502_TRANSISTOR_COUNT = 3239;
 const size_t MOS6502_TRANSISTOR_GATE_COUNT = 3239;

@@ -2,7 +2,8 @@ import { Bits } from './bits.mjs';
 
 export class Pin {
 
-    static NONE = 'no';
+    static ON = 'on';
+    static OFF = 'off';
     static READ_ONLY = 'ro';
     static READ_WRITE = 'rw';
 

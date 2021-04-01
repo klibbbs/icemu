@@ -8,16 +8,20 @@ export class Layout {
 
         // --- Build components ---
 
-        // Build pin sets
-        this.on = spec.on ? new Pin(spec.on, 'src', spec.nodeNames[spec.on], Pin.NONE) : null;
-        this.off = spec.off ? new Pin(spec.off, 'src', spec.nodeNames[spec.off], Pin.NONE) : null;
+        // Device properties
+        this.type = spec.type;
 
+        // Build pin sets
+        this.on = spec.on ? new Pin(spec.on, 'src', spec.nodeNames[spec.on], Pin.ON) : null;
+        this.off = spec.off ? new Pin(spec.off, 'src', spec.nodeNames[spec.off], Pin.OFF) : null;
+
+        const srcs = [spec.on, spec.off].filter(n => n !== undefined);
         const pins = [].concat(spec.inputs, spec.outputs).filter((v, i, a) => a.indexOf(v) === i);
         const regs = spec.registers.filter((v, i, a) => a.indexOf(v) === i);
 
-        const pins_rw = pins.filter(n => spec.inputs.includes(n));
-        const pins_ro = pins.filter(n => !spec.inputs.includes(n));
-        const regs_ro = regs.filter(n => !pins.includes(n));
+        const pins_rw = pins.filter(n => spec.inputs.includes(n) && !srcs.includes(n));
+        const pins_ro = pins.filter(n => !spec.inputs.includes(n) && !srcs.includes(n));
+        const regs_ro = regs.filter(n => !pins.includes(n) && !srcs.includes(n));
 
         const pins_rw_hex = pins_rw.filter(n => !spec.flags.includes(n));
         const pins_rw_bin = pins_rw.filter(n => spec.flags.includes(n));
@@ -53,6 +57,11 @@ export class Layout {
             .sort((a, b) => compareTransistors(a, b))
             .filter((v, i, a) => a.findIndex(t => compareTransistors(v, t) === 0) === i);
 
+        // Build unique latch list
+        this.latches = spec.latches.map(d => new Latch())
+            .sort((a, b) => compareLatches(a, b))
+            .filter((v, i, a) => a.findIndex(d => compareLatches(v, d) === 0) === i);
+
         // Build node-to-component maps
         this.buildComponentMaps();
 
@@ -62,6 +71,12 @@ export class Layout {
             while (this.reduceTransistors());
         }
 
+        if (options.reduceCircuits) {
+            spec.circuits.map(c => new Layout(c, {})).forEach(circuit => {
+                while (this.reduceCircuit(circuit));
+            });
+        }
+
         // --- Normalize nodes ---
 
         // Map nodes to unique indices
@@ -69,16 +84,22 @@ export class Layout {
             ...this.pins.map(p => p.nodes),
             this.loads.map(l => l.node),
             ...this.transistors.filter(t => !t.reduced).map(t => t.channel.concat(t.gates)),
+            ...this.latches.map(d => [d.data, d.out, d.nout]),
         ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
 
         this.nodes = Object.fromEntries(nodeIds.map((node, idx) => [node, idx]));
 
-        // Replace nodes with indices in pins, loads, and transistors
+        // Replace nodes with unique indices in each component
         this.pins.forEach(p => { p.nodes = p.nodes.map(n => this.nodes[n]) });
         this.loads.forEach(l => { l.node = this.nodes[l.node] });
         this.transistors.forEach(t => {
             t.gates = t.gates.map(n => this.nodes[n]);
             t.channel = t.channel.map(n => this.nodes[n]);
+        });
+        this.latches.forEach(d => {
+            d.data = this.nodes[d.data];
+            d.out = this.nodes[d.out];
+            d.nout = this.nodes[d.nout];
         });
 
         // --- Build gates ---
@@ -103,6 +124,7 @@ export class Layout {
             loads: this.loads.length,
             transistors: this.transistors.length,
             gates: this.transistors.reduce((total, t) => total + t.gates.length, 0),
+            latches: this.latches.length,
         };
 
         this.gatesWidth = Math.max(...this.gates.map(g => g.length));
@@ -189,7 +211,284 @@ export class Layout {
     }
 
     reduceCircuit(circuit) {
-        return false;
+        const device = this;
+
+        // State must be immutable
+        function copyState(state) {
+            return {
+                device: {
+                    loads: Object.fromEntries(Object.entries(state.device.loads)),
+                    transistors: Object.fromEntries(Object.entries(state.device.transistors)),
+                },
+                circuit: {
+                    loads: Object.fromEntries(Object.entries(state.circuit.loads)),
+                    transistors: Object.fromEntries(Object.entries(state.circuit.transistors)),
+                },
+            };
+        }
+
+        // Component matchers
+        function matchNodes(cnx, dnx, state) {
+
+            // Fetch pins
+            let cpx = circuit.pinsByNode[cnx],
+                dpx = device.pinsByNode[dnx];
+
+            let cpin = cpx === undefined ? null : circuit.pins[cpx],
+                dpin = dpx === undefined ? null : device.pins[dpx];
+
+            // Source-type pins must match
+            if (cpin && cpin.type === 'src' && (!dpin || dpin.mode !== cpin.mode) ||
+                dpin && dpin.type === 'src' && (!cpin || cpin.mode !== dpin.mode)) {
+
+                return false;
+            }
+
+            // Check if the circuit pin is an edge node
+            let edge = cpin && cpin.type === 'src' || cpin.type === 'pin';
+
+            // Device pins must be circuit edge pins
+            if (!edge && dpin && dpin.type !== 'src') {
+                return false;
+            }
+
+            // Compare load counts
+            let clx = circuit.loadsByNode[cnx],
+                dlx = device.loadsByNode[dnx];
+
+            if (clx !== undefined && dlx === undefined) {
+                return false;
+            }
+
+            if (!edge) {
+                if (clx === undefined && dlx !== undefined) {
+                    return false;
+                }
+            }
+
+            // Compare transistor counts
+            let ctgs = circuit.transistorsByGate[cnx],
+                ctcs = circuit.transistorsByChannel[cnx],
+                dtgs = device.transistorsByGate[dnx],
+                dtcs = device.transistorsByChannel[dnx];
+
+            if (ctgs && !dtgs || ctgs && dtgs.length < ctgs.length) {
+                return false;
+            }
+
+            if (ctcs && !dtcs || ctcs && dtcs.length < ctcs.length) {
+                return false;
+            }
+
+            if (!edge) {
+                if (!ctgs && dtgs || ctgs && dtgs.length !== ctgs.length) {
+                    return false;
+                }
+
+                if (!ctcs && dtcs || ctcs && dtcs.length !== ctcs.length) {
+                    return false;
+                }
+            }
+
+            // Match loads
+            if (clx) {
+                if (state = findLoad(clx, [dlx], state)) {
+                    // Continue
+                } else {
+                    return false;
+                }
+            }
+
+            // Match transistors
+            if (ctgs) {
+                if (!ctgs.every(ctx => {
+                    if (state = findTransistor(ctx, dtgs, state)) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                })) {
+                    return false;
+                }
+            }
+
+            if (ctcs) {
+                if (!ctcs.every(ctx => {
+                    if (state = findTransistor(ctx, dtcs, state)) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                })) {
+                    return false;
+                }
+            }
+
+            return state;
+        }
+
+        function matchLoads(clx, dlx, state) {
+
+            // Check if loads are already matched or already in use
+            if (state.circuit.loads[clx] === dlx && state.device.loads[dlx] === clx) {
+                return state;
+            }
+
+            if (state.circuit.loads[clx] !== undefined || state.device.loads[dlx] !== undefined) {
+                return false;
+            }
+
+            // Compare loads
+            let cl = circuit.loads[clx],
+                dl = device.loads[dlx];
+
+            if (cl.type !== dl.type) {
+                return false;
+            }
+
+            // Match nodes
+            let testState = copyState(state);
+
+            testState.circuit.loads[clx] = dlx;
+            testState.device.loads[dlx] = clx;
+
+            return matchNodes(cl.node, dl.node, testState);
+        }
+
+        function matchTransistors(ctx, dtx, state) {
+
+            // Check if transistors are already matched or already in use
+            if (state.circuit.transistors[ctx] === dtx &&
+                state.device.transistors[dtx] === ctx) {
+
+                return state;
+            }
+
+            if (state.circuit.transistors[ctx] !== undefined ||
+                state.device.transistors[dtx] !== undefined) {
+
+                return false;
+            }
+
+            // Compare transistors
+            let ct = circuit.transistors[ctx],
+                dt = device.transistors[dtx];
+
+            if (ct.type !== dt.type) {
+                return false;
+            }
+
+            // Match nodes
+            let testState = copyState(state);
+
+            testState.circuit.transistors[ctx] = dtx;
+            testState.device.transistors[dtx] = ctx;
+
+            testState = matchNodes(ct.gates[0], dt.gates[0], testState);
+
+            if (!testState) {
+                return false;
+            }
+
+            let chanState = false;
+
+            if ((chanState = matchNodes(ct.channel[0], dt.channel[0], testState)) &&
+                (chanState = matchNodes(ct.channel[1], dt.channel[1], chanState))) {
+
+                return chanState;
+            }
+
+            if ((chanState = matchNodes(ct.channel[0], dt.channel[1], testState)) &&
+                (chanState = matchNodes(ct.channel[1], dt.channel[0], chanState))) {
+
+                return chanState;
+            }
+
+            return false;
+        }
+
+        // Component finders
+        function findLoad(clx, dlxs, state) {
+            for (const dlx of dlxs) {
+                let newState = matchLoads(clx, dlx, state);
+
+                if (newState) {
+                    return newState;
+                }
+            }
+
+            return false;
+        }
+
+        function findTransistor(ctx, dtxs, state) {
+            for (const dtx of dtxs) {
+                let newState = matchTransistors(ctx, dtx, state);
+
+                if (newState) {
+                    return newState;
+                }
+            }
+
+            return false;
+        }
+
+        // Match
+        let state = {
+            device: {
+                loads: {},
+                transistors: {},
+            },
+            circuit: {
+                loads: {},
+                transistors: {},
+            },
+        };
+
+        if (!circuit.transistors.every((ct, ctx) => {
+            if (state = findTransistor(ctx, Array.from(device.transistors.keys()), state)) {
+                return true;
+            } else {
+                return false;
+            }
+        })) {
+            return false;
+        }
+
+        if (!circuit.loads.every((cl, clx) => {
+            if (state = findLoad(clx, Array.from(device.loads.keys()), state)) {
+                return true;
+            } else {
+                return false;
+            }
+        })) {
+            return false;
+        }
+
+        // Create new component
+        if (circuit.type === 'latch') {
+            // TODO
+            console.log('Found latch');
+        } else {
+            throw new Error(`Unsupported circuit type '${circuit.type}'`);
+        }
+
+        // Reduce components within circuit
+        Object.values(state.circuit.loads).forEach(dlx => {
+            device.loads[dlx].reduced = true;
+        });
+
+        Object.values(state.circuit.transistors).forEach(dtx => {
+            device.transistors[dtx].reduced = true;
+        });
+
+        // Remove reduced components
+        device.loads = device.loads.filter(l => !l.reduced);
+        device.transistors = device.transistors.filter(t => !t.reduced);
+
+        // Rebuild node-to-component maps in the main device
+        device.buildComponentMaps();
+
+        return true;
     }
 
     buildComponentMaps() {
@@ -202,22 +501,24 @@ export class Layout {
         }
 
         // Build node-to-component maps
-        this.pinsByNode = this.pins.reduce((map, p, idx) => {
-            p.nodes.forEach(n => appendToMap(map, n, idx));
+        this.pinsByNode = this.pins.reduce((map, p, px) => {
+            p.nodes.forEach(n => {
+                map[n] = px;
+            });
 
             return map;
         }, {});
 
-        this.loadsByNode = Object.fromEntries(this.loads.map((l, idx) => [l.node, idx]));
+        this.loadsByNode = Object.fromEntries(this.loads.map((l, lx) => [l.node, lx]));
 
-        this.transistorsByGate = this.transistors.reduce((map, t, idx) => {
-            t.gates.forEach(g => appendToMap(map, g, idx));
+        this.transistorsByGate = this.transistors.reduce((map, t, tx) => {
+            t.gates.forEach(g => appendToMap(map, g, tx));
 
             return map;
         }, {});
 
-        this.transistorsByChannel = this.transistors.reduce((map, t, idx) => {
-            t.channel.forEach(c => appendToMap(map, c, idx));
+        this.transistorsByChannel = this.transistors.reduce((map, t, tx) => {
+            t.channel.forEach(c => appendToMap(map, c, tx));
 
             return map;
         }, {});
@@ -229,6 +530,7 @@ export class Layout {
         console.log(`Loads:       ${this.counts.loads}`);
         console.log(`Transistors: ${this.counts.transistors}`);
         console.log(`Gates:       ${this.counts.gates}`);
+        console.log(`Latches:     ${this.counts.latches}`);
     }
 }
 
@@ -255,4 +557,10 @@ function compareTransistors(a, b) {
         a.gatesId - b.gatesId ||
         compareArrays(a.gates, b.gates) ||
         compareArrays(a.channel, b.channel);
+}
+
+function compareLatches(a, b) {
+    return a.in - b.in ||
+        a.out - b.out ||
+        a.nout - b.nout;
 }

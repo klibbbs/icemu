@@ -7,10 +7,11 @@ const SCHEMAS = {
         off: true,
         outputs: true,
     },
-    inverter: {
+    latch: {
         nodes: {
-            a: 1,
+            d: 1,
             q: 1,
+            _q: 1,
         },
     }
 };
@@ -43,6 +44,20 @@ export class Spec {
 
         // Node names
         this.nodeNames = validateMap('nodes', spec.nodes, validateIdentifier, validateNodeSet);
+
+        let nodeMap = {};
+
+        for (const [name, nodes] of Object.entries(this.nodeNames)) {
+            for (const node of nodes) {
+                const usedName = nodeMap[node];
+
+                if (usedName === undefined) {
+                    nodeMap[node] = name;
+                } else {
+                    throw new TypeError(`Node index ${node} cannot have multiple names`);
+                }
+            }
+        }
 
         for (const [name, width] of Object.entries(this.schema.nodes)) {
             if (this.nodeNames[name] === undefined) {
@@ -101,7 +116,7 @@ export class Spec {
                 return validateTuple(field, val, [
                     (field, val) => validateEnum(field, val, ['on', 'off']),
                     validateNode
-                ])
+                ]);
             });
         } else {
             this.loads = [];
@@ -114,10 +129,22 @@ export class Spec {
                     validateNode,
                     validateNode,
                     validateNode,
-                ])
+                ]);
             });
         } else {
             this.transistors = [];
+        }
+
+        if (spec.latches) {
+            this.latches = validateArray('latches', spec.latches, (field, val) => {
+                return validateTuple(field, val, [
+                    validateNode,
+                    validateNode,
+                    validateNode,
+                ]);
+            });
+        } else {
+            this.latches = [];
         }
 
         // Circuits
@@ -189,7 +216,7 @@ function validateWidth(field, val) {
 function validateIdentifier(field, val) {
     validateString(field, val);
 
-    if (!val.match(/[a-z][a-z0-9]*/i)) {
+    if (!val.match(/^[a-z_][a-z0-9_]*$/)) {
         throw new TypeError(`Field '${field}' must be a legal identifier`);
     }
 
