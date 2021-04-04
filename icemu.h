@@ -24,13 +24,21 @@ char bit_char(bit_t bit);
 typedef size_t nx_t;
 
 typedef enum {
+    LEVEL_FLOAT = 0,
+    LEVEL_CAP   = 1,
+    LEVEL_LOAD  = 2,
+    LEVEL_POWER = 3
+} level_t;
+
+typedef enum {
     PULL_DOWN  = -1,
     PULL_FLOAT = 0,
     PULL_UP    = 1
 } pull_t;
 
 typedef struct {
-    pull_t load;
+    level_t level;
+    pull_t pull;
     bit_t state;
     bool_t dirty;
 } node_t;
@@ -40,7 +48,7 @@ typedef struct {
 typedef size_t lx_t;
 
 typedef struct {
-    pull_t load;
+    pull_t pull;
     nx_t node;
 } load_t;
 
@@ -64,13 +72,6 @@ typedef struct {
 
 /* --- IC --- */
 
-typedef enum {
-    LEVEL_FLOAT = 0,
-    LEVEL_CAP   = 1,
-    LEVEL_LOAD  = 2,
-    LEVEL_POWER = 3
-} level_t;
-
 typedef struct {
     nx_t on;
     nx_t off;
@@ -86,8 +87,6 @@ typedef struct {
 } icemu_layout_t;
 
 typedef struct {
-    bool_t synced;
-
     nx_t on;
     nx_t off;
 

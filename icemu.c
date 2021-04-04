@@ -50,7 +50,6 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
 
     icemu_t * ic = malloc(sizeof(icemu_t));
 
-    ic->synced = false;
     ic->on = layout->on;
     ic->off = layout->off;
 
@@ -59,13 +58,25 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
     ic->nodes = malloc(sizeof(node_t) * ic->nodes_count);
 
     for (n = 0; n < ic->nodes_count; n++) {
-        ic->nodes[n].load  = PULL_FLOAT;
+        ic->nodes[n].level = LEVEL_FLOAT;
+        ic->nodes[n].pull  = PULL_FLOAT;
         ic->nodes[n].state = BIT_Z;
         ic->nodes[n].dirty = false;
     }
 
+    /* Initialize power sources */
+    ic->nodes[ic->on].level = LEVEL_POWER;
+    ic->nodes[ic->on].pull = PULL_UP;
+    ic->nodes[ic->on].state = BIT_ONE;
+
+    ic->nodes[ic->off].level = LEVEL_POWER;
+    ic->nodes[ic->off].pull = PULL_DOWN;
+    ic->nodes[ic->off].state = BIT_ZERO;
+
+    /* Initialize loads */
     for (l = 0; l < layout->loads_count; l++) {
-        ic->nodes[layout->loads[l].node].load = layout->loads[l].load;
+        ic->nodes[layout->loads[l].node].level = LEVEL_LOAD;
+        ic->nodes[layout->loads[l].node].pull = layout->loads[l].pull;
     }
 
     /* Allocate and initialize transistors */
@@ -187,13 +198,15 @@ bit_t icemu_read_node(const icemu_t * ic, nx_t n, pull_t load) {
 void icemu_write_node(icemu_t * ic, nx_t n, bit_t state, bool_t sync) {
 
     /* Apply a load to the node in the desired direction */
+    ic->nodes[n].level = LEVEL_LOAD;
+
     if (state == BIT_ZERO) {
-        ic->nodes[n].load = PULL_DOWN;
+        ic->nodes[n].pull = PULL_DOWN;
     } else if (state == BIT_ONE) {
-        ic->nodes[n].load = PULL_UP;
+        ic->nodes[n].pull = PULL_UP;
     }
 
-    /* Flag the node as dirty so it will be reevaluated */
+    /* Flag the node as dirty so it will be re-evaluated */
     ic->nodes[n].dirty = true;
 
     /* Synchronize the chip if requested */
@@ -287,10 +300,10 @@ void icemu_network_add(icemu_t * ic, nx_t n) {
     /* Update network signal level */
     node = &ic->nodes[n];
 
-    if (node->load == PULL_DOWN && LEVEL_LOAD > ic->network_level_down) {
-        ic->network_level_down = LEVEL_LOAD;
-    } else if (node->load == PULL_UP && LEVEL_LOAD > ic->network_level_up) {
-        ic->network_level_up = LEVEL_LOAD;
+    if (node->pull == PULL_DOWN && node->level > ic->network_level_down) {
+        ic->network_level_down = node->level;
+    } else if (node->pull == PULL_UP && node->level > ic->network_level_up) {
+        ic->network_level_up = node->level;
     } else if (node->state == BIT_ZERO && LEVEL_CAP > ic->network_level_down) {
         ic->network_level_down = LEVEL_CAP;
     } else if (node->state == BIT_ONE && LEVEL_CAP > ic->network_level_up) {
