@@ -7,6 +7,13 @@ import { Generator } from './lib/generator.mjs';
 const STYLE_BOLD = '\x1B[0;1m';
 const STYLE_NONE = '\x1B[0;0m';
 
+// TODO: Parse command-line options
+const options = {
+    reduceNodes: false,
+    reduceCircuits: false,
+    cacheLayout: false,
+}
+
 // Find spec file to use
 const dir = (process.argv.length > 2 ? process.argv[2] + '/' : '').replace(/\/+$/, '/');
 
@@ -53,8 +60,8 @@ const activeSpec = cacheSpec ? cacheSpec : spec;
 
 try {
     var layout = new Layout(activeSpec, {
-        reduceNodes: false,
-        reduceCircuits: false,
+        reduceNodes: options.reduceNodes,
+        reduceCircuits: options.reduceCircuits,
     });
 } catch (e) {
     console.error(`Error compiling device layout: ${e.message}`);
@@ -65,7 +72,9 @@ try {
 try {
     var newSpec = layout.buildSpec();
 
-    fs.writeFileSync(cachePath, JSON.stringify(newSpec, null, "    "));
+    if (options.cacheLayout) {
+        fs.writeFileSync(cachePath, JSON.stringify(newSpec, null, "    "));
+    }
 } catch (e) {
     console.error(`Error caching compiled spec: ${e.message}`);
     process.exit(1);
