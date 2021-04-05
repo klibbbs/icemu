@@ -16,6 +16,7 @@ export class Pin {
         this.nodes = nodes;
         this.bits = bits;
         this.base = base ? base : bits === 1 ? 10 : 16;
+        this.mode = mode;
         this.readable = (mode === Pin.READ_ONLY) || (mode === Pin.READ_WRITE);
         this.writable = (mode === Pin.READ_WRITE);
     }
