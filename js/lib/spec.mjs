@@ -1,47 +1,28 @@
-const SCHEMAS = {
-    device: {
-        id: true,
-        name: true,
-        nodes: {},
-        on: true,
-        off: true,
-        outputs: true,
-    },
-    latch: {
-        args: true,
-    }
-};
-
 export class Spec {
 
-    constructor(spec, schema) {
+    constructor(spec) {
+        this.type = validateEnum('type', spec.type, [
+            'device',
+        ]);
 
-        // Device type
-        this.type = validateEnum('type', spec.type, Object.keys(SCHEMAS));
+        if (this.type === 'device') {
 
-        this.schema = SCHEMAS[this.type];
-
-        // Device info
-        if (this.schema.id || spec.id) {
+            // Device info
             this.id = validateIdentifier('id', spec.id);
-        }
-
-        if (this.schema.name || spec.name) {
             this.name = validateString('name', spec.name);
-        }
 
-        if (this.schema.args || spec.args) {
-            this.args = validateArray('args', spec.args, validateString);
+            // Memory model
+            if (spec.memory) {
+                this.memory = validateStruct('memory', spec.memory, {
+                    word: (field, val) => validateWidth(field, val),
+                    address: (field, val) => validateInt(field, val, 1),
+                })
+            }
         } else {
-            this.args = [];
-        }
 
-        // Memory model
-        if (this.schema.memory || spec.memory) {
-            this.memory = validateStruct('memory', spec.memory, {
-                word: (field, val) => validateWidth(field, val),
-                address: (field, val) => validateInt(field, val, 1),
-            });
+            // Circuit parameters
+            this.enabled = spec.enabled === false ? false : true;
+            this.args = validateArray('args', spec.args, validateAny);
         }
 
         // Node names
@@ -61,28 +42,17 @@ export class Spec {
             }
         }
 
-        if (this.schema.nodes) {
-            for (const [name, width] of Object.entries(this.schema.nodes)) {
-                if (this.nodeNames[name] === undefined) {
-                    throw new TypeError(`Node '${name}' is required by type '${this.type}'`);
-                }
-
-                if (this.nodeNames[name].length !== width) {
-                    throw new TypeError(`Node '${name}' must have width ${width}`);
-                }
-            }
-        }
-
         // Node assignments
-        if (this.schema.on || spec.on) {
+        if (spec.on) {
             this.on = validateSingleNodeName('on', spec.on, this.nodeNames);
         }
 
-        if (this.schema.off || spec.off) {
+        if (spec.off) {
             this.off = validateSingleNodeName('off', spec.off, this.nodeNames);
         }
 
-        if (this.schema.inputs || spec.inputs) {
+        // Pin sets
+        if (spec.inputs) {
             this.inputs = validateArray('inputs', spec.inputs, (field, val) => {
                 return validateNodeName(field, val, this.nodeNames);
             });
@@ -90,7 +60,7 @@ export class Spec {
             this.inputs = [];
         }
 
-        if (this.schema.outputs || spec.outputs) {
+        if (spec.outputs) {
             this.outputs = validateArray('outputs', spec.outputs, (field, val) => {
                 return validateNodeName(field, val, this.nodeNames);
             });
@@ -98,7 +68,7 @@ export class Spec {
             this.outputs = [];
         }
 
-        if (this.schema.registers || spec.registers) {
+        if (spec.registers) {
             this.registers = validateArray('registers', spec.registers, (field, val) => {
                 return validateNodeName(field, val, this.nodeNames);
             });
@@ -106,7 +76,7 @@ export class Spec {
             this.registers = [];
         }
 
-        if (this.schema.flags || spec.flags) {
+        if (spec.flags) {
             this.flags = validateArray('flags', spec.flags, (field, val) => {
                 return validateNodeName(field, val, this.nodeNames);
             });
@@ -139,17 +109,6 @@ export class Spec {
             this.transistors = [];
         }
 
-        if (spec.latches) {
-            this.latches = validateArray('latches', spec.latches, (field, val) => {
-                return validateTuple(field, val, [
-                    validateNode,
-                    validateNode,
-                    validateNode,
-                ]);
-            });
-        } else {
-            this.latches = [];
-        }
 
         // Circuits
         if (spec.circuits) {
@@ -178,6 +137,18 @@ export class Spec {
 }
 
 // --- Validators ---
+
+function validateAny(field, val) {
+    return val;
+}
+
+function validateBool(field, val) {
+    if (val !== true && val !== false) {
+        throw new TypeError(`Field '${field}' must be a boolean`);
+    }
+
+    return val;
+}
 
 function validateInt(field, val, min, max) {
     if (val !== parseInt(val, 10)) {

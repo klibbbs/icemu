@@ -35,6 +35,7 @@ export class Generator {
             device: this.spec.id,
             device_type: `${this.spec.id}_t`,
             device_caps: this.spec.id.toUpperCase(),
+            getBool: bool => bool ? 'true' : 'false',
             getPinSym: (pin, idx) => {
                 if (idx === undefined) {
                     return (`${pin.type}_${pin.id}`).toUpperCase();
@@ -42,8 +43,8 @@ export class Generator {
                     return (`${pin.type}_${pin.id}_${idx}`).toUpperCase();
                 }
             },
-            getLoadEnum: (load) => {
-                switch (load.type) {
+            getLoadEnum: (type) => {
+                switch (type) {
                     case 'on':
                         return 'PULL_UP';
                     case 'off':
@@ -52,27 +53,26 @@ export class Generator {
                         throw new TypeError(`Unsupported load type '${type}'`);
                 }
             },
-            getTransistorEnum: (transistor) => {
-                switch (transistor.type) {
+            getTransistorEnum: (type) => {
+                switch (type) {
                     case 'nmos':
                         return 'TRANSISTOR_NMOS';
                     case 'pmos':
                         return 'TRANSISTOR_PMOS';
                     default:
-                        throw new TypeError(`Unsupported transistor type '${transistor.type}'`);
+                        throw new TypeError(`Unsupported transistor type '${type}'`);
                 }
             },
-            getTopologyEnum: (transistor) => {
-                switch (transistor.topology) {
-                    case 'single':
-                        return 'TOPOLOGY_SINGLE';
-                    case 'parallel':
-                        return 'TOPOLOGY_PARALLEL';
-                    case 'series':
-                        return 'TOPOLOGY_SERIES';
+            getLogicEnum: (logic) => {
+                switch (logic) {
+                    case 'nmos':
+                        return 'LOGIC_NMOS';
+                    case 'pmos':
+                        return 'LOGIC_PMOS';
+                    case 'cmos':
+                        return 'LOGIC_CMOS;'
                     default:
-                        throw new TypeError(
-                            `Unsupported transistor topology '${transistor.topology}'`);
+                        throw new TypeError(`Unsupported logic type '${logic}'`);
                 }
             },
         };
@@ -226,9 +226,9 @@ function generateC_device_c(C, spec, layout) {
             `${C.device_caps}_ON,`,
             `${C.device_caps}_OFF,`,
             `${C.device_caps}_NODE_COUNT,`,
-            `${C.device_caps}_LOAD_DEFS,`,
+            layout.loads.length ? `${C.device_caps}_LOAD_DEFS,` : 'NULL,',
             `${C.device_caps}_LOAD_COUNT,`,
-            `${C.device_caps}_TRANSISTOR_DEFS,`,
+            layout.transistors.length ? `${C.device_caps}_TRANSISTOR_DEFS,` : 'NULL,',
             `${C.device_caps}_TRANSISTOR_COUNT`,
         ]),
         tab(1, '};'),
@@ -936,14 +936,14 @@ function generateC_layout_h(C, spec, layout) {
         '',
         ...(layout.loads.length ? [
             `const load_t ${C.device_caps}_LOAD_DEFS[] = {`,
-            tab(1, layout.loads.map(l => `{${C.getLoadEnum(l)}, ${l.node}}`).join(",\n")),
+            tab(1, layout.loads.map(l => `{${C.getLoadEnum(l.type)}, ${l.node}}`).join(",\n")),
             '};',
         ] : []),
         '',
         ...(layout.transistors.length ? [
             `const transistor_t ${C.device_caps}_TRANSISTOR_DEFS[] = {`,
             tab(1, layout.transistors.map((t, i) => (
-                `{${C.getTransistorEnum(t)}, ${t.gate}, ${t.channel[0]}, ${t.channel[1]}}`
+                `{${C.getTransistorEnum(t.type)}, ${t.gate}, ${t.channel[0]}, ${t.channel[1]}}`
             )).join(",\n")),
             '};',
             '',

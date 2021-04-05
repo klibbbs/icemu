@@ -1,7 +1,6 @@
 import { Pin } from './pin.mjs';
 import { Load } from './load.mjs';
 import { Transistor } from './transistor.mjs';
-import { Latch } from './latch.mjs';
 
 export class Layout {
 
@@ -60,10 +59,6 @@ export class Layout {
             .sort((a, b) => compareTransistors(a, b))
             .filter((v, i, a) => a.findIndex(t => compareTransistors(v, t) === 0) === i);
 
-        // Build unique latch list
-        this.latches = spec.latches.map(h => Latch.fromSpec(h))
-            .sort((a, b) => compareLatches(a, b))
-            .filter((v, i, a) => a.findIndex(h => compareLatches(v, h) === 0) === i);
 
         // Build node-to-component maps
         this.buildComponentMaps();
@@ -71,7 +66,7 @@ export class Layout {
         // --- Reduce components ---
 
         if (options.reduceCircuits) {
-            this.circuits = spec.circuits.map(c => new Layout(c, {}));
+            this.circuits = spec.circuits.filter(c => c.enabled).map(c => new Layout(c, {}));
 
             this.circuits.forEach(circuit => {
                 while (this.reduceCircuit(circuit));
@@ -80,40 +75,40 @@ export class Layout {
 
         // --- Normalize nodes ---
 
-        // Map nodes to unique indices
-        const nodeIds = [].concat(
+        // Find all nodes in use
+        const nodes = [].concat(
             ...this.pins.map(p => p.getAllNodes()),
             ...this.loads.map(l => l.getAllNodes()),
             ...this.transistors.map(t => t.getAllNodes()),
-            ...this.latches.map(h => h.getAllNodes()),
         ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
 
-        this.nodes = Object.fromEntries(nodeIds.map((node, idx) => [node, idx]));
+        if (options.reduceNodes) {
 
-        // Replace nodes with unique indices in each component
-        this.pins.forEach(p => { p.nodes = p.nodes.map(n => this.nodes[n]) });
+            // Map nodes to unique indices
+            this.nodes = Object.fromEntries(nodes.map((node, idx) => [node, idx]));
 
-        this.loads.forEach(l => { l.node = this.nodes[l.node] });
+            // Replace nodes with unique indices in each component
+            this.pins.forEach(p => { p.nodes = p.nodes.map(n => this.nodes[n]) });
 
-        this.transistors.forEach(t => {
-            t.gate = this.nodes[t.gate];
-            t.channel = t.channel.map(n => this.nodes[n]);
-        });
+            this.loads.forEach(l => { l.node = this.nodes[l.node] });
 
-        this.latches.forEach(h => {
-            h.data = this.nodes[h.data];
-            h.out = this.nodes[h.out];
-            h.nout = this.nodes[h.nout];
-        });
+            this.transistors.forEach(t => {
+                t.gate = this.nodes[t.gate];
+                t.channel = t.channel.map(n => this.nodes[n]);
+            });
+        } else {
+
+            // Leave nodes unchanged
+            this.nodes = Object.fromEntries(nodes.map(node => [node, node]));
+        }
 
         // --- Calculate counts ---
 
         this.counts = {
-            nodes: Object.keys(this.nodes).length,
+            nodes: Math.max(...Object.values(this.nodes)) + 1,
             pins: this.pins.length,
             loads: this.loads.length,
             transistors: this.transistors.length,
-            latches: this.latches.length,
         };
     }
 
@@ -392,6 +387,10 @@ export class Layout {
 
         // Create a new component
         const args = circuit.args.map((arg, idx) => {
+            if (typeof arg !== 'string') {
+                return arg;
+            }
+
             const sigil = arg[0];
 
             if (sigil === '$' || sigil === '@') {
@@ -416,10 +415,9 @@ export class Layout {
             }
         });
 
-        if (circuit.type === 'latch') {
-            device.latches.push(new Latch(...args));
-        } else {
-            throw new Error(`Unsupported circuit type '${circuit.type}'`);
+        switch (circuit.type) {
+            default:
+                throw new Error(`Unsupported circuit type '${circuit.type}'`);
         }
 
         console.log(`Reducing '${circuit.type}' circuit...`);
@@ -482,7 +480,6 @@ export class Layout {
         console.log(`Pins:        ${this.counts.pins}`);
         console.log(`Loads:       ${this.counts.loads}`);
         console.log(`Transistors: ${this.counts.transistors}`);
-        console.log(`Latches:     ${this.counts.latches}`);
     }
 
     buildSpec() {
@@ -490,6 +487,7 @@ export class Layout {
             id: this.spec.id,
             name: this.spec.name,
             type: this.spec.type,
+            enabled: this.spec.enabled,
             args: this.spec.args,
             memory: this.spec.memory,
             nodes: Object.fromEntries(Object.entries(this.spec.nodeNames).map(([name, set]) => {
@@ -504,7 +502,6 @@ export class Layout {
             circuits: this.circuits ? this.circuits.map(c => c.buildSpec()) : undefined,
             loads: this.loads.map(l => l.getSpec()),
             transistors: this.transistors.map(t => t.getSpec()),
-            latches: this.latches.map(h => h.getSpec()),
         };
     }
 }
@@ -531,10 +528,4 @@ function compareTransistors(a, b) {
     return a.type.localeCompare(b.type) ||
         a.gate - b.gate ||
         compareArrays(a.channel, b.channel);
-}
-
-function compareLatches(a, b) {
-    return a.in - b.in ||
-        a.out - b.out ||
-        a.nout - b.nout;
 }

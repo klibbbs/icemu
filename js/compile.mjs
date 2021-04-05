@@ -53,6 +53,7 @@ const activeSpec = cacheSpec ? cacheSpec : spec;
 
 try {
     var layout = new Layout(activeSpec, {
+        reduceNodes: false,
         reduceCircuits: false,
     });
 } catch (e) {
