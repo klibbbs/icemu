@@ -17,11 +17,12 @@ typedef enum {
     BIT_META = -2
 } bit_t;
 
-char bit_char(bit_t bit);
-
-/* --- Node --- */
-
-typedef size_t nx_t;
+typedef enum {
+    LOGIC_NMOS = 0,
+    LOGIC_PMOS = 1,
+    LOGIC_CMOS = 2,
+    LOGIC_TTL  = 3
+} logic_t;
 
 typedef enum {
     LEVEL_FLOAT = 0,
@@ -35,6 +36,12 @@ typedef enum {
     PULL_FLOAT = 0,
     PULL_UP    = 1
 } pull_t;
+
+char bit_char(bit_t bit);
+
+/* --- Node --- */
+
+typedef size_t nx_t;
 
 typedef struct {
     level_t level;
@@ -70,6 +77,18 @@ typedef struct {
     bool_t dirty;
 } transistor_t;
 
+/* --- Buffer --- */
+
+typedef size_t bx_t;
+
+typedef struct {
+    logic_t logic;
+    bool_t inverting;
+    nx_t input;
+    nx_t output;
+    bool_t dirty;
+} buffer_t;
+
 /* --- IC --- */
 
 typedef struct {
@@ -83,7 +102,9 @@ typedef struct {
 
     const transistor_t * transistors;
     size_t transistors_count;
-    size_t gates_count;
+
+    const buffer_t * buffers;
+    size_t buffers_count;
 } icemu_layout_t;
 
 typedef struct {
@@ -96,6 +117,9 @@ typedef struct {
     transistor_t * transistors;
     size_t transistors_count;
 
+    buffer_t * buffers;
+    size_t buffers_count;
+
     tx_t ** node_gates;
     tx_t * node_gates_lists;
     size_t * node_gates_counts;
@@ -103,6 +127,10 @@ typedef struct {
     tx_t ** node_channels;
     tx_t * node_channels_lists;
     size_t * node_channels_counts;
+
+    bx_t ** node_buffers;
+    bx_t * node_buffers_lists;
+    size_t * node_buffers_counts;
 
     nx_t * network_nodes;
     size_t network_nodes_count;

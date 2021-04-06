@@ -131,6 +131,7 @@ const nx_t MOS6502_OFF = SRC_VSS;
 const size_t MOS6502_NODE_COUNT = 1726;
 const size_t MOS6502_LOAD_COUNT = 1018;
 const size_t MOS6502_TRANSISTOR_COUNT = 3239;
+const size_t MOS6502_BUFFER_COUNT = 0;
 
 /* --- Component definitions --- */
 

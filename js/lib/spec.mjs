@@ -3,6 +3,7 @@ export class Spec {
     constructor(spec) {
         this.type = validateEnum('type', spec.type, [
             'device',
+            'buffer',
         ]);
 
         if (this.type === 'device') {
@@ -109,6 +110,18 @@ export class Spec {
             this.transistors = [];
         }
 
+        if (spec.buffers) {
+            this.buffers = validateArray('buffers', spec.buffers, (field, val) => {
+                return validateTuple(field, val, [
+                    (field, val) => validateEnum(field, val, ['nmos', 'pmos', 'cmos']),
+                    validateBool,
+                    validateNode,
+                    validateNode,
+                ]);
+            });
+        } else {
+            this.buffers = [];
+        }
 
         // Circuits
         if (spec.circuits) {
@@ -133,6 +146,7 @@ export class Spec {
         console.log(`Nodes:       ${this.nodeIds.length}`);
         console.log(`Loads:       ${this.loads.length}`);
         console.log(`Transistors: ${this.transistors.length}`);
+        console.log(`Buffers:     ${this.buffers.length}`);
     }
 }
 

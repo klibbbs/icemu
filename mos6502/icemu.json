@@ -35,7 +35,27 @@
     "outputs": ["ab", "clk1", "clk2", "db", "rw", "sync"],
     "registers": ["a", "i", "p", "pc", "sp", "x", "y"],
     "flags": ["p"],
-    "circuits": [],
+    "circuits": [
+        {
+            "type": "buffer",
+            "enabled": true,
+            "args": ["nmos", true, "$in", "$out"],
+            "nodes": {
+                "in": 0,
+                "out": 1,
+                "vss": 2
+            },
+            "off": "vss",
+            "inputs": ["in"],
+            "outputs": ["out"],
+            "loads": [
+                ["on", 1]
+            ],
+            "transistors": [
+                ["nmos", 0, 1, 2]
+            ]
+        }
+    ],
     "loads": [
         ["on", 0],
         ["on", 3],

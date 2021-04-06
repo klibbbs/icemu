@@ -229,7 +229,9 @@ function generateC_device_c(C, spec, layout) {
             layout.loads.length ? `${C.device_caps}_LOAD_DEFS,` : 'NULL,',
             `${C.device_caps}_LOAD_COUNT,`,
             layout.transistors.length ? `${C.device_caps}_TRANSISTOR_DEFS,` : 'NULL,',
-            `${C.device_caps}_TRANSISTOR_COUNT`,
+            `${C.device_caps}_TRANSISTOR_COUNT,`,
+            layout.buffers.length ? `${C.device_caps}_BUFFER_DEFS,` : 'NULL,',
+            `${C.device_caps}_BUFFER_COUNT`,
         ]),
         tab(1, '};'),
         '',
@@ -931,6 +933,7 @@ function generateC_layout_h(C, spec, layout) {
         `const size_t ${C.device_caps}_NODE_COUNT = ${layout.counts.nodes};`,
         `const size_t ${C.device_caps}_LOAD_COUNT = ${layout.counts.loads};`,
         `const size_t ${C.device_caps}_TRANSISTOR_COUNT = ${layout.counts.transistors};`,
+        `const size_t ${C.device_caps}_BUFFER_COUNT = ${layout.counts.buffers};`,
         '',
         comment('Component definitions', 2),
         '',
@@ -949,6 +952,14 @@ function generateC_layout_h(C, spec, layout) {
             '',
         ] : []),
         '',
+        ...(layout.buffers.length ? [
+            `const buffer_t ${C.device_caps}_BUFFER_DEFS[] = {`,
+            tab(1, layout.buffers.map((b, i) => (
+                `{${C.getLogicEnum(b.logic)}, ${C.getBool(b.inverting)}, ${b.input}, ${b.output}}`
+            )).join(",\n")),
+            '};',
+            '',
+        ] : []),
         `#endif /* ${include_guard} */`,
     ]);
 }

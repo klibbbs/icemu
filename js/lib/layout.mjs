@@ -1,6 +1,7 @@
 import { Pin } from './pin.mjs';
 import { Load } from './load.mjs';
 import { Transistor } from './transistor.mjs';
+import { Buffer } from './buffer.mjs';
 
 export class Layout {
 
@@ -59,6 +60,10 @@ export class Layout {
             .sort((a, b) => compareTransistors(a, b))
             .filter((v, i, a) => a.findIndex(t => compareTransistors(v, t) === 0) === i);
 
+        // Build unique buffer list
+        this.buffers = spec.buffers.map(b => Buffer.fromSpec(b))
+            .sort((a, b) => compareBuffers(a, b))
+            .filter((v, i, a) => a.findIndex(b => compareBuffers(v, t) === 0) === i);
 
         // Build node-to-component maps
         this.buildComponentMaps();
@@ -80,6 +85,7 @@ export class Layout {
             ...this.pins.map(p => p.getAllNodes()),
             ...this.loads.map(l => l.getAllNodes()),
             ...this.transistors.map(t => t.getAllNodes()),
+            ...this.buffers.map(b => b.getAllNodes()),
         ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
 
         if (options.reduceNodes) {
@@ -96,6 +102,11 @@ export class Layout {
                 t.gate = this.nodes[t.gate];
                 t.channel = t.channel.map(n => this.nodes[n]);
             });
+
+            this.buffers.forEach(b => {
+                b.input = this.nodes[b.input];
+                b.output = this.nodes[b.output];
+            });
         } else {
 
             // Leave nodes unchanged
@@ -109,6 +120,7 @@ export class Layout {
             pins: this.pins.length,
             loads: this.loads.length,
             transistors: this.transistors.length,
+            buffers: this.buffers.length,
         };
     }
 
@@ -416,6 +428,9 @@ export class Layout {
         });
 
         switch (circuit.type) {
+            case 'buffer':
+                device.buffers.push(new Buffer(...args));
+                break;
             default:
                 throw new Error(`Unsupported circuit type '${circuit.type}'`);
         }
@@ -480,6 +495,7 @@ export class Layout {
         console.log(`Pins:        ${this.counts.pins}`);
         console.log(`Loads:       ${this.counts.loads}`);
         console.log(`Transistors: ${this.counts.transistors}`);
+        console.log(`Buffers:     ${this.counts.buffers}`);
     }
 
     buildSpec() {
@@ -502,6 +518,7 @@ export class Layout {
             circuits: this.circuits ? this.circuits.map(c => c.buildSpec()) : undefined,
             loads: this.loads.map(l => l.getSpec()),
             transistors: this.transistors.map(t => t.getSpec()),
+            buffers: this.buffers.map(b => b.getSpec()),
         };
     }
 }
@@ -528,4 +545,9 @@ function compareTransistors(a, b) {
     return a.type.localeCompare(b.type) ||
         a.gate - b.gate ||
         compareArrays(a.channel, b.channel);
+}
+
+function compareBuffers(a, b) {
+    return a.input - b.input ||
+        a.output - b.output;
 }
