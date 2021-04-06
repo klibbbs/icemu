@@ -10,7 +10,7 @@ const STYLE_NONE = '\x1B[0;0m';
 // TODO: Parse command-line options
 const options = {
     reduceNodes: false,
-    reduceCircuits: false,
+    reduceCircuits: true,
     cacheLayout: false,
 }
 

@@ -37,8 +37,11 @@
     "flags": ["p"],
     "circuits": [
         {
+            "id": "inverter",
+            "name": "NMOS Inverter",
             "type": "buffer",
-            "enabled": true,
+            "enabled": false,
+            "limit": null,
             "args": ["nmos", true, "$in", "$out"],
             "nodes": {
                 "in": 0,

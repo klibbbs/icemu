@@ -6,11 +6,11 @@ export class Spec {
             'buffer',
         ]);
 
-        if (this.type === 'device') {
+        // Component info
+        this.id = validateIdentifier('id', spec.id);
+        this.name = validateString('name', spec.name);
 
-            // Device info
-            this.id = validateIdentifier('id', spec.id);
-            this.name = validateString('name', spec.name);
+        if (this.type === 'device') {
 
             // Memory model
             if (spec.memory) {
@@ -23,6 +23,7 @@ export class Spec {
 
             // Circuit parameters
             this.enabled = spec.enabled === false ? false : true;
+            this.limit = spec.limit;
             this.args = validateArray('args', spec.args, validateAny);
         }
 

@@ -71,10 +71,25 @@ export class Layout {
         // --- Reduce components ---
 
         if (options.reduceCircuits) {
-            this.circuits = spec.circuits.filter(c => c.enabled).map(c => new Layout(c, {}));
+            this.circuits = spec.circuits
+                .filter(c => c.enabled && !(c.limit <= 0))
+                .map(c => new Layout(c, {}));
 
             this.circuits.forEach(circuit => {
-                while (this.reduceCircuit(circuit));
+                let limit = circuit.spec.limit ? circuit.spec.limit : Number.MAX_SAFE_INTEGER,
+                    count = 0;
+
+                process.stdout.write(`Reducing circuit '${circuit.spec.id}'...`);
+
+                while (count < limit && this.reduceCircuit(circuit)) {
+                    count++;
+
+                    if (count % 10 === 0) {
+                        process.stdout.write('.');
+                    }
+                }
+
+                console.log(`done with ${count}`);
             });
         }
 
@@ -435,8 +450,6 @@ export class Layout {
                 throw new Error(`Unsupported circuit type '${circuit.type}'`);
         }
 
-        console.log(`Reducing '${circuit.type}' circuit...`);
-
         // Reduce components within circuit
         Object.values(state.circuit.loads).forEach(dlx => {
             device.loads[dlx].reduced = true;
@@ -504,6 +517,7 @@ export class Layout {
             name: this.spec.name,
             type: this.spec.type,
             enabled: this.spec.enabled,
+            limit: this.spec.limit,
             args: this.spec.args,
             memory: this.spec.memory,
             nodes: Object.fromEntries(Object.entries(this.spec.nodeNames).map(([name, set]) => {
