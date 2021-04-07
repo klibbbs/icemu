@@ -89,7 +89,7 @@ export class Generator {
 
         // Write to disk
         Object.entries(this.files).forEach(([file, data]) => {
-            fs.createWriteStream(file, { encoding: 'ascii', mode: 0x644 }).write(data);
+            fs.createWriteStream(file, { encoding: 'ascii', mode: 0o644 }).write(data);
         });
     }
 }
