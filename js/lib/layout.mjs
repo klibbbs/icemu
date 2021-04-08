@@ -50,20 +50,13 @@ export class Layout {
             ].sort((a, b) => a.id.localeCompare(b.id)),
         );
 
-        // Build unique load list
-        this.loads = spec.loads.map(l => Load.fromSpec(l))
-            .sort((a, b) => compareLoads(a, b))
-            .filter((v, i, a) => a.findIndex(l => compareLoads(v, l) === 0) === i);
+        // Build components and normalize
+        this.loads = spec.loads.map(l => Load.fromSpec(l));
+        this.transistors = spec.transistors.map(t => Transistor.fromSpec(t));
+        this.buffers = spec.buffers.map(b => Buffer.fromSpec(b));
 
-        // Build unique transistor list
-        this.transistors = spec.transistors.map(t => Transistor.fromSpec(t))
-            .sort((a, b) => compareTransistors(a, b))
-            .filter((v, i, a) => a.findIndex(t => compareTransistors(v, t) === 0) === i);
-
-        // Build unique buffer list
-        this.buffers = spec.buffers.map(b => Buffer.fromSpec(b))
-            .sort((a, b) => compareBuffers(a, b))
-            .filter((v, i, a) => a.findIndex(b => compareBuffers(v, b) === 0) === i);
+        // Sort and de-dupe
+        this.normalizeComponents();
 
         // Build node-to-component maps
         this.buildComponentMaps();
@@ -93,40 +86,10 @@ export class Layout {
             });
         }
 
-        // --- Normalize nodes ---
+        // --- Normalize ---
 
-        // Find all nodes in use
-        const nodes = [].concat(
-            ...this.pins.map(p => p.getAllNodes()),
-            ...this.loads.map(l => l.getAllNodes()),
-            ...this.transistors.map(t => t.getAllNodes()),
-            ...this.buffers.map(b => b.getAllNodes()),
-        ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
-
-        if (options.reduceNodes) {
-
-            // Map nodes to unique indices
-            this.nodes = Object.fromEntries(nodes.map((node, idx) => [node, idx]));
-
-            // Replace nodes with unique indices in each component
-            this.pins.forEach(p => { p.nodes = p.nodes.map(n => this.nodes[n]) });
-
-            this.loads.forEach(l => { l.node = this.nodes[l.node] });
-
-            this.transistors.forEach(t => {
-                t.gate = this.nodes[t.gate];
-                t.channel = t.channel.map(n => this.nodes[n]);
-            });
-
-            this.buffers.forEach(b => {
-                b.input = this.nodes[b.input];
-                b.output = this.nodes[b.output];
-            });
-        } else {
-
-            // Leave nodes unchanged
-            this.nodes = Object.fromEntries(nodes.map(node => [node, node]));
-        }
+        this.normalizeNodes(options.reduceNodes);
+        this.normalizeComponents();
 
         // --- Calculate counts ---
 
@@ -646,6 +609,56 @@ export class Layout {
 
             return map;
         }, {});
+    }
+
+    normalizeNodes(reduceNodes) {
+
+        // Find all nodes in use
+        const nodes = [].concat(
+            ...this.pins.map(p => p.getAllNodes()),
+            ...this.loads.map(l => l.getAllNodes()),
+            ...this.transistors.map(t => t.getAllNodes()),
+            ...this.buffers.map(b => b.getAllNodes()),
+        ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
+
+        if (reduceNodes) {
+
+            // Map nodes to unique indices
+            this.nodes = Object.fromEntries(nodes.map((node, idx) => [node, idx]));
+
+            // Replace nodes with unique indices in each component
+            this.pins.forEach(p => { p.nodes = p.nodes.map(n => this.nodes[n]) });
+
+            this.loads.forEach(l => { l.node = this.nodes[l.node] });
+
+            this.transistors.forEach(t => {
+                t.gate = this.nodes[t.gate];
+                t.channel = t.channel.map(n => this.nodes[n]);
+            });
+
+            this.buffers.forEach(b => {
+                b.input = this.nodes[b.input];
+                b.output = this.nodes[b.output];
+            });
+        } else {
+
+            // Leave nodes unchanged
+            this.nodes = Object.fromEntries(nodes.map(node => [node, node]));
+        }
+    }
+
+    normalizeComponents() {
+        this.loads = this.loads
+            .sort((a, b) => compareLoads)
+            .filter((v, i, a) => a.findIndex(l => compareLoads(v, l) === 0) === i);
+
+        this.transistors = this.transistors
+            .sort((a, b) => compareTransistors(a, b))
+            .filter((v, i, a) => a.findIndex(t => compareTransistors(v, t) === 0) === i);
+
+        this.buffers = this.buffers
+            .sort((a, b) => compareBuffers(a, b))
+            .filter((v, i, a) => a.findIndex(b => compareBuffers(v, b) === 0) === i);
     }
 
     printInfo() {
