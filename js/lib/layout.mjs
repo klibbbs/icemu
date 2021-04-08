@@ -63,7 +63,7 @@ export class Layout {
         // Build unique buffer list
         this.buffers = spec.buffers.map(b => Buffer.fromSpec(b))
             .sort((a, b) => compareBuffers(a, b))
-            .filter((v, i, a) => a.findIndex(b => compareBuffers(v, t) === 0) === i);
+            .filter((v, i, a) => a.findIndex(b => compareBuffers(v, b) === 0) === i);
 
         // Build node-to-component maps
         this.buildComponentMaps();
@@ -149,11 +149,13 @@ export class Layout {
                     nodes: Object.fromEntries(Object.entries(state.device.nodes)),
                     loads: Object.fromEntries(Object.entries(state.device.loads)),
                     transistors: Object.fromEntries(Object.entries(state.device.transistors)),
+                    buffers: Object.fromEntries(Object.entries(state.device.buffers)),
                 },
                 circuit: {
                     nodes: Object.fromEntries(Object.entries(state.circuit.nodes)),
                     loads: Object.fromEntries(Object.entries(state.circuit.loads)),
                     transistors: Object.fromEntries(Object.entries(state.circuit.transistors)),
+                    buffers: Object.fromEntries(Object.entries(state.circuit.buffers)),
                 },
             };
         }
@@ -230,6 +232,30 @@ export class Layout {
                 }
             }
 
+            // Compare buffer counts
+            let cbis = circuit.buffersByInput[cnx],
+                cbos = circuit.buffersByOutput[cnx],
+                dbis = device.buffersByInput[dnx],
+                dbos = device.buffersByOutput[dnx];
+
+            if (cbis && !dbis || cbis && dbis.length < cbis.length) {
+                return false;
+            }
+
+            if (cbos && !dbos || cbos && dbos.length < cbos.length) {
+                return false;
+            }
+
+            if (!edge) {
+                if (!cbis && dbis || cbis && dbis.length !== cbis.length) {
+                    return false;
+                }
+
+                if (!cbos && dbos || cbos && dbos.length !== cbos.length) {
+                    return false;
+                }
+            }
+
             // Update state
             let testState = copyState(state);
 
@@ -261,6 +287,31 @@ export class Layout {
             if (ctcs) {
                 if (!ctcs.every(ctx => {
                     if (testState = findTransistor(ctx, dtcs, testState)) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                })) {
+                    return false;
+                }
+            }
+
+            // Match buffers
+            if (cbis) {
+                if (!cbis.every(cbx => {
+                    if (testState = findBuffer(cbx, dbis, testState)) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                })) {
+                    return false;
+                }
+            }
+
+            if (cbos) {
+                if (!cbos.every(cbx => {
+                    if (testState = findBuffer(cbx, dbos, testState)) {
                         return true;
                     } else {
                         return false;
@@ -353,6 +404,44 @@ export class Layout {
             return false;
         }
 
+        function matchBuffers(cbx, dbx, state) {
+
+            // Check if buffers are already matched or already in use
+            if (state.circuit.buffers[cbx] === dbx &&
+                state.device.buffers[dbx] === cbx) {
+
+                return state;
+            }
+
+            if (state.circuit.buffers[cbx] !== undefined ||
+                state.device.buffers[dbx] !== undefined) {
+
+                return false;
+            }
+
+            // Compare buffers
+            let cb = circuit.buffers[cbx],
+                db = device.buffers[dbx];
+
+            if (cb.logic !== db.logic || cb.inverting !== db.inverting) {
+                return false;
+            }
+
+            // Match nodes
+            let testState = copyState(state);
+
+            testState.circuit.buffers[cbx] = dbx;
+            testState.device.buffers[dbx] = cbx;
+
+            if ((testState = matchNodes(cb.input, db.input, testState)) &&
+                (testState = matchNodes(cb.output, db.output, testState))) {
+
+                return testState;
+            }
+
+            return false;
+        }
+
         // Component finders
         function findLoad(clx, dlxs, state) {
             for (const dlx of dlxs) {
@@ -378,19 +467,44 @@ export class Layout {
             return false;
         }
 
-        // Match
+        function findBuffer(cbx, dbxs, state) {
+            for (const dbx of dbxs) {
+                let newState = matchBuffers(cbx, dbx, state);
+
+                if (newState) {
+                    return newState;
+                }
+            }
+
+            return false;
+        }
+
+        // Initialize search state
         let state = {
             device: {
                 nodes: {},
                 loads: {},
                 transistors: {},
+                buffers: {},
             },
             circuit: {
                 nodes: {},
                 loads: {},
                 transistors: {},
+                buffers: {},
             },
         };
+
+        // Match
+        if (!circuit.buffers.every((cb, cbx) => {
+            if (state = findBuffer(cbx, Array.from(device.buffers.keys()), state)) {
+                return true;
+            } else {
+                return false;
+            }
+        })) {
+            return false;
+        }
 
         if (!circuit.transistors.every((ct, ctx) => {
             if (state = findTransistor(ctx, Array.from(device.transistors.keys()), state)) {
@@ -459,9 +573,14 @@ export class Layout {
             device.transistors[dtx].reduced = true;
         });
 
+        Object.values(state.circuit.buffers).forEach(dbx => {
+            device.buffers[dbx].reduced = true;
+        });
+
         // Remove reduced components
         device.loads = device.loads.filter(l => !l.reduced);
         device.transistors = device.transistors.filter(t => !t.reduced);
+        device.buffers = device.buffers.filter(b => !b.reduced);
 
         // Rebuild node-to-component maps in the main device
         device.buildComponentMaps();
@@ -498,6 +617,18 @@ export class Layout {
         this.transistorsByChannel = this.transistors.reduce((map, t, tx) => {
             appendToMap(map, t.channel[0], tx);
             appendToMap(map, t.channel[1], tx);
+
+            return map;
+        }, {});
+
+        this.buffersByInput = this.buffers.reduce((map, b, bx) => {
+            appendToMap(map, b.input, bx);
+
+            return map;
+        }, {});
+
+        this.buffersByOutput = this.buffers.reduce((map, b, bx) => {
+            appendToMap(map, b.output, bx);
 
             return map;
         }, {});
@@ -552,7 +683,8 @@ function compareArrays(a, b) {
 }
 
 function compareLoads(a, b) {
-    return a.type.localeCompare(b.type) || a.node - b.node;
+    return a.type.localeCompare(b.type) ||
+        a.node - b.node;
 }
 
 function compareTransistors(a, b) {
@@ -562,6 +694,8 @@ function compareTransistors(a, b) {
 }
 
 function compareBuffers(a, b) {
-    return a.input - b.input ||
+    return a.logic.localeCompare(b.logic) ||
+        a.inverting - b.inverting ||
+        a.input - b.input ||
         a.output - b.output;
 }

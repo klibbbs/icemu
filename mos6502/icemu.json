@@ -56,6 +56,23 @@
             "transistors": [
                 ["nmos", 0, 1, 2]
             ]
+        },
+        {
+            "id": "buffer",
+            "name": "NMOS Buffer",
+            "type": "buffer",
+            "enabled": true,
+            "args": ["nmos", false, "$in", "$out"],
+            "nodes": {
+                "in": 0,
+                "out": 1
+            },
+            "inputs": ["in"],
+            "outputs": ["out"],
+            "buffers": [
+                ["nmos", true, 0, 2],
+                ["nmos", true, 2, 1]
+            ]
         }
     ],
     "loads": [
