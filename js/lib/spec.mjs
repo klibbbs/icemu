@@ -8,6 +8,7 @@ export class Spec {
     constructor(spec) {
         this.type = Validator.validateEnum('type', spec.type, [
             'device',
+            'reduce',
             'load',
             'transistor',
             'buffer',

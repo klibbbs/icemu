@@ -524,6 +524,9 @@ export class Layout {
         });
 
         switch (circuit.type) {
+            case 'reduce':
+                // Reduce components only
+                break;
             case 'load':
                 device.loads.push(new Load(...args));
                 break;

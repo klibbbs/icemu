@@ -37,6 +37,23 @@
     "flags": ["p"],
     "circuits": [
         {
+            "id": "ggnmos",
+            "name": "Electrostatic Discharge Clamp",
+            "type": "reduce",
+            "enabled": true,
+            "args": ["$n"],
+            "nodes": {
+                "n": 0,
+                "vss": 1
+            },
+            "off": "vss",
+            "inputs": ["n"],
+            "outputs": ["n"],
+            "transistors": [
+                ["nmos", 1, 0, 1]
+            ]
+        },
+        {
             "id": "inverter",
             "name": "Inverting NMOS Buffer",
             "type": "buffer",
