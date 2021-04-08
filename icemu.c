@@ -582,6 +582,12 @@ bit_t icemu_buffer_output(icemu_t * ic, bx_t b) {
             } else {
                 return (input < 0) ? BIT_ZERO : input;
             }
+        case LOGIC_TTL:
+            if (buffer->inverting) {
+                return (input < 0) ? BIT_Z : !input;
+            } else {
+                return (input < 0) ? BIT_Z : input;
+            }
         default:
             fprintf(stderr, "[WARNING] Unsupported buffer logic type %d\n", buffer->logic);
             return BIT_META;

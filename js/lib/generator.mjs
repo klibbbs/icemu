@@ -70,7 +70,9 @@ export class Generator {
                     case 'pmos':
                         return 'LOGIC_PMOS';
                     case 'cmos':
-                        return 'LOGIC_CMOS;'
+                        return 'LOGIC_CMOS';
+                    case 'ttl':
+                        return 'LOGIC_TTL';
                     default:
                         throw new TypeError(`Unsupported logic type '${logic}'`);
                 }

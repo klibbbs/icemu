@@ -38,7 +38,7 @@
     "circuits": [
         {
             "id": "inverter",
-            "name": "NMOS Inverter",
+            "name": "Inverting NMOS Buffer",
             "type": "buffer",
             "enabled": true,
             "args": ["nmos", true, "$in", "$out"],
@@ -59,19 +59,44 @@
         },
         {
             "id": "buffer",
-            "name": "NMOS Buffer",
+            "name": "Non-inverting NMOS Buffer",
             "type": "buffer",
             "enabled": true,
             "args": ["nmos", false, "$in", "$out"],
             "nodes": {
                 "in": 0,
-                "out": 1
+                "out": 2
             },
             "inputs": ["in"],
             "outputs": ["out"],
             "buffers": [
-                ["nmos", true, 0, 2],
-                ["nmos", true, 2, 1]
+                ["nmos", true, 0, 1],
+                ["nmos", true, 1, 2]
+            ]
+        },
+        {
+            "id": "driver",
+            "name": "Inverting TTL Driver",
+            "type": "buffer",
+            "enabled": true,
+            "args": ["ttl", true, "$in", "$out"],
+            "nodes": {
+                "in": 0,
+                "out": 4,
+                "vcc": 3,
+                "vss": 5
+            },
+            "on": "vcc",
+            "off": "vss",
+            "inputs": ["in"],
+            "outputs": ["out"],
+            "transistors": [
+                ["nmos", 1, 3, 4],
+                ["nmos", 2, 4, 5]
+            ],
+            "buffers": [
+                ["nmos", true, 0, 1],
+                ["nmos", true, 1, 2]
             ]
         }
     ],
