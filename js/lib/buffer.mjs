@@ -1,3 +1,5 @@
+import { Validator } from './validator.mjs'
+
 export class Buffer {
 
     constructor(logic, inverting, input, output) {
@@ -9,6 +11,15 @@ export class Buffer {
 
     static fromSpec(spec) {
         return new Buffer(...spec);
+    }
+
+    static validateSpec(field, val) {
+        return Validator.validateTuple(field, val, [
+            (field, val) => Validator.validateEnum(field, val, ['nmos', 'pmos', 'cmos', 'ttl']),
+            Validator.validateBool,
+            Validator.validateNode,
+            Validator.validateNode,
+        ]);
     }
 
     getAllNodes() {

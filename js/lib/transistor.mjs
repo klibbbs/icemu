@@ -1,3 +1,5 @@
+import { Validator } from './validator.mjs'
+
 export class Transistor {
 
     constructor(type, gate, channel) {
@@ -8,6 +10,15 @@ export class Transistor {
 
     static fromSpec(spec) {
         return new Transistor(spec[0], spec[1], [spec[2], spec[3]]);
+    }
+
+    static validateSpec(field, val) {
+        return Validator.validateTuple(field, val, [
+            (field, val) => Validator.validateEnum(field, val, ['nmos', 'pmos']),
+            Validator.validateNode,
+            Validator.validateNode,
+            Validator.validateNode,
+        ]);
     }
 
     getAllNodes() {

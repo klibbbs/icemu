@@ -1,3 +1,5 @@
+import { Validator } from './validator.mjs'
+
 export class Load {
 
     constructor(type, node) {
@@ -7,6 +9,13 @@ export class Load {
 
     static fromSpec(spec) {
         return new Load(spec[0], spec[1]);
+    }
+
+    static validateSpec(field, val) {
+        return Validator.validateTuple(field, val, [
+            (field, val) => Validator.validateEnum(field, val, ['on', 'off']),
+            Validator.validateNode,
+        ]);
     }
 
     getAllNodes() {
