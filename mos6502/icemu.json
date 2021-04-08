@@ -40,8 +40,7 @@
             "id": "inverter",
             "name": "NMOS Inverter",
             "type": "buffer",
-            "enabled": false,
-            "limit": null,
+            "enabled": true,
             "args": ["nmos", true, "$in", "$out"],
             "nodes": {
                 "in": 0,
