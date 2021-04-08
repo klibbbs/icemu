@@ -89,7 +89,7 @@ typedef struct {
     bool_t dirty;
 } buffer_t;
 
-/* --- IC --- */
+/* --- Device --- */
 
 typedef struct {
     nx_t on;

@@ -13,8 +13,14 @@ static void icemu_resolve(icemu_t * ic);
 static void icemu_network_reset(icemu_t * ic);
 static void icemu_network_add(icemu_t * ic, nx_t n);
 static void icemu_network_resolve(icemu_t * ic, unsigned int iter);
+
+static void icemu_transistor_init(icemu_t * ic, tx_t t, const transistor_t * layout);
 static void icemu_transistor_resolve(icemu_t * ic, tx_t t);
+static bit_t icemu_transistor_state(icemu_t * ic, tx_t t);
+
+static void icemu_buffer_init(icemu_t * ic, bx_t b, const buffer_t * layout);
 static void icemu_buffer_resolve(icemu_t * ic, bx_t b);
+static bit_t icemu_buffer_output(icemu_t * ic, bx_t b);
 
 /* =========== */
 /*    Types    */
@@ -56,9 +62,9 @@ pull_t bit_pull(bit_t bit) {
     return map[(unsigned char)bit];
 }
 
-/* ======== */
-/*    IC    */
-/* ======== */
+/* ============ */
+/*    Device    */
+/* ============ */
 
 /* --- Public functions  --- */
 
@@ -70,10 +76,9 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
 
     icemu_t * ic = malloc(sizeof(icemu_t));
 
-    ic->on = layout->on;
-    ic->off = layout->off;
+    /* --- Nodes --- */
 
-    /* Allocate and initialize nodes */
+    /* Initialize node list */
     ic->nodes_count = layout->nodes_count;
     ic->nodes = malloc(sizeof(node_t) * ic->nodes_count);
 
@@ -85,6 +90,9 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
     }
 
     /* Initialize power sources */
+    ic->on = layout->on;
+    ic->off = layout->off;
+
     ic->nodes[ic->on].level = LEVEL_POWER;
     ic->nodes[ic->on].pull = PULL_UP;
     ic->nodes[ic->on].state = BIT_ONE;
@@ -93,38 +101,23 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
     ic->nodes[ic->off].pull = PULL_DOWN;
     ic->nodes[ic->off].state = BIT_ZERO;
 
-    /* Initialize loads */
+    /* Apply loads */
     for (l = 0; l < layout->loads_count; l++) {
         ic->nodes[layout->loads[l].node].level = LEVEL_LOAD;
         ic->nodes[layout->loads[l].node].pull = layout->loads[l].pull;
     }
 
-    /* Allocate and initialize transistors */
+    /* --- Transistors --- */
+
+    /* Initialize transistor list */
     ic->transistors_count = layout->transistors_count;
     ic->transistors = malloc(sizeof(transistor_t) * ic->transistors_count);
 
     for (t = 0; t < ic->transistors_count; t++) {
-        ic->transistors[t].type  = layout->transistors[t].type;
-        ic->transistors[t].gate  = layout->transistors[t].gate;
-        ic->transistors[t].c1    = layout->transistors[t].c1;
-        ic->transistors[t].c2    = layout->transistors[t].c2;
-        ic->transistors[t].state = BIT_Z;
-        ic->transistors[t].dirty = false;
+        icemu_transistor_init(ic, t, &layout->transistors[t]);
     }
 
-    /* Allocate and initialize buffers */
-    ic->buffers_count = layout->buffers_count;
-    ic->buffers = malloc(sizeof(buffer_t) * ic->buffers_count);
-
-    for (b = 0; b < ic->buffers_count; b++) {
-        ic->buffers[b].logic     = layout->buffers[b].logic;
-        ic->buffers[b].inverting = layout->buffers[b].inverting;
-        ic->buffers[b].input     = layout->buffers[b].input;
-        ic->buffers[b].output    = layout->buffers[b].output;
-        ic->buffers[b].dirty     = false;
-    }
-
-    /* Allocate and initialize map of nodes to transistor gates */
+    /* Map nodes to transistor gates */
     ic->node_gates = malloc(sizeof(*ic->node_gates) * ic->nodes_count);
     ic->node_gates_lists = malloc(sizeof(*ic->node_gates_lists) * ic->transistors_count);
     ic->node_gates_counts = calloc(ic->nodes_count, sizeof(*ic->node_gates_counts));
@@ -147,7 +140,7 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
         *(--ic->node_gates[ic->transistors[t].gate]) = t;
     }
 
-    /* Allocate and initialize map of nodes to transistors channels */
+    /* Map nodes to transistor channels */
     ic->node_channels = malloc(sizeof(*ic->node_channels) * ic->nodes_count);
     ic->node_channels_lists = malloc(sizeof(*ic->node_channels_lists) * ic->transistors_count * 2);
     ic->node_channels_counts = calloc(ic->nodes_count, sizeof(*ic->node_channels_counts));
@@ -180,7 +173,17 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
         *(--ic->node_channels[ic->transistors[t].c2]) = t;
     }
 
-    /* Allocate and initialize map of nodes to buffers */
+    /* --- Buffers --- */
+
+    /* Initialize buffer list */
+    ic->buffers_count = layout->buffers_count;
+    ic->buffers = malloc(sizeof(buffer_t) * ic->buffers_count);
+
+    for (b = 0; b < ic->buffers_count; b++) {
+        icemu_buffer_init(ic, b, &layout->buffers[b]);
+    }
+
+    /* Map nodes to buffer inputs */
     ic->node_buffers = malloc(sizeof(*ic->node_buffers) * ic->nodes_count);
     ic->node_buffers_lists = malloc(sizeof(*ic->node_buffers_lists) * ic->buffers_count);
     ic->node_buffers_counts = calloc(ic->nodes_count, sizeof(*ic->node_buffers_counts));
@@ -203,7 +206,9 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
         *(--ic->node_buffers[ic->buffers[b].input]) = b;
     }
 
-    /* Allocate network node list */
+    /* --- Network --- */
+
+    /* Initialize network state */
     ic->network_nodes = malloc(sizeof(*ic->network_nodes) * ic->nodes_count);
     ic->network_nodes_count = 0;
     ic->network_level_down = LEVEL_FLOAT;
@@ -489,20 +494,23 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
 #endif
 }
 
+void icemu_transistor_init(icemu_t * ic, tx_t t, const transistor_t * layout) {
+    transistor_t * transistor = &ic->transistors[t];
+
+    /* Initialize transistor properties */
+    transistor->type  = layout->type;
+    transistor->gate  = layout->gate;
+    transistor->c1    = layout->c1;
+    transistor->c2    = layout->c2;
+    transistor->state = BIT_Z;
+    transistor->dirty = false;
+}
+
 void icemu_transistor_resolve(icemu_t * ic, tx_t t) {
     transistor_t * transistor = &ic->transistors[t];
-    bit_t gate = ic->nodes[transistor->gate].state;
-    bit_t state = BIT_ZERO;
 
-    /* Recalculate transistor state */
-    switch (transistor->type) {
-        case TRANSISTOR_NMOS:
-            state = gate == BIT_ONE;
-            break;
-        case TRANSISTOR_PMOS:
-            state = gate == BIT_ZERO;
-            break;
-    }
+    /* Calculate transistor state */
+    bit_t state = icemu_transistor_state(ic, t);
 
     /* Update dirty flags for affected nodes if the state changed */
     if (state != transistor->state) {
@@ -515,28 +523,44 @@ void icemu_transistor_resolve(icemu_t * ic, tx_t t) {
     transistor->dirty = false;
 }
 
+bit_t icemu_transistor_state(icemu_t * ic, tx_t t) {
+    transistor_t * transistor = &ic->transistors[t];
+    bit_t gate = ic->nodes[transistor->gate].state;
+
+    switch (transistor->type) {
+        case TRANSISTOR_NMOS:
+            return gate == BIT_ONE;
+        case TRANSISTOR_PMOS:
+            return gate == BIT_ZERO;
+    }
+
+    return BIT_Z;
+}
+
+void icemu_buffer_init(icemu_t * ic, bx_t b, const buffer_t * layout) {
+    buffer_t * buffer = &ic->buffers[b];
+    bit_t output;
+
+    /* Initialize buffer properties */
+    buffer->logic     = layout->logic;
+    buffer->inverting = layout->inverting;
+    buffer->input     = layout->input;
+    buffer->output    = layout->output;
+    buffer->dirty     = false;
+
+    /* Calculate default output */
+    output = icemu_buffer_output(ic, b);
+
+    /* Apply initial load to output node */
+    ic->nodes[buffer->output].level = bit_level(output, buffer->logic);
+    ic->nodes[buffer->output].pull = bit_pull(output);
+}
+
 void icemu_buffer_resolve(icemu_t * ic, bx_t b) {
     buffer_t * buffer = &ic->buffers[b];
-    bit_t input = ic->nodes[buffer->input].state;
-    bit_t output = input;
 
     /* Calculate output value */
-    if (buffer->inverting) {
-        switch (buffer->logic) {
-            case LOGIC_NMOS:
-                output = (input == BIT_ONE) ? BIT_ZERO : BIT_ONE;
-                break;
-            case LOGIC_PMOS:
-                fprintf(stderr, "[WARNING] PMOS inverting buffer not implemented");
-                break;
-            case LOGIC_CMOS:
-                fprintf(stderr, "[WARNING] CMOS inverting buffer not implemented");
-                break;
-            case LOGIC_TTL:
-                fprintf(stderr, "[WARNING] TTL inverting buffer not implemented");
-                break;
-        }
-    }
+    bit_t output = icemu_buffer_output(ic, b);
 
     /* Apply load and set dirty flag on output node */
     ic->nodes[buffer->output].level = bit_level(output, buffer->logic);
@@ -545,4 +569,21 @@ void icemu_buffer_resolve(icemu_t * ic, bx_t b) {
 
     /* Clear buffer dirty flag */
     buffer->dirty = false;
+}
+
+bit_t icemu_buffer_output(icemu_t * ic, bx_t b) {
+    buffer_t * buffer = &ic->buffers[b];
+    bit_t input = ic->nodes[buffer->input].state;
+
+    switch (buffer->logic) {
+        case LOGIC_NMOS:
+            if (buffer->inverting) {
+                return (input < 0) ? BIT_ONE : !input;
+            } else {
+                return (input < 0) ? BIT_ZERO : input;
+            }
+        default:
+            fprintf(stderr, "[WARNING] Unsupported buffer logic type %d\n", buffer->logic);
+            return BIT_META;
+    }
 }
