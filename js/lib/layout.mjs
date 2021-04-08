@@ -195,15 +195,15 @@ export class Layout {
             }
 
             // Compare load counts
-            let clx = circuit.loadsByNode[cnx],
-                dlx = device.loadsByNode[dnx];
+            let clns = circuit.loadsByNode[cnx],
+                dlns = device.loadsByNode[dnx];
 
-            if (clx !== undefined && dlx === undefined) {
+            if (clns && !dlns || clns && dlns.length < clns.length) {
                 return false;
             }
 
             if (!edge) {
-                if (clx === undefined && dlx !== undefined) {
+                if (!clns && dlns || clns && dlns.length !== clns.length) {
                     return false;
                 }
             }
@@ -263,10 +263,14 @@ export class Layout {
             testState.device.nodes[dnx] = cnx;
 
             // Match loads
-            if (clx) {
-                if (testState = findLoad(clx, [dlx], testState)) {
-                    // Continue
-                } else {
+            if (clns) {
+                if (!clns.every(clx => {
+                    if (testState = findLoad(clx, dlns, testState)) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                })) {
                     return false;
                 }
             }
@@ -557,6 +561,12 @@ export class Layout {
         });
 
         switch (circuit.type) {
+            case 'load':
+                device.loads.push(new Load(...args));
+                break;
+            case 'transistor':
+                device.transistors.push(new Transistor(...args));
+                break;
             case 'buffer':
                 device.buffers.push(new Buffer(...args));
                 break;
@@ -606,7 +616,11 @@ export class Layout {
             return map;
         }, {});
 
-        this.loadsByNode = Object.fromEntries(this.loads.map((l, lx) => [l.node, lx]));
+        this.loadsByNode = this.loads.reduce((map, l, lx) => {
+            appendToMap(map, l.node, lx);
+
+            return map;
+        }, {});
 
         this.transistorsByGate = this.transistors.reduce((map, t, tx) => {
             appendToMap(map, t.gate, tx);
