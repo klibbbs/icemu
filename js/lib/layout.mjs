@@ -649,16 +649,16 @@ export class Layout {
 
     normalizeComponents() {
         this.loads = this.loads
-            .sort((a, b) => compareLoads)
-            .filter((v, i, a) => a.findIndex(l => compareLoads(v, l) === 0) === i);
+            .sort(Load.compare)
+            .filter((v, i, a) => a.findIndex(l => Load.compare(v, l) === 0) === i);
 
         this.transistors = this.transistors
-            .sort((a, b) => compareTransistors(a, b))
-            .filter((v, i, a) => a.findIndex(t => compareTransistors(v, t) === 0) === i);
+            .sort(Transistor.compare)
+            .filter((v, i, a) => a.findIndex(t => Transistor.compare(v, t) === 0) === i);
 
         this.buffers = this.buffers
-            .sort((a, b) => compareBuffers(a, b))
-            .filter((v, i, a) => a.findIndex(b => compareBuffers(v, b) === 0) === i);
+            .sort(Buffer.compare)
+            .filter((v, i, a) => a.findIndex(b => Buffer.compare(v, b) === 0) === i);
     }
 
     printInfo() {
@@ -693,36 +693,4 @@ export class Layout {
             buffers: this.buffers.map(b => b.getSpec()),
         };
     }
-}
-
-// --- Comparators ---
-
-function compareArrays(a, b) {
-    for (let i = 0; i < a.length && i < b.length; i++) {
-        if (a[i] === b[i]) {
-            continue;
-        } else {
-            return a[i] - b[i];
-        }
-    }
-
-    return a.length - b.length;
-}
-
-function compareLoads(a, b) {
-    return a.type.localeCompare(b.type) ||
-        a.node - b.node;
-}
-
-function compareTransistors(a, b) {
-    return a.type.localeCompare(b.type) ||
-        a.gate - b.gate ||
-        compareArrays(a.channel, b.channel);
-}
-
-function compareBuffers(a, b) {
-    return a.logic.localeCompare(b.logic) ||
-        a.inverting - b.inverting ||
-        a.input - b.input ||
-        a.output - b.output;
 }

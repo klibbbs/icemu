@@ -7,6 +7,10 @@ export class Load {
         this.node = node;
     }
 
+    static compare(a, b) {
+        return a.type.localeCompare(b.type) || a.node - b.node;
+    }
+
     static fromSpec(spec) {
         return new Load(spec[0], spec[1]);
     }

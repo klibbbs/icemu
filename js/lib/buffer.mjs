@@ -9,6 +9,13 @@ export class Buffer {
         this.output = output;
     }
 
+    static compare(a, b) {
+        return a.logic.localeCompare(b.logic) ||
+            a.inverting - b.inverting ||
+            a.input - b.input ||
+            a.output - b.output;
+    }
+
     static fromSpec(spec) {
         return new Buffer(...spec);
     }
