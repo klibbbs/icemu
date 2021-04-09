@@ -29,11 +29,22 @@ export class Buffer {
         ]);
     }
 
-    getAllNodes() {
-        return [this.input, this.output];
+    static getArgs() {
+        return ['input', 'output'];
     }
 
     getSpec() {
         return [this.logic, this.inverting, this.input, this.output];
+    }
+
+    getAllNodes() {
+        return [this.input, this.output];
+    }
+
+    getArgNodes() {
+        return {
+            input: [this.input],
+            output: [this.output],
+        };
     }
 }

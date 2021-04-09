@@ -8,13 +8,12 @@ export class Layout {
     constructor(spec, options) {
         this.spec = spec;
 
-        // --- Build components ---
-
         // Device parameters
         this.type = spec.type;
         this.args = spec.args;
 
-        // Build pin sets
+        // --- Build pins ---
+
         this.on = spec.on ? new Pin(spec.on, 'src', spec.nodeNames[spec.on], Pin.ON) : null;
         this.off = spec.off ? new Pin(spec.off, 'src', spec.nodeNames[spec.off], Pin.OFF) : null;
 
@@ -50,7 +49,8 @@ export class Layout {
             ].sort((a, b) => a.id.localeCompare(b.id)),
         );
 
-        // Build components and normalize
+        // --- Build components ---
+
         this.loads = spec.loads.map(l => Load.fromSpec(l));
         this.transistors = spec.transistors.map(t => Transistor.fromSpec(t));
         this.buffers = spec.buffers.map(b => Buffer.fromSpec(b));
@@ -149,73 +149,56 @@ export class Layout {
                 return false;
             }
 
-            // Check if the circuit pin is an edge node
-            let edge = cpin && (cpin.type === 'src' || cpin.type === 'pin');
+            // Check if the circuit node is internal
+            const internal = !cpin || (cpin.type !== 'src' && cpin.type !== 'pin');
 
-            // Device pins must be circuit edge pins
-            if (!edge && dpin && dpin.type !== 'src') {
+            // Device pins may not be internal circuit nodes
+            if (internal && dpin && dpin.type !== 'src') {
                 return false;
             }
 
             // Compare load counts
-            let clns = circuit.loadsByNode[cnx],
-                dlns = device.loadsByNode[dnx];
+            for (const [arg, map] of Object.entries(circuit.loadMaps)) {
+                const cls = map[cnx], dls = device.loadMaps[arg][dnx];
 
-            if (clns && !dlns || clns && dlns.length < clns.length) {
-                return false;
-            }
-
-            if (!edge) {
-                if (!clns && dlns || clns && dlns.length !== clns.length) {
+                if (cls && !dls || cls && dls.length < cls.length) {
                     return false;
+                }
+
+                if (internal) {
+                    if (!cls && dls || cls && dls.length !== cls.length) {
+                        return false;
+                    }
                 }
             }
 
             // Compare transistor counts
-            let ctgs = circuit.transistorsByGate[cnx],
-                ctcs = circuit.transistorsByChannel[cnx],
-                dtgs = device.transistorsByGate[dnx],
-                dtcs = device.transistorsByChannel[dnx];
+            for (const [arg, map] of Object.entries(circuit.transistorMaps)) {
+                const cts = map[cnx], dts = device.transistorMaps[arg][dnx];
 
-            if (ctgs && !dtgs || ctgs && dtgs.length < ctgs.length) {
-                return false;
-            }
-
-            if (ctcs && !dtcs || ctcs && dtcs.length < ctcs.length) {
-                return false;
-            }
-
-            if (!edge) {
-                if (!ctgs && dtgs || ctgs && dtgs.length !== ctgs.length) {
+                if (cts && !dts || cts && dts.length < cts.length) {
                     return false;
                 }
 
-                if (!ctcs && dtcs || ctcs && dtcs.length !== ctcs.length) {
-                    return false;
+                if (internal) {
+                    if (!cts && dts || cts && dts.length !== cts.length) {
+                        return false;
+                    }
                 }
             }
 
             // Compare buffer counts
-            let cbis = circuit.buffersByInput[cnx],
-                cbos = circuit.buffersByOutput[cnx],
-                dbis = device.buffersByInput[dnx],
-                dbos = device.buffersByOutput[dnx];
+            for (const [arg, map] of Object.entries(circuit.bufferMaps)) {
+                const cbs = map[cnx], dbs = device.bufferMaps[arg][dnx];
 
-            if (cbis && !dbis || cbis && dbis.length < cbis.length) {
-                return false;
-            }
-
-            if (cbos && !dbos || cbos && dbos.length < cbos.length) {
-                return false;
-            }
-
-            if (!edge) {
-                if (!cbis && dbis || cbis && dbis.length !== cbis.length) {
+                if (cbs && !dbs || cbs && dbs.length < cbs.length) {
                     return false;
                 }
 
-                if (!cbos && dbos || cbos && dbos.length !== cbos.length) {
-                    return false;
+                if (internal) {
+                    if (!cbs && dbs || cbs && dbs.length !== cbs.length) {
+                        return false;
+                    }
                 }
             }
 
@@ -226,65 +209,53 @@ export class Layout {
             testState.device.nodes[dnx] = cnx;
 
             // Match loads
-            if (clns) {
-                if (!clns.every(clx => {
-                    if (testState = findLoad(clx, dlns, testState)) {
-                        return true;
-                    } else {
+            for (const [arg, map] of Object.entries(circuit.loadMaps)) {
+                const cls = map[cnx], dls = device.loadMaps[arg][dnx];
+
+                if (cls) {
+                    if (!cls.every(clx => {
+                        if (testState = findLoad(clx, dls, testState)) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    })) {
                         return false;
                     }
-                })) {
-                    return false;
                 }
             }
 
             // Match transistors
-            if (ctgs) {
-                if (!ctgs.every(ctx => {
-                    if (testState = findTransistor(ctx, dtgs, testState)) {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                })) {
-                    return false;
-                }
-            }
+            for (const [arg, map] of Object.entries(circuit.transistorMaps)) {
+                const cts = map[cnx], dts = device.transistorMaps[arg][dnx];
 
-            if (ctcs) {
-                if (!ctcs.every(ctx => {
-                    if (testState = findTransistor(ctx, dtcs, testState)) {
-                        return true;
-                    } else {
+                if (cts) {
+                    if (!cts.every(ctx => {
+                        if (testState = findTransistor(ctx, dts, testState)) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    })) {
                         return false;
                     }
-                })) {
-                    return false;
                 }
             }
 
             // Match buffers
-            if (cbis) {
-                if (!cbis.every(cbx => {
-                    if (testState = findBuffer(cbx, dbis, testState)) {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                })) {
-                    return false;
-                }
-            }
+            for (const [arg, map] of Object.entries(circuit.bufferMaps)) {
+                const cbs = map[cnx], dbs = device.bufferMaps[arg][dnx];
 
-            if (cbos) {
-                if (!cbos.every(cbx => {
-                    if (testState = findBuffer(cbx, dbos, testState)) {
-                        return true;
-                    } else {
+                if (cbs) {
+                    if (!cbs.every(cbx => {
+                        if (testState = findBuffer(cbx, dbs, testState)) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    })) {
                         return false;
                     }
-                })) {
-                    return false;
                 }
             }
 
@@ -494,7 +465,18 @@ export class Layout {
         }
 
         // Create a new component
-        const args = circuit.args.map((arg, idx) => {
+        function parseArg(arg, idx) {
+
+            if (Array.isArray(arg)) {
+                return arg.map((a, i) => parseArg(a, `${idx}[${i}]`));
+            }
+
+            if (typeof arg === 'object' && arg !== null) {
+                return Object.fromEntries(
+                    Object.entries(arg).map(([k, v]) => [k, parseArg(v, `${idx}.${k}`)])
+                );
+            }
+
             if (typeof arg !== 'string') {
                 return arg;
             }
@@ -521,7 +503,9 @@ export class Layout {
             } else {
                 return arg;
             }
-        });
+        }
+
+        const args = circuit.args.map(parseArg);
 
         switch (circuit.type) {
             case 'reduce':
@@ -573,7 +557,7 @@ export class Layout {
             }
         }
 
-        // Build node-to-component maps
+        // Build node-to-pin map
         this.pinsByNode = this.pins.reduce((map, p, px) => {
             p.nodes.forEach(n => {
                 map[n] = px;
@@ -582,36 +566,45 @@ export class Layout {
             return map;
         }, {});
 
-        this.loadsByNode = this.loads.reduce((map, l, lx) => {
-            appendToMap(map, l.node, lx);
+        // Build node-to-component maps
+        this.loadMaps = Object.fromEntries(Load.getArgs().map(arg => [
+            arg,
+            this.loads.reduce((map, l, lx) => {
+                const argNodes = l.getArgNodes();
 
-            return map;
-        }, {});
+                if (argNodes[arg]) {
+                    argNodes[arg].forEach(n => appendToMap(map, n, lx));
+                }
 
-        this.transistorsByGate = this.transistors.reduce((map, t, tx) => {
-            appendToMap(map, t.gate, tx);
+                return map;
+            }, {})
+        ]));
 
-            return map;
-        }, {});
+        this.transistorMaps = Object.fromEntries(Transistor.getArgs().map(arg => [
+            arg,
+            this.transistors.reduce((map, t, tx) => {
+                const argNodes = t.getArgNodes();
 
-        this.transistorsByChannel = this.transistors.reduce((map, t, tx) => {
-            appendToMap(map, t.channel[0], tx);
-            appendToMap(map, t.channel[1], tx);
+                if (argNodes[arg]) {
+                    argNodes[arg].forEach(n => appendToMap(map, n, tx));
+                }
 
-            return map;
-        }, {});
+                return map;
+            }, {})
+        ]));
 
-        this.buffersByInput = this.buffers.reduce((map, b, bx) => {
-            appendToMap(map, b.input, bx);
+        this.bufferMaps = Object.fromEntries(Buffer.getArgs().map(arg => [
+            arg,
+            this.buffers.reduce((map, b, bx) => {
+                const argNodes = b.getArgNodes();
 
-            return map;
-        }, {});
+                if (argNodes[arg]) {
+                    argNodes[arg].forEach(n => appendToMap(map, n, bx));
+                }
 
-        this.buffersByOutput = this.buffers.reduce((map, b, bx) => {
-            appendToMap(map, b.output, bx);
-
-            return map;
-        }, {});
+                return map;
+            }, {})
+        ]));
     }
 
     normalizeNodes(reduceNodes) {
@@ -632,7 +625,9 @@ export class Layout {
             // Replace nodes with unique indices in each component
             this.pins.forEach(p => { p.nodes = p.nodes.map(n => this.nodes[n]) });
 
-            this.loads.forEach(l => { l.node = this.nodes[l.node] });
+            this.loads.forEach(l => {
+                l.node = this.nodes[l.node];
+            });
 
             this.transistors.forEach(t => {
                 t.gate = this.nodes[t.gate];

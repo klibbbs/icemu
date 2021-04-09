@@ -22,11 +22,21 @@ export class Load {
         ]);
     }
 
-    getAllNodes() {
-        return [this.node];
+    static getArgs() {
+        return ['node'];
     }
 
     getSpec() {
         return [this.type, this.node];
+    }
+
+    getAllNodes() {
+        return [this.node];
+    }
+
+    getArgNodes() {
+        return {
+            node: [this.node],
+        };
     }
 }

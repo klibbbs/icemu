@@ -28,11 +28,22 @@ export class Transistor {
         ]);
     }
 
-    getAllNodes() {
-        return [this.gate, this.channel[0], this.channel[1]];
+    static getArgs() {
+        return ['gate', 'channel'];
     }
 
     getSpec() {
         return [this.type, this.gate, this.channel[0], this.channel[1]];
+    }
+
+    getAllNodes() {
+        return [this.gate, this.channel[0], this.channel[1]];
+    }
+
+    getArgNodes() {
+        return {
+            gate: [this.gate],
+            channel: this.channel,
+        };
     }
 }
