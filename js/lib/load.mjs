@@ -1,4 +1,4 @@
-import { Validator } from './validator.mjs'
+import { Validator } from './validator.mjs';
 
 export class Load {
 
