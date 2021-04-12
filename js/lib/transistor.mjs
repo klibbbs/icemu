@@ -15,6 +15,10 @@ export class Transistor {
             a.channel[1] - b.channel[1];
     }
 
+    static compatible(a, b) {
+        return a.type === b.type;
+    }
+
     static fromSpec(spec) {
         return new Transistor(spec[0], spec[1], [spec[2], spec[3]]);
     }
@@ -40,10 +44,10 @@ export class Transistor {
         return [this.gate, this.channel[0], this.channel[1]];
     }
 
-    getArgNodes() {
+    getArgNodes(arg) {
         return {
             gate: [this.gate],
             channel: this.channel,
-        };
+        }[arg];
     }
 }

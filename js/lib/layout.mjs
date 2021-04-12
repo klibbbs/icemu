@@ -5,6 +5,12 @@ import { Buffer } from './buffer.mjs';
 
 import { Components } from './components.mjs';
 
+const TYPES = {
+    load: Load,
+    transistor: Transistor,
+    buffer: Buffer,
+};
+
 export class Layout {
 
     constructor(spec, options) {
@@ -117,33 +123,15 @@ export class Layout {
     reduceCircuit(circuit) {
         const device = this;
 
-        // State must be immutable
-        function copyState(state) {
-            return {
-                device: {
-                    nodes: Object.fromEntries(Object.entries(state.device.nodes)),
-                    loads: Object.fromEntries(Object.entries(state.device.loads)),
-                    transistors: Object.fromEntries(Object.entries(state.device.transistors)),
-                    buffers: Object.fromEntries(Object.entries(state.device.buffers)),
-                },
-                circuit: {
-                    nodes: Object.fromEntries(Object.entries(state.circuit.nodes)),
-                    loads: Object.fromEntries(Object.entries(state.circuit.loads)),
-                    transistors: Object.fromEntries(Object.entries(state.circuit.transistors)),
-                    buffers: Object.fromEntries(Object.entries(state.circuit.buffers)),
-                },
-            };
-        }
-
         // Component matchers
         function matchNodes(cnx, dnx, state) {
 
             // Check if nodes are already matched or already in use
-            if (state.circuit.nodes[cnx] === dnx && state.device.nodes[dnx] === cnx) {
+            if (state.doNodesMatch(cnx, dnx)) {
                 return state;
             }
 
-            if (state.circuit.nodes[cnx] !== undefined || state.device.nodes[dnx] !== undefined) {
+            if (state.doNodesConflict(cnx, dnx)) {
                 return false;
             }
 
@@ -169,110 +157,43 @@ export class Layout {
                 return false;
             }
 
-            // Compare load counts
-            for (const arg of Components.getArgs('load')) {
-                const cls = circuit.components.getComponentsByNode('load', arg, cnx),
-                      dls = device.components.getComponentsByNode('load', arg, dnx);
+            // Compare component counts
+            for (const type of Object.keys(TYPES)) {
+                for (const arg of Components.getArgs(type)) {
+                    const cxs = circuit.components.getComponentsByNode(type, arg, cnx),
+                          dxs = device.components.getComponentsByNode(type, arg, dnx);
 
-                if (cls && !dls || cls && dls.length < cls.length) {
-                    return false;
-                }
-
-                if (internal) {
-                    if (!cls && dls || cls && dls.length !== cls.length) {
+                    if (cxs && !dxs || cxs && dxs.length < cxs.length) {
                         return false;
                     }
-                }
-            }
 
-            // Compare transistor counts
-            for (const arg of Components.getArgs('transistor')) {
-                const cts = circuit.components.getComponentsByNode('transistor', arg, cnx),
-                      dts = device.components.getComponentsByNode('transistor', arg, dnx);
-
-                if (cts && !dts || cts && dts.length < cts.length) {
-                    return false;
-                }
-
-                if (internal) {
-                    if (!cts && dts || cts && dts.length !== cts.length) {
-                        return false;
-                    }
-                }
-            }
-
-            // Compare buffer counts
-            for (const arg of Components.getArgs('buffer')) {
-                const cbs = circuit.components.getComponentsByNode('buffer', arg, cnx),
-                      dbs = device.components.getComponentsByNode('buffer', arg, dnx);
-
-                if (cbs && !dbs || cbs && dbs.length < cbs.length) {
-                    return false;
-                }
-
-                if (internal) {
-                    if (!cbs && dbs || cbs && dbs.length !== cbs.length) {
-                        return false;
+                    if (internal) {
+                        if (!cxs && dxs || cxs && dxs.length !== cxs.length) {
+                            return false;
+                        }
                     }
                 }
             }
 
             // Update state
-            let testState = copyState(state);
+            let testState = state.copyWithNode(cnx, dnx);
 
-            testState.circuit.nodes[cnx] = dnx;
-            testState.device.nodes[dnx] = cnx;
+            // Match components
+            for (const type of Object.keys(TYPES)) {
+                for (const arg of Components.getArgs(type)) {
+                    const cxs = circuit.components.getComponentsByNode(type, arg, cnx),
+                          dxs = device.components.getComponentsByNode(type, arg, dnx);
 
-            // Match loads
-            for (const arg of Components.getArgs('load')) {
-                const cls = circuit.components.getComponentsByNode('load', arg, cnx),
-                      dls = device.components.getComponentsByNode('load', arg, dnx);
-
-                if (cls) {
-                    if (!cls.every(clx => {
-                        if (testState = findLoad(clx, dls, testState)) {
-                            return true;
-                        } else {
+                    if (cxs) {
+                        if (!cxs.every(cx => {
+                            if (testState = findComponent(type, cx, dxs, testState)) {
+                                return true;
+                            } else {
+                                return false;
+                            }
+                        })) {
                             return false;
                         }
-                    })) {
-                        return false;
-                    }
-                }
-            }
-
-            // Match transistors
-            for (const arg of Components.getArgs('transistor')) {
-                const cts = circuit.components.getComponentsByNode('transistor', arg, cnx),
-                      dts = device.components.getComponentsByNode('transistor', arg, dnx);
-
-                if (cts) {
-                    if (!cts.every(ctx => {
-                        if (testState = findTransistor(ctx, dts, testState)) {
-                            return true;
-                        } else {
-                            return false;
-                        }
-                    })) {
-                        return false;
-                    }
-                }
-            }
-
-            // Match buffers
-            for (const arg of Components.getArgs('buffer')) {
-                const cbs = circuit.components.getComponentsByNode('buffer', arg, cnx),
-                      dbs = device.components.getComponentsByNode('buffer', arg, dnx);
-
-                if (cbs) {
-                    if (!cbs.every(cbx => {
-                        if (testState = findBuffer(cbx, dbs, testState)) {
-                            return true;
-                        } else {
-                            return false;
-                        }
-                    })) {
-                        return false;
                     }
                 }
             }
@@ -280,152 +201,68 @@ export class Layout {
             return testState;
         }
 
-        function matchLoads(clx, dlx, state) {
+        function matchComponents(type, cx, dx, state) {
 
-            // Check if loads are already matched or already in use
-            if (state.circuit.loads[clx] === dlx && state.device.loads[dlx] === clx) {
+            // Check if components are either matched or otherwise in use
+            if (state.doComponentsMatch(type, cx, dx)) {
                 return state;
             }
 
-            if (state.circuit.loads[clx] !== undefined || state.device.loads[dlx] !== undefined) {
+            if (state.doComponentsConflict(type, cx, dx)) {
                 return false;
             }
 
-            // Compare loads
-            let cl = circuit.components.getComponent('load', clx),
-                dl = device.components.getComponent('load', dlx);
+            // Check component compatibility
+            let cc = circuit.components.getComponent(type, cx),
+                dd = device.components.getComponent(type, dx);
 
-            if (cl.type !== dl.type) {
+            if (!TYPES[type].compatible(cc, dd)) {
                 return false;
             }
 
             // Match nodes
-            let testState = copyState(state);
+            let testState = state.copyWithComponent(type, cx, dx);
 
-            testState.circuit.loads[clx] = dlx;
-            testState.device.loads[dlx] = clx;
+            for (const arg of Components.getArgs(type)) {
+                const cnodes = cc.getArgNodes(arg), dnodes = dd.getArgNodes(arg);
 
-            return matchNodes(cl.node, dl.node, testState);
-        }
+                if (cnodes.length !== dnodes.length) {
+                    return false;
+                }
 
-        function matchTransistors(ctx, dtx, state) {
+                if (cnodes.length === 0) {
+                    continue;
+                } else if (cnodes.length === 1) {
+                    testState = matchNodes(cnodes[0], dnodes[0], testState)
 
-            // Check if transistors are already matched or already in use
-            if (state.circuit.transistors[ctx] === dtx &&
-                state.device.transistors[dtx] === ctx) {
+                    if (!testState) {
+                        return false;
+                    }
+                } else if (cnodes.length === 2) {
+                    let argState = false;
 
-                return state;
+                    if ((argState = matchNodes(cnodes[0], dnodes[0], testState)) &&
+                        (argState = matchNodes(cnodes[1], dnodes[1], argState))) {
+
+                        testState = argState;
+                    } else if ((argState = matchNodes(cnodes[0], dnodes[1], testState)) &&
+                               (argState = matchNodes(cnodes[1], dnodes[0], argState))) {
+                        testState = argState;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    throw new Error('Components args with greater than 2 nodes not supported');
+                }
             }
 
-            if (state.circuit.transistors[ctx] !== undefined ||
-                state.device.transistors[dtx] !== undefined) {
-
-                return false;
-            }
-
-            // Compare transistors
-            let ct = circuit.components.getComponent('transistor', ctx),
-                dt = device.components.getComponent('transistor', dtx);
-
-            if (ct.type !== dt.type) {
-                return false;
-            }
-
-            // Match nodes
-            let testState = copyState(state);
-
-            testState.circuit.transistors[ctx] = dtx;
-            testState.device.transistors[dtx] = ctx;
-
-            testState = matchNodes(ct.gate, dt.gate, testState);
-
-            if (!testState) {
-                return false;
-            }
-
-            let chanState = false;
-
-            if ((chanState = matchNodes(ct.channel[0], dt.channel[0], testState)) &&
-                (chanState = matchNodes(ct.channel[1], dt.channel[1], chanState))) {
-
-                return chanState;
-            }
-
-            if ((chanState = matchNodes(ct.channel[0], dt.channel[1], testState)) &&
-                (chanState = matchNodes(ct.channel[1], dt.channel[0], chanState))) {
-
-                return chanState;
-            }
-
-            return false;
-        }
-
-        function matchBuffers(cbx, dbx, state) {
-
-            // Check if buffers are already matched or already in use
-            if (state.circuit.buffers[cbx] === dbx &&
-                state.device.buffers[dbx] === cbx) {
-
-                return state;
-            }
-
-            if (state.circuit.buffers[cbx] !== undefined ||
-                state.device.buffers[dbx] !== undefined) {
-
-                return false;
-            }
-
-            // Compare buffers
-            let cb = circuit.components.getComponent('buffer', cbx),
-                db = device.components.getComponent('buffer', dbx);
-
-            if (cb.logic !== db.logic || cb.inverting !== db.inverting) {
-                return false;
-            }
-
-            // Match nodes
-            let testState = copyState(state);
-
-            testState.circuit.buffers[cbx] = dbx;
-            testState.device.buffers[dbx] = cbx;
-
-            if ((testState = matchNodes(cb.input, db.input, testState)) &&
-                (testState = matchNodes(cb.output, db.output, testState))) {
-
-                return testState;
-            }
-
-            return false;
+            return testState;
         }
 
         // Component finders
-        function findLoad(clx, dlxs, state) {
-            for (const dlx of dlxs) {
-                let newState = matchLoads(clx, dlx, state);
-
-                if (newState) {
-                    return newState;
-                }
-            }
-
-            return false;
-        }
-
-        function findTransistor(ctx, dtxs, state) {
-            for (const dtx of dtxs) {
-                let newState = matchTransistors(ctx, dtx, state);
-
-                if (newState) {
-                    return newState;
-                }
-            }
-
-            return false;
-        }
-
-        function findBuffer(cbx, dbxs, state) {
-            for (const dbx of dbxs) {
-                let newState = matchBuffers(cbx, dbx, state);
+        function findComponent(type, cx, dxs, state) {
+            for (const dx of dxs) {
+                let newState = matchComponents(type, cx, dx, state);
 
                 if (newState) {
                     return newState;
@@ -436,68 +273,29 @@ export class Layout {
         }
 
         // Initialize search state
-        let state = {
-            device: {
-                nodes: {},
-                loads: {},
-                transistors: {},
-                buffers: {},
-            },
-            circuit: {
-                nodes: {},
-                loads: {},
-                transistors: {},
-                buffers: {},
-            },
-        };
+        let state = new State(Object.keys(TYPES));
 
         // Match
-        if (!circuit.components.getComponents('buffer').every((cb, cbx) => {
-            if (state = findBuffer(cbx, device.components.getIndices('buffer'), state)) {
-                return true;
-            } else {
+        for (const type of Object.keys(TYPES)) {
+            if (!circuit.components.getComponents(type).every((cc, cx) => {
+                if (state = findComponent(type, cx, device.components.getIndices(type), state)) {
+                    return true;
+                } else {
+                    return false;
+                }
+            })) {
                 return false;
             }
-        })) {
-            return false;
-        }
-
-        if (!circuit.components.getComponents('transistor').every((ct, ctx) => {
-            if (state = findTransistor(ctx, device.components.getIndices('transistor'), state)) {
-                return true;
-            } else {
-                return false;
-            }
-        })) {
-            return false;
-        }
-
-        if (!circuit.components.getComponents('load').every((cl, clx) => {
-            if (state = findLoad(clx, device.components.getIndices('load'), state)) {
-                return true;
-            } else {
-                return false;
-            }
-        })) {
-            return false;
         }
 
         // Reduce all device components that matched the circuit
-        Object.values(state.circuit.loads).forEach(dlx => {
-            device.components.getComponent('load', dlx).reduced = true;
-        });
+        for (const type of Object.keys(TYPES)) {
+            Object.values(state.circuit.components[type]).forEach(dx => {
+                device.components.getComponent(type, dx).reduced = true;
+            });
 
-        Object.values(state.circuit.transistors).forEach(dtx => {
-            device.components.getComponent('transistor', dtx).reduced = true;
-        });
-
-        Object.values(state.circuit.buffers).forEach(dbx => {
-            device.components.getComponent('buffer', dbx).reduced = true;
-        });
-
-        device.components.filterComponents('load', l => !l.reduced);
-        device.components.filterComponents('transistor', t => !t.reduced);
-        device.components.filterComponents('buffer', b => !b.reduced);
+            device.components.filterComponents(type, dd => !dd.reduced);
+        }
 
         // Create a new component
         function parseArg(arg, idx) {
@@ -542,21 +340,12 @@ export class Layout {
 
         const args = circuit.args.map(parseArg);
 
-        switch (circuit.type) {
-            case 'reduce':
-                // Reduce components only
-                break;
-            case 'load':
-                device.components.addComponents('load', [new Load(...args)]);
-                break;
-            case 'transistor':
-                device.components.addComponents('transistor', [new Transistor(...args)]);
-                break;
-            case 'buffer':
-                device.components.addComponents('buffer', [new Buffer(...args)]);
-                break;
-            default:
-                throw new Error(`Unsupported circuit type '${circuit.type}'`);
+        if (circuit.type === 'reduce') {
+            // Reduce components only
+        } else if (TYPES[circuit.type]) {
+            device.components.addComponents(circuit.type, [new TYPES[circuit.type](...args)]);
+        } else {
+            throw new Error(`Unsupported circuit type '${circuit.type}'`);
         }
 
         return true;
@@ -631,5 +420,95 @@ export class Layout {
             transistors: this.components.getComponents('transistor').map(t => t.getSpec()),
             buffers: this.components.getComponents('buffer').map(b => b.getSpec()),
         };
+    }
+}
+
+class State {
+
+    constructor(types) {
+        this.types = types;
+
+        this.circuit = {
+            nodes: {},
+            components: Object.fromEntries(types.map(type => [type, {}])),
+        };
+
+        this.device = {
+            nodes: {},
+            components: Object.fromEntries(types.map(type => [type, {}])),
+        };
+    }
+
+    copy() {
+        let state = new State(this.types);
+
+        state.circuit = {
+            nodes: Object.fromEntries(Object.entries(this.circuit.nodes)),
+            components: Object.fromEntries(this.types.map(type => [
+                type,
+                Object.fromEntries(Object.entries(this.circuit.components[type]))
+            ])),
+        };
+
+        state.device = {
+            nodes: Object.fromEntries(Object.entries(this.device.nodes)),
+            components: Object.fromEntries(this.types.map(type => [
+                type,
+                Object.fromEntries(Object.entries(this.device.components[type]))
+            ])),
+        };
+
+        return state;
+    }
+
+    copyWithNode(cx, dx) {
+        let state = this.copy();
+
+        state.addNode(cx, dx);
+
+        return state;
+    }
+
+    copyWithComponent(type, cx, dx) {
+        let state = this.copy();
+
+        state.addComponent(type, cx, dx);
+
+        return state;
+    }
+
+    addNode(cx, dx) {
+        this.circuit.nodes[cx] = dx;
+        this.device.nodes[dx] = cx;
+    }
+
+    addComponent(type, cx, dx) {
+        this.circuit.components[type][cx] = dx;
+        this.device.components[type][dx] = cx;
+    }
+
+    doNodesMatch(cx, dx) {
+        return this.circuit.nodes[cx] === dx && this.device.nodes[dx] === cx;
+    }
+
+    doNodesConflict(cx, dx) {
+        if (this.doNodesMatch(cx, dx)) {
+            return false;
+        }
+
+        return this.circuit.nodes[cx] !== undefined || this.device.nodes[dx] !== undefined;
+    }
+
+    doComponentsMatch(type, cx, dx) {
+        return this.circuit.components[type][cx] === dx && this.device.components[type][dx] === cx;
+    }
+
+    doComponentsConflict(type, cx, dx) {
+        if (this.doComponentsMatch(type, cx, dx)) {
+            return false;
+        }
+
+        return this.circuit.components[type][cx] !== undefined ||
+            this.device.components[type][dx] !== undefined;
     }
 }

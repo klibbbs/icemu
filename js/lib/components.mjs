@@ -115,10 +115,10 @@ export class Components {
         this.maps[type] = Object.fromEntries(TYPES[type].getArgs().map(arg => [
             arg,
             this.components[type].reduce((map, c, idx) => {
-                const argNodes = c.getArgNodes();
+                const argNodes = c.getArgNodes(arg);
 
-                if (argNodes[arg]) {
-                    argNodes[arg].forEach(n => {
+                if (argNodes) {
+                    argNodes.forEach(n => {
                         if (map[n]) {
                             map[n].push(idx);
                         } else {

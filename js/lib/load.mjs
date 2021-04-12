@@ -11,6 +11,10 @@ export class Load {
         return a.type.localeCompare(b.type) || a.node - b.node;
     }
 
+    static compatible(a, b) {
+        return a.type === b.type;
+    }
+
     static fromSpec(spec) {
         return new Load(spec[0], spec[1]);
     }
@@ -34,9 +38,9 @@ export class Load {
         return [this.node];
     }
 
-    getArgNodes() {
+    getArgNodes(arg) {
         return {
             node: [this.node],
-        };
+        }[arg];
     }
 }

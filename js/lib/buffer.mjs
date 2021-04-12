@@ -16,6 +16,10 @@ export class Buffer {
             a.output - b.output;
     }
 
+    static compatible(a, b) {
+        return a.logic === b.logic && a.inverting === b.inverting;
+    }
+
     static fromSpec(spec) {
         return new Buffer(...spec);
     }
@@ -41,10 +45,10 @@ export class Buffer {
         return [this.input, this.output];
     }
 
-    getArgNodes() {
+    getArgNodes(arg) {
         return {
             input: [this.input],
             output: [this.output],
-        };
+        }[arg];
     }
 }
