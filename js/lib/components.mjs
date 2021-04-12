@@ -26,10 +26,20 @@ function validateTypeArg(type, arg) {
 
 export class Components {
 
+    static getTypes() {
+        return Object.keys(TYPES);
+    }
+
     static getArgs(type) {
         validateType(type);
 
         return TYPES[type].getArgs();
+    }
+
+    static areCompatible(type, a, b) {
+        validateType(type);
+
+        return TYPES[type].compatible(a, b);
     }
 
     constructor() {
@@ -83,14 +93,6 @@ export class Components {
         return this.components[type].map(c => c.getSpec());
     }
 
-    filterComponents(type, filter) {
-        validateType(type);
-
-        this.components[type] = this.components[type].filter(filter);
-
-        this.rebuildMaps(type);
-    }
-
     addSpecs(type, specs) {
         validateType(type);
 
@@ -105,6 +107,24 @@ export class Components {
         this.components[type] = this.components[type]
             .filter((v, i, a) => a.findIndex(c => TYPES[type].compare(v, c) === 0) === i)
             .sort(TYPES[type].compare);
+
+        this.rebuildMaps(type);
+    }
+
+    addNewComponent(type, args) {
+        validateType(type);
+
+        this.addComponents(type, [new TYPES[type](...args)]);
+    }
+
+    removeComponents(type, indices) {
+        validateType(type);
+
+        indices.forEach(idx => {
+            this.components[type][idx].__remove__ = true;
+        });
+
+        this.components[type] = this.components[type].filter(c => !c.__remove__);
 
         this.rebuildMaps(type);
     }
@@ -131,8 +151,4 @@ export class Components {
             }, {})
         ]));
     }
-
-    validateType(type) {
-    }
-
 }

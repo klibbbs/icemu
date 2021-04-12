@@ -1,15 +1,5 @@
 import { Pin } from './pin.mjs';
-import { Load } from './load.mjs';
-import { Transistor } from './transistor.mjs';
-import { Buffer } from './buffer.mjs';
-
 import { Components } from './components.mjs';
-
-const TYPES = {
-    load: Load,
-    transistor: Transistor,
-    buffer: Buffer,
-};
 
 export class Layout {
 
@@ -158,7 +148,7 @@ export class Layout {
             }
 
             // Compare component counts
-            for (const type of Object.keys(TYPES)) {
+            for (const type of Components.getTypes()) {
                 for (const arg of Components.getArgs(type)) {
                     const cxs = circuit.components.getComponentsByNode(type, arg, cnx),
                           dxs = device.components.getComponentsByNode(type, arg, dnx);
@@ -179,7 +169,7 @@ export class Layout {
             let testState = state.copyWithNode(cnx, dnx);
 
             // Match components
-            for (const type of Object.keys(TYPES)) {
+            for (const type of Components.getTypes()) {
                 for (const arg of Components.getArgs(type)) {
                     const cxs = circuit.components.getComponentsByNode(type, arg, cnx),
                           dxs = device.components.getComponentsByNode(type, arg, dnx);
@@ -216,7 +206,7 @@ export class Layout {
             let cc = circuit.components.getComponent(type, cx),
                 dd = device.components.getComponent(type, dx);
 
-            if (!TYPES[type].compatible(cc, dd)) {
+            if (!Components.areCompatible(type, cc, dd)) {
                 return false;
             }
 
@@ -273,10 +263,10 @@ export class Layout {
         }
 
         // Initialize search state
-        let state = new State(Object.keys(TYPES));
+        let state = new State(Components.getTypes());
 
         // Match
-        for (const type of Object.keys(TYPES)) {
+        for (const type of Components.getTypes()) {
             if (!circuit.components.getComponents(type).every((cc, cx) => {
                 if (state = findComponent(type, cx, device.components.getIndices(type), state)) {
                     return true;
@@ -289,12 +279,8 @@ export class Layout {
         }
 
         // Reduce all device components that matched the circuit
-        for (const type of Object.keys(TYPES)) {
-            Object.values(state.circuit.components[type]).forEach(dx => {
-                device.components.getComponent(type, dx).reduced = true;
-            });
-
-            device.components.filterComponents(type, dd => !dd.reduced);
+        for (const type of Components.getTypes()) {
+            device.components.removeComponents(type, state.getDeviceComponents(type));
         }
 
         // Create a new component
@@ -329,9 +315,9 @@ export class Layout {
                         throw new Error(`Argument ${idx} in '${circuit.type}' expects scalar pin`);
                     }
 
-                    return state.circuit.nodes[pin.nodes[0]];
+                    return state.getCircuitNode(pin.nodes[0]);
                 } else {
-                    return pin.nodes.map(n => state.circuit.nodes[n]);
+                    return pin.nodes.map(n => state.getCircuitNode(n));
                 }
             } else {
                 return arg;
@@ -342,10 +328,8 @@ export class Layout {
 
         if (circuit.type === 'reduce') {
             // Reduce components only
-        } else if (TYPES[circuit.type]) {
-            device.components.addComponents(circuit.type, [new TYPES[circuit.type](...args)]);
         } else {
-            throw new Error(`Unsupported circuit type '${circuit.type}'`);
+            device.components.addNewComponent(circuit.type, args);
         }
 
         return true;
@@ -475,6 +459,14 @@ class State {
         state.addComponent(type, cx, dx);
 
         return state;
+    }
+
+    getCircuitNode(cx) {
+        return this.circuit.nodes[cx];
+    }
+
+    getDeviceComponents(type) {
+        return Object.values(this.circuit.components[type]);
     }
 
     addNode(cx, dx) {
