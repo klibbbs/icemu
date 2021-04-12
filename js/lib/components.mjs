@@ -57,8 +57,13 @@ export class Components {
         return this.getComponents(type)[idx];
     }
 
-    getComponents(type) {
+    getComponents(type, sort) {
         validateType(type);
+
+        if (sort) {
+            this.components[type].sort(TYPES[type].compare);
+            this.rebuildMaps(type);
+        }
 
         return this.components[type];
     }
@@ -102,11 +107,11 @@ export class Components {
     addComponents(type, components) {
         validateType(type);
 
-        this.components[type].push(...components);
-
-        this.components[type] = this.components[type]
+        components = components
             .filter((v, i, a) => a.findIndex(c => TYPES[type].compare(v, c) === 0) === i)
-            .sort(TYPES[type].compare);
+            .filter(v => this.components[type].every(c => TYPES[type].compare(c, v) !== 0));
+
+        this.components[type].push(...components);
 
         this.rebuildMaps(type);
     }

@@ -105,9 +105,9 @@ export class Layout {
 
         // --- Extract components ---
 
-        this.loads = this.components.getComponents('load');
-        this.transistors = this.components.getComponents('transistor');
-        this.buffers = this.components.getComponents('buffer');
+        this.loads = this.components.getComponents('load', true);
+        this.transistors = this.components.getComponents('transistor', true);
+        this.buffers = this.components.getComponents('buffer', true);
     }
 
     reduceCircuit(circuit) {
@@ -166,7 +166,7 @@ export class Layout {
             }
 
             // Update state
-            let testState = state.copyWithNode(cnx, dnx);
+            state = state.copyWithNode(cnx, dnx);
 
             // Match components
             for (const type of Components.getTypes()) {
@@ -176,7 +176,7 @@ export class Layout {
 
                     if (cxs) {
                         if (!cxs.every(cx => {
-                            if (testState = findComponent(type, cx, dxs, testState)) {
+                            if (state = findComponent(type, cx, dxs, state)) {
                                 return true;
                             } else {
                                 return false;
@@ -188,7 +188,7 @@ export class Layout {
                 }
             }
 
-            return testState;
+            return state;
         }
 
         function matchComponents(type, cx, dx, state) {
@@ -211,7 +211,7 @@ export class Layout {
             }
 
             // Match nodes
-            let testState = state.copyWithComponent(type, cx, dx);
+            state = state.copyWithComponent(type, cx, dx);
 
             for (const arg of Components.getArgs(type)) {
                 const cnodes = cc.getArgNodes(arg), dnodes = dd.getArgNodes(arg);
@@ -223,21 +223,21 @@ export class Layout {
                 if (cnodes.length === 0) {
                     continue;
                 } else if (cnodes.length === 1) {
-                    testState = matchNodes(cnodes[0], dnodes[0], testState)
+                    state = matchNodes(cnodes[0], dnodes[0], state)
 
-                    if (!testState) {
+                    if (!state) {
                         return false;
                     }
                 } else if (cnodes.length === 2) {
                     let argState = false;
 
-                    if ((argState = matchNodes(cnodes[0], dnodes[0], testState)) &&
+                    if ((argState = matchNodes(cnodes[0], dnodes[0], state)) &&
                         (argState = matchNodes(cnodes[1], dnodes[1], argState))) {
 
-                        testState = argState;
-                    } else if ((argState = matchNodes(cnodes[0], dnodes[1], testState)) &&
+                        state = argState;
+                    } else if ((argState = matchNodes(cnodes[0], dnodes[1], state)) &&
                                (argState = matchNodes(cnodes[1], dnodes[0], argState))) {
-                        testState = argState;
+                        state = argState;
                     } else {
                         return false;
                     }
@@ -246,7 +246,7 @@ export class Layout {
                 }
             }
 
-            return testState;
+            return state;
         }
 
         // Component finders
@@ -400,9 +400,9 @@ export class Layout {
             registers: this.spec.registers,
             flags: this.spec.flags,
             circuits: this.circuits ? this.circuits.map(c => c.buildSpec()) : undefined,
-            loads: this.components.getComponents('load').map(l => l.getSpec()),
-            transistors: this.components.getComponents('transistor').map(t => t.getSpec()),
-            buffers: this.components.getComponents('buffer').map(b => b.getSpec()),
+            loads: this.components.getComponents('load', true).map(l => l.getSpec()),
+            transistors: this.components.getComponents('transistor', true).map(t => t.getSpec()),
+            buffers: this.components.getComponents('buffer', true).map(b => b.getSpec()),
         };
     }
 }
