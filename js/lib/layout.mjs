@@ -3,6 +3,8 @@ import { Load } from './load.mjs';
 import { Transistor } from './transistor.mjs';
 import { Buffer } from './buffer.mjs';
 
+import { Components } from './components.mjs';
+
 export class Layout {
 
     constructor(spec, options) {
@@ -49,17 +51,22 @@ export class Layout {
             ].sort((a, b) => a.id.localeCompare(b.id)),
         );
 
+        // Build node-to-pin map
+        this.pinsByNode = this.pins.reduce((map, p, px) => {
+            p.nodes.forEach(n => {
+                map[n] = px;
+            });
+
+            return map;
+        }, {});
+
         // --- Build components ---
 
-        this.loads = spec.loads.map(l => Load.fromSpec(l));
-        this.transistors = spec.transistors.map(t => Transistor.fromSpec(t));
-        this.buffers = spec.buffers.map(b => Buffer.fromSpec(b));
+        this.components = new Components();
 
-        // Sort and de-dupe
-        this.normalizeComponents();
-
-        // Build node-to-component maps
-        this.buildComponentMaps();
+        this.components.addSpecs('load', spec.loads);
+        this.components.addSpecs('transistor', spec.transistors);
+        this.components.addSpecs('buffer', spec.buffers);
 
         // --- Reduce components ---
 
@@ -89,17 +96,22 @@ export class Layout {
         // --- Normalize ---
 
         this.normalizeNodes(options.reduceNodes);
-        this.normalizeComponents();
 
         // --- Calculate counts ---
 
         this.counts = {
             nodes: Math.max(...Object.values(this.nodes)) + 1,
             pins: this.pins.length,
-            loads: this.loads.length,
-            transistors: this.transistors.length,
-            buffers: this.buffers.length,
+            loads: this.components.getCount('load'),
+            transistors: this.components.getCount('transistor'),
+            buffers: this.components.getCount('buffer'),
         };
+
+        // --- Extract components ---
+
+        this.loads = this.components.getComponents('load');
+        this.transistors = this.components.getComponents('transistor');
+        this.buffers = this.components.getComponents('buffer');
     }
 
     reduceCircuit(circuit) {
@@ -158,8 +170,9 @@ export class Layout {
             }
 
             // Compare load counts
-            for (const [arg, map] of Object.entries(circuit.loadMaps)) {
-                const cls = map[cnx], dls = device.loadMaps[arg][dnx];
+            for (const arg of Components.getArgs('load')) {
+                const cls = circuit.components.getComponentsByNode('load', arg, cnx),
+                      dls = device.components.getComponentsByNode('load', arg, dnx);
 
                 if (cls && !dls || cls && dls.length < cls.length) {
                     return false;
@@ -173,8 +186,9 @@ export class Layout {
             }
 
             // Compare transistor counts
-            for (const [arg, map] of Object.entries(circuit.transistorMaps)) {
-                const cts = map[cnx], dts = device.transistorMaps[arg][dnx];
+            for (const arg of Components.getArgs('transistor')) {
+                const cts = circuit.components.getComponentsByNode('transistor', arg, cnx),
+                      dts = device.components.getComponentsByNode('transistor', arg, dnx);
 
                 if (cts && !dts || cts && dts.length < cts.length) {
                     return false;
@@ -188,8 +202,9 @@ export class Layout {
             }
 
             // Compare buffer counts
-            for (const [arg, map] of Object.entries(circuit.bufferMaps)) {
-                const cbs = map[cnx], dbs = device.bufferMaps[arg][dnx];
+            for (const arg of Components.getArgs('buffer')) {
+                const cbs = circuit.components.getComponentsByNode('buffer', arg, cnx),
+                      dbs = device.components.getComponentsByNode('buffer', arg, dnx);
 
                 if (cbs && !dbs || cbs && dbs.length < cbs.length) {
                     return false;
@@ -209,8 +224,9 @@ export class Layout {
             testState.device.nodes[dnx] = cnx;
 
             // Match loads
-            for (const [arg, map] of Object.entries(circuit.loadMaps)) {
-                const cls = map[cnx], dls = device.loadMaps[arg][dnx];
+            for (const arg of Components.getArgs('load')) {
+                const cls = circuit.components.getComponentsByNode('load', arg, cnx),
+                      dls = device.components.getComponentsByNode('load', arg, dnx);
 
                 if (cls) {
                     if (!cls.every(clx => {
@@ -226,8 +242,9 @@ export class Layout {
             }
 
             // Match transistors
-            for (const [arg, map] of Object.entries(circuit.transistorMaps)) {
-                const cts = map[cnx], dts = device.transistorMaps[arg][dnx];
+            for (const arg of Components.getArgs('transistor')) {
+                const cts = circuit.components.getComponentsByNode('transistor', arg, cnx),
+                      dts = device.components.getComponentsByNode('transistor', arg, dnx);
 
                 if (cts) {
                     if (!cts.every(ctx => {
@@ -243,8 +260,9 @@ export class Layout {
             }
 
             // Match buffers
-            for (const [arg, map] of Object.entries(circuit.bufferMaps)) {
-                const cbs = map[cnx], dbs = device.bufferMaps[arg][dnx];
+            for (const arg of Components.getArgs('buffer')) {
+                const cbs = circuit.components.getComponentsByNode('buffer', arg, cnx),
+                      dbs = device.components.getComponentsByNode('buffer', arg, dnx);
 
                 if (cbs) {
                     if (!cbs.every(cbx => {
@@ -274,8 +292,8 @@ export class Layout {
             }
 
             // Compare loads
-            let cl = circuit.loads[clx],
-                dl = device.loads[dlx];
+            let cl = circuit.components.getComponent('load', clx),
+                dl = device.components.getComponent('load', dlx);
 
             if (cl.type !== dl.type) {
                 return false;
@@ -306,8 +324,8 @@ export class Layout {
             }
 
             // Compare transistors
-            let ct = circuit.transistors[ctx],
-                dt = device.transistors[dtx];
+            let ct = circuit.components.getComponent('transistor', ctx),
+                dt = device.components.getComponent('transistor', dtx);
 
             if (ct.type !== dt.type) {
                 return false;
@@ -358,8 +376,8 @@ export class Layout {
             }
 
             // Compare buffers
-            let cb = circuit.buffers[cbx],
-                db = device.buffers[dbx];
+            let cb = circuit.components.getComponent('buffer', cbx),
+                db = device.components.getComponent('buffer', dbx);
 
             if (cb.logic !== db.logic || cb.inverting !== db.inverting) {
                 return false;
@@ -434,8 +452,8 @@ export class Layout {
         };
 
         // Match
-        if (!circuit.buffers.every((cb, cbx) => {
-            if (state = findBuffer(cbx, Array.from(device.buffers.keys()), state)) {
+        if (!circuit.components.getComponents('buffer').every((cb, cbx) => {
+            if (state = findBuffer(cbx, device.components.getIndices('buffer'), state)) {
                 return true;
             } else {
                 return false;
@@ -444,8 +462,8 @@ export class Layout {
             return false;
         }
 
-        if (!circuit.transistors.every((ct, ctx) => {
-            if (state = findTransistor(ctx, Array.from(device.transistors.keys()), state)) {
+        if (!circuit.components.getComponents('transistor').every((ct, ctx) => {
+            if (state = findTransistor(ctx, device.components.getIndices('transistor'), state)) {
                 return true;
             } else {
                 return false;
@@ -454,8 +472,8 @@ export class Layout {
             return false;
         }
 
-        if (!circuit.loads.every((cl, clx) => {
-            if (state = findLoad(clx, Array.from(device.loads.keys()), state)) {
+        if (!circuit.components.getComponents('load').every((cl, clx) => {
+            if (state = findLoad(clx, device.components.getIndices('load'), state)) {
                 return true;
             } else {
                 return false;
@@ -463,6 +481,23 @@ export class Layout {
         })) {
             return false;
         }
+
+        // Reduce all device components that matched the circuit
+        Object.values(state.circuit.loads).forEach(dlx => {
+            device.components.getComponent('load', dlx).reduced = true;
+        });
+
+        Object.values(state.circuit.transistors).forEach(dtx => {
+            device.components.getComponent('transistor', dtx).reduced = true;
+        });
+
+        Object.values(state.circuit.buffers).forEach(dbx => {
+            device.components.getComponent('buffer', dbx).reduced = true;
+        });
+
+        device.components.filterComponents('load', l => !l.reduced);
+        device.components.filterComponents('transistor', t => !t.reduced);
+        device.components.filterComponents('buffer', b => !b.reduced);
 
         // Create a new component
         function parseArg(arg, idx) {
@@ -512,99 +547,19 @@ export class Layout {
                 // Reduce components only
                 break;
             case 'load':
-                device.loads.push(new Load(...args));
+                device.components.addComponents('load', [new Load(...args)]);
                 break;
             case 'transistor':
-                device.transistors.push(new Transistor(...args));
+                device.components.addComponents('transistor', [new Transistor(...args)]);
                 break;
             case 'buffer':
-                device.buffers.push(new Buffer(...args));
+                device.components.addComponents('buffer', [new Buffer(...args)]);
                 break;
             default:
                 throw new Error(`Unsupported circuit type '${circuit.type}'`);
         }
 
-        // Reduce components within circuit
-        Object.values(state.circuit.loads).forEach(dlx => {
-            device.loads[dlx].reduced = true;
-        });
-
-        Object.values(state.circuit.transistors).forEach(dtx => {
-            device.transistors[dtx].reduced = true;
-        });
-
-        Object.values(state.circuit.buffers).forEach(dbx => {
-            device.buffers[dbx].reduced = true;
-        });
-
-        // Remove reduced components
-        device.loads = device.loads.filter(l => !l.reduced);
-        device.transistors = device.transistors.filter(t => !t.reduced);
-        device.buffers = device.buffers.filter(b => !b.reduced);
-
-        // Rebuild node-to-component maps in the main device
-        device.buildComponentMaps();
-
         return true;
-    }
-
-    buildComponentMaps() {
-        function appendToMap(map, n, idx) {
-            if (map[n]) {
-                map[n].push(idx);
-            } else {
-                map[n] = [idx];
-            }
-        }
-
-        // Build node-to-pin map
-        this.pinsByNode = this.pins.reduce((map, p, px) => {
-            p.nodes.forEach(n => {
-                map[n] = px;
-            });
-
-            return map;
-        }, {});
-
-        // Build node-to-component maps
-        this.loadMaps = Object.fromEntries(Load.getArgs().map(arg => [
-            arg,
-            this.loads.reduce((map, l, lx) => {
-                const argNodes = l.getArgNodes();
-
-                if (argNodes[arg]) {
-                    argNodes[arg].forEach(n => appendToMap(map, n, lx));
-                }
-
-                return map;
-            }, {})
-        ]));
-
-        this.transistorMaps = Object.fromEntries(Transistor.getArgs().map(arg => [
-            arg,
-            this.transistors.reduce((map, t, tx) => {
-                const argNodes = t.getArgNodes();
-
-                if (argNodes[arg]) {
-                    argNodes[arg].forEach(n => appendToMap(map, n, tx));
-                }
-
-                return map;
-            }, {})
-        ]));
-
-        this.bufferMaps = Object.fromEntries(Buffer.getArgs().map(arg => [
-            arg,
-            this.buffers.reduce((map, b, bx) => {
-                const argNodes = b.getArgNodes();
-
-                if (argNodes[arg]) {
-                    argNodes[arg].forEach(n => appendToMap(map, n, bx));
-                }
-
-                return map;
-            }, {})
-        ]));
     }
 
     normalizeNodes(reduceNodes) {
@@ -612,9 +567,9 @@ export class Layout {
         // Find all nodes in use
         const nodes = [].concat(
             ...this.pins.map(p => p.getAllNodes()),
-            ...this.loads.map(l => l.getAllNodes()),
-            ...this.transistors.map(t => t.getAllNodes()),
-            ...this.buffers.map(b => b.getAllNodes()),
+            ...this.components.getComponents('load').map(l => l.getAllNodes()),
+            ...this.components.getComponents('transistor').map(t => t.getAllNodes()),
+            ...this.components.getComponents('buffer').map(b => b.getAllNodes()),
         ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
 
         if (reduceNodes) {
@@ -625,16 +580,16 @@ export class Layout {
             // Replace nodes with unique indices in each component
             this.pins.forEach(p => { p.nodes = p.nodes.map(n => this.nodes[n]) });
 
-            this.loads.forEach(l => {
+            this.components.getComponents('load').forEach(l => {
                 l.node = this.nodes[l.node];
             });
 
-            this.transistors.forEach(t => {
+            this.components.getComponents('transistor').forEach(t => {
                 t.gate = this.nodes[t.gate];
                 t.channel = t.channel.map(n => this.nodes[n]);
             });
 
-            this.buffers.forEach(b => {
+            this.components.getComponents('buffer').forEach(b => {
                 b.input = this.nodes[b.input];
                 b.output = this.nodes[b.output];
             });
@@ -643,20 +598,6 @@ export class Layout {
             // Leave nodes unchanged
             this.nodes = Object.fromEntries(nodes.map(node => [node, node]));
         }
-    }
-
-    normalizeComponents() {
-        this.loads = this.loads
-            .sort(Load.compare)
-            .filter((v, i, a) => a.findIndex(l => Load.compare(v, l) === 0) === i);
-
-        this.transistors = this.transistors
-            .sort(Transistor.compare)
-            .filter((v, i, a) => a.findIndex(t => Transistor.compare(v, t) === 0) === i);
-
-        this.buffers = this.buffers
-            .sort(Buffer.compare)
-            .filter((v, i, a) => a.findIndex(b => Buffer.compare(v, b) === 0) === i);
     }
 
     printInfo() {
@@ -686,9 +627,9 @@ export class Layout {
             registers: this.spec.registers,
             flags: this.spec.flags,
             circuits: this.circuits ? this.circuits.map(c => c.buildSpec()) : undefined,
-            loads: this.loads.map(l => l.getSpec()),
-            transistors: this.transistors.map(t => t.getSpec()),
-            buffers: this.buffers.map(b => b.getSpec()),
+            loads: this.components.getComponents('load').map(l => l.getSpec()),
+            transistors: this.components.getComponents('transistor').map(t => t.getSpec()),
+            buffers: this.components.getComponents('buffer').map(b => b.getSpec()),
         };
     }
 }
