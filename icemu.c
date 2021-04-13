@@ -118,9 +118,9 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
     }
 
     /* Map nodes to transistor gates */
-    ic->node_gates = malloc(sizeof(*ic->node_gates) * ic->nodes_count);
-    ic->node_gates_lists = malloc(sizeof(*ic->node_gates_lists) * ic->transistors_count);
-    ic->node_gates_counts = calloc(ic->nodes_count, sizeof(*ic->node_gates_counts));
+    ic->node_gates        = calloc(ic->nodes_count, sizeof(tx_t *));
+    ic->node_gates_lists  = calloc(ic->transistors_count, sizeof(tx_t));
+    ic->node_gates_counts = calloc(ic->nodes_count, sizeof(size_t));
 
     for (t = 0; t < ic->transistors_count; t++) {
         ic->node_gates_counts[ic->transistors[t].gate]++;
@@ -141,9 +141,9 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
     }
 
     /* Map nodes to transistor channels */
-    ic->node_channels = malloc(sizeof(*ic->node_channels) * ic->nodes_count);
-    ic->node_channels_lists = malloc(sizeof(*ic->node_channels_lists) * ic->transistors_count * 2);
-    ic->node_channels_counts = calloc(ic->nodes_count, sizeof(*ic->node_channels_counts));
+    ic->node_channels        = calloc(ic->nodes_count, sizeof(tx_t *));
+    ic->node_channels_lists  = calloc(ic->transistors_count * 2, sizeof(tx_t));
+    ic->node_channels_counts = calloc(ic->nodes_count, sizeof(size_t));
 
     for (t = 0; t < ic->transistors_count; t++) {
         if (ic->transistors[t].c1 == ic->transistors[t].c2) {
@@ -184,9 +184,9 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
     }
 
     /* Map nodes to buffer inputs */
-    ic->node_buffers = malloc(sizeof(*ic->node_buffers) * ic->nodes_count);
-    ic->node_buffers_lists = malloc(sizeof(*ic->node_buffers_lists) * ic->buffers_count);
-    ic->node_buffers_counts = calloc(ic->nodes_count, sizeof(*ic->node_buffers_counts));
+    ic->node_buffers        = calloc(ic->nodes_count, sizeof(bx_t *));
+    ic->node_buffers_lists  = calloc(ic->buffers_count, sizeof(bx_t));
+    ic->node_buffers_counts = calloc(ic->nodes_count, sizeof(size_t));
 
     for (b = 0; b < ic->buffers_count; b++) {
         ic->node_buffers_counts[ic->buffers[b].input]++;
@@ -209,7 +209,7 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
     /* --- Network --- */
 
     /* Initialize network state */
-    ic->network_nodes = malloc(sizeof(*ic->network_nodes) * ic->nodes_count);
+    ic->network_nodes = malloc(sizeof(nx_t) * ic->nodes_count);
     ic->network_nodes_count = 0;
     ic->network_level_down = LEVEL_FLOAT;
     ic->network_level_up = LEVEL_FLOAT;
