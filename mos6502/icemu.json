@@ -57,8 +57,7 @@
             "id": "nand2",
             "name": "Two-input NAND Gate",
             "type": "function",
-            "enabled": false,
-            "limit": 1,
+            "enabled": true,
             "args": ["nmos", "nand(x1,x2)", ["$x1", "$x2"], "$out"],
             "nodes": {
                 "x1": 0,

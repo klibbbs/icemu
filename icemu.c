@@ -22,6 +22,10 @@ static void icemu_buffer_init(icemu_t * ic, bx_t b, const buffer_t * layout);
 static void icemu_buffer_resolve(icemu_t * ic, bx_t b);
 static bit_t icemu_buffer_output(icemu_t * ic, bx_t b);
 
+static void icemu_function_init(icemu_t * ic, fx_t f, const function_t * layout);
+static void icemu_function_resolve(icemu_t * ic, fx_t f);
+static bit_t icemu_function_output(icemu_t * ic, fx_t f);
+
 /* =========== */
 /*    Types    */
 /* =========== */
@@ -79,6 +83,7 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
     lx_t l;
     tx_t t, tcur;
     bx_t b, bcur;
+    fx_t f, fcur;
 
     icemu_t * ic = malloc(sizeof(icemu_t));
 
@@ -212,6 +217,43 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
         *(--ic->node_buffers[ic->buffers[b].input]) = b;
     }
 
+    /* --- Functions --- */
+
+    /* Initialize function list */
+    ic->functions_count = layout->functions_count;
+    ic->functions = malloc(sizeof(function_t) * ic->functions_count);
+
+    for (f = 0; f < ic->functions_count; f++) {
+        icemu_function_init(ic, f, &layout->functions[f]);
+    }
+
+    /* Map nodes to function inputs */
+    ic->node_functions        = calloc(ic->nodes_count, sizeof(fx_t *));
+    ic->node_functions_lists  = calloc(ic->functions_count * FUNCTION_INPUTS, sizeof(fx_t));
+    ic->node_functions_counts = calloc(ic->nodes_count, sizeof(size_t));
+
+    for (f = 0; f < ic->functions_count; f++) {
+        for (n = 0; n < ic->functions[f].inputs_count; n++) {
+            ic->node_functions_counts[ic->functions[f].inputs[n]]++;
+        }
+    }
+
+    for (n = 0, fcur = 0; n < ic->nodes_count; n++) {
+        if (ic->node_functions_counts[n] > 0) {
+            fcur += ic->node_functions_counts[n];
+
+            ic->node_functions[n] = ic->node_functions_lists + fcur;
+        } else {
+            ic->node_functions[n] = NULL;
+        }
+    }
+
+    for (f = 0; f < ic->functions_count; f++) {
+        for (n = 0; n < ic->functions[f].inputs_count; n++) {
+            *(--ic->node_functions[ic->functions[f].inputs[n]]) = f;
+        }
+    }
+
     /* --- Network --- */
 
     /* Initialize network state */
@@ -226,6 +268,8 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
 void icemu_destroy(icemu_t * ic) {
     free(ic->nodes);
     free(ic->transistors);
+    free(ic->buffers);
+    free(ic->functions);
 
     free(ic->node_gates);
     free(ic->node_gates_lists);
@@ -238,6 +282,10 @@ void icemu_destroy(icemu_t * ic) {
     free(ic->node_buffers);
     free(ic->node_buffers_lists);
     free(ic->node_buffers_counts);
+
+    free(ic->node_functions);
+    free(ic->node_functions_lists);
+    free(ic->node_functions_counts);
 
     free(ic->network_nodes);
 
@@ -292,6 +340,7 @@ void icemu_resolve(icemu_t * ic) {
     nx_t n;
     tx_t t;
     bx_t b;
+    fx_t f;
     bool_t resolved;
 
     for (i = 0; i < ICEMU_RESOLVE_LIMIT; i++) {
@@ -326,6 +375,14 @@ void icemu_resolve(icemu_t * ic) {
         for (b = 0; b < ic->buffers_count; b++) {
             if (ic->buffers[b].dirty) {
                 icemu_buffer_resolve(ic, b);
+                resolved = false;
+            }
+        }
+
+        /* Resolve dirty functions and propagate changes to affected nodes */
+        for (f = 0; f < ic->functions_count; f++) {
+            if (ic->functions[f].dirty) {
+                icemu_function_resolve(ic, f);
                 resolved = false;
             }
         }
@@ -423,6 +480,7 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
         nx_t n = ic->network_nodes[nn];
         tx_t t;
         bx_t b;
+        fx_t f;
 
         /* Update dirty flags for affected components if the state changed */
         if (state != ic->nodes[n].state) {
@@ -432,6 +490,10 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
 
             for (b = 0; b < ic->node_buffers_counts[n]; b++) {
                 ic->buffers[ic->node_buffers[n][b]].dirty = true;
+            }
+
+            for (f = 0; f < ic->node_functions_counts[n]; f++) {
+                ic->functions[ic->node_functions[n][f]].dirty = true;
             }
         }
 
@@ -598,4 +660,54 @@ bit_t icemu_buffer_output(icemu_t * ic, bx_t b) {
     } else {
         return input;
     }
+}
+
+/* ============== */
+/*    Function    */
+/* ============== */
+
+void icemu_function_init(icemu_t * ic, fx_t f, const function_t * layout) {
+    function_t * function = &ic->functions[f];
+    bit_t output = BIT_Z;
+    nx_t n;
+
+    /* Initialize function properties */
+    function->logic        = layout->logic;
+    function->func         = layout->func;
+    function->inputs_count = layout->inputs_count;
+    function->output       = layout->output;
+    function->dirty        = false;
+
+    for (n = 0; n < function->inputs_count; n++) {
+        function->inputs[n] = layout->inputs[n];
+    }
+
+    /* Calculate default output */
+    output = icemu_function_output(ic, f);
+
+    /* Apply initial load to output node */
+    ic->nodes[function->output].level = bit_level(output, function->logic);
+    ic->nodes[function->output].pull = bit_pull(output);
+}
+
+void icemu_function_resolve(icemu_t * ic, fx_t f) {
+    function_t * function = &ic->functions[f];
+
+    /* Calculate output value */
+    bit_t output = icemu_function_output(ic, f);
+
+    /* Apply load and set dirty flag on output node */
+    ic->nodes[function->output].level = bit_level(output, function->logic);
+    ic->nodes[function->output].pull = bit_pull(output);
+    ic->nodes[function->output].dirty = true;
+
+    /* Clear function dirty flag */
+    function->dirty = false;
+}
+
+bit_t icemu_function_output(icemu_t * ic, fx_t f) {
+    function_t * function = &ic->functions[f];
+
+    return function->func(bit_default(ic->nodes[function->inputs[0]].state),
+                          bit_default(ic->nodes[function->inputs[1]].state));
 }
