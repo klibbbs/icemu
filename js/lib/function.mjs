@@ -1,19 +1,22 @@
 import { Validator } from './validator.mjs';
 
 const MAX_GROUPS = 1;
+const MAX_PARAMS = 2;
+
 const PATTERN = /^([a-z]+)\((.*)\)$/;
+
 const OPS = {
     nand: {},
 };
 
-function valToIndex(val) {
-    const matches = val.match(/x(\d+)/);
+function paramToIndex(param) {
+    const matches = param.match(/x(\d+)/);
 
     if (matches) {
         return matches[1] - 1;
     }
 
-    throw new Error(`Invalid input variable '${val}'`);
+    throw new Error(`Invalid input parameter '${param}'`);
 }
 
 function parseExpression(expr) {
@@ -34,7 +37,7 @@ function parseExpression(expr) {
         };
     } else {
         return {
-            val: expr,
+            param: expr,
         };
     }
 }
@@ -42,13 +45,13 @@ function parseExpression(expr) {
 function parseGroups(func) {
 
     function parseGroupsImpl(func, groups) {
-        if (func.val) {
-            groups.push([func.val]);
+        if (func.param) {
+            groups.push([func.param]);
             return;
         }
 
-        if (func.args.some(f => f.val)) {
-            groups.push(func.args.filter(f => f.val).map(f => f.val));
+        if (func.args.some(f => f.param)) {
+            groups.push(func.args.filter(f => f.param).map(f => f.param));
         }
         func.args.filter(f => f.op).forEach(f => parseGroupsImpl(f, groups));
     }
@@ -66,6 +69,33 @@ function parseGroups(func) {
     return groups;
 }
 
+function parseParams(groups) {
+    let params = [].concat(...groups).sort();
+
+    for (let i = 0; i < MAX_PARAMS; i++) {
+        if (params[i] === undefined) {
+            params[i] = `x${i + 1}`;
+        }
+    }
+
+    return params;
+}
+
+function generateCode(func) {
+    if (func.param) {
+        return func.param;
+    } else {
+        const args = func.args.map(generateCode);
+
+        switch (func.op) {
+            case 'nand':
+                return '!(' + args.join(' && ') + ')';
+            default:
+                throw new Error(`Cannot generate code for function operation '${op}'`);
+        }
+    }
+}
+
 export class Function {
 
     constructor(logic, expr, inputs, output) {
@@ -76,9 +106,15 @@ export class Function {
 
         this.func = parseExpression(expr);
         this.groups = parseGroups(this.func);
+        this.params = parseParams(this.groups);
+        this.code = generateCode(this.func);
 
         if (this.groups.length > MAX_GROUPS) {
-            throw new Error(`Functions with more than ${MAX_GROUPS} groups not supported`);
+            throw new Error(`Functions with more than ${MAX_GROUPS} groups are not supported`);
+        }
+
+        if (this.params.length > MAX_PARAMS) {
+            throw new Error(`Functions with more than ${MAX_PARAMS} params are not supported`);
         }
     }
 
@@ -141,7 +177,7 @@ export class Function {
     getArgNodes(arg) {
         let argNodes = Object.fromEntries([...Array(MAX_GROUPS).keys()].map(k => [
             `group_${k + 1}`,
-            this.groups[k].map(v => this.inputs[valToIndex(v)]),
+            this.groups[k].map(p => this.inputs[paramToIndex(p)]),
         ]));
 
         argNodes.output = [this.output];

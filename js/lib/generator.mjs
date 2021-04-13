@@ -129,6 +129,22 @@ function comment(msg, level) {
     }
 }
 
+function hash(str) {
+    let hash = 0;
+
+    if (str.length === 0) {
+        return hash;
+    }
+
+    for (let i = 0; i < str.length; i++) {
+        const chr = str.charCodeAt(i);
+
+        hash = (((hash << 5) - hash) + chr) | 0;
+    }
+
+    return hash;
+}
+
 // --- C Files ---
 
 function generateC_device_h(C, spec, layout) {
@@ -233,7 +249,9 @@ function generateC_device_c(C, spec, layout) {
             layout.transistors.length ? `${C.device_caps}_TRANSISTOR_DEFS,` : 'NULL,',
             `${C.device_caps}_TRANSISTOR_COUNT,`,
             layout.buffers.length ? `${C.device_caps}_BUFFER_DEFS,` : 'NULL,',
-            `${C.device_caps}_BUFFER_COUNT`,
+            `${C.device_caps}_BUFFER_COUNT,`,
+            layout.functions.length ? `${C.device_caps}_FUNCTION_DEFS,` : 'NULL,',
+            `${C.device_caps}_FUNCTION_COUNT`,
         ]),
         tab(1, '};'),
         '',
@@ -887,6 +905,20 @@ function generateC_layout_h(C, spec, layout) {
 
     const syms_width = Math.max(...syms.map(p => p.sym.length));
 
+    let funcIds = Object.fromEntries(layout.functions.map(f => f.code)
+                                     .filter((v, i, a) => a.indexOf(v) === i)
+                                     .map((f, i) => [f, i]));
+
+    let funcs = {};
+
+    layout.functions.forEach(f => {
+        funcs[f.code] = {
+            name: `__${C.device}_func_${funcIds[f.code]}`,
+            params: f.params,
+            code: f.code,
+        };
+    });
+
     return join ([
         `#ifndef ${include_guard}`,
         `#define ${include_guard}`,
@@ -936,7 +968,19 @@ function generateC_layout_h(C, spec, layout) {
         `const size_t ${C.device_caps}_LOAD_COUNT = ${layout.counts.loads};`,
         `const size_t ${C.device_caps}_TRANSISTOR_COUNT = ${layout.counts.transistors};`,
         `const size_t ${C.device_caps}_BUFFER_COUNT = ${layout.counts.buffers};`,
+        `const size_t ${C.device_caps}_FUNCTION_COUNT = ${layout.counts.functions};`,
         '',
+        ...(layout.functions.length ? [
+            comment('Function definitions', 2),
+            '',
+            ...Object.values(funcs).map(f => [
+                `static ${C.type[1]} ${f.name}(` +
+                    f.params.map(p => `${C.type[1]} ${p}`).join(', ') + ') {',
+                tab(1, `return ${f.code};`),
+                '}',
+                '',
+            ].join("\n")),
+        ] : []),
         comment('Component definitions', 2),
         '',
         ...(layout.loads.length ? [
@@ -958,6 +1002,17 @@ function generateC_layout_h(C, spec, layout) {
             `const buffer_t ${C.device_caps}_BUFFER_DEFS[] = {`,
             tab(1, layout.buffers.map((b, i) => (
                 `{${C.getLogicEnum(b.logic)}, ${C.getBool(b.inverting)}, ${b.input}, ${b.output}}`
+            )).join(",\n")),
+            '};',
+            '',
+        ] : []),
+        ...(layout.functions.length ? [
+            `const function_t ${C.device_caps}_FUNCTION_DEFS[] = {`,
+            tab(1, layout.functions.map((f, i) => (
+                `{${C.getLogicEnum(f.logic)}, ${funcs[f.code].name}, ` +
+                    '{' + f.inputs.join(', ') + '}, ' +
+                    `${f.inputs.length}, ` +
+                    `${f.output}}`
             )).join(",\n")),
             '};',
             '',

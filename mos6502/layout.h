@@ -132,6 +132,7 @@ const size_t MOS6502_NODE_COUNT = 1726;
 const size_t MOS6502_LOAD_COUNT = 71;
 const size_t MOS6502_TRANSISTOR_COUNT = 2232;
 const size_t MOS6502_BUFFER_COUNT = 867;
+const size_t MOS6502_FUNCTION_COUNT = 0;
 
 /* --- Component definitions --- */
 

@@ -89,6 +89,22 @@ typedef struct {
     bool_t dirty;
 } buffer_t;
 
+/* --- Function --- */
+
+typedef size_t fx_t;
+typedef bit_t (* function_func_t)(bit_t, bit_t);
+
+enum { FUNCTION_INPUTS = 2 };
+
+typedef struct {
+    logic_t logic;
+    function_func_t func;
+    nx_t inputs[FUNCTION_INPUTS];
+    size_t inputs_count;
+    nx_t output;
+    bool_t dirty;
+} function_t;
+
 /* --- Device --- */
 
 typedef struct {
@@ -105,6 +121,9 @@ typedef struct {
 
     const buffer_t * buffers;
     size_t buffers_count;
+
+    const function_t * functions;
+    size_t functions_count;
 } icemu_layout_t;
 
 typedef struct {
@@ -120,6 +139,9 @@ typedef struct {
     buffer_t * buffers;
     size_t buffers_count;
 
+    function_t * functions;
+    size_t functions_count;
+
     tx_t ** node_gates;
     tx_t * node_gates_lists;
     size_t * node_gates_counts;
@@ -131,6 +153,10 @@ typedef struct {
     bx_t ** node_buffers;
     bx_t * node_buffers_lists;
     size_t * node_buffers_counts;
+
+    fx_t ** node_functions;
+    fx_t * node_functions_lists;
+    size_t * node_functions_counts;
 
     nx_t * network_nodes;
     size_t network_nodes_count;
