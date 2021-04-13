@@ -45,6 +45,12 @@ char bit_char(bit_t bit) {
 
 /* --- Private functions --- */
 
+bit_t bit_default(bit_t bit) {
+    bit_t map[4] = {BIT_ZERO, BIT_ONE, BIT_ZERO, BIT_ZERO};
+
+    return map[(unsigned char)bit];
+}
+
 level_t bit_level(bit_t bit, logic_t logic) {
     switch (bit) {
         case BIT_ZERO:
@@ -494,6 +500,12 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
 #endif
 }
 
+/* ================ */
+/*    Transistor    */
+/* ================ */
+
+/* --- Private functions  --- */
+
 void icemu_transistor_init(icemu_t * ic, tx_t t, const transistor_t * layout) {
     transistor_t * transistor = &ic->transistors[t];
 
@@ -537,6 +549,12 @@ bit_t icemu_transistor_state(icemu_t * ic, tx_t t) {
     return BIT_Z;
 }
 
+/* ============ */
+/*    Buffer    */
+/* ============ */
+
+/* --- Private functions  --- */
+
 void icemu_buffer_init(icemu_t * ic, bx_t b, const buffer_t * layout) {
     buffer_t * buffer = &ic->buffers[b];
     bit_t output;
@@ -573,23 +591,11 @@ void icemu_buffer_resolve(icemu_t * ic, bx_t b) {
 
 bit_t icemu_buffer_output(icemu_t * ic, bx_t b) {
     buffer_t * buffer = &ic->buffers[b];
-    bit_t input = ic->nodes[buffer->input].state;
+    bit_t input = bit_default(ic->nodes[buffer->input].state);
 
-    switch (buffer->logic) {
-        case LOGIC_NMOS:
-            if (buffer->inverting) {
-                return (input < 0) ? BIT_ONE : !input;
-            } else {
-                return (input < 0) ? BIT_ZERO : input;
-            }
-        case LOGIC_TTL:
-            if (buffer->inverting) {
-                return (input < 0) ? BIT_Z : !input;
-            } else {
-                return (input < 0) ? BIT_Z : input;
-            }
-        default:
-            fprintf(stderr, "[WARNING] Unsupported buffer logic type %d\n", buffer->logic);
-            return BIT_META;
+    if (buffer->inverting) {
+        return !input;
+    } else {
+        return input;
     }
 }
