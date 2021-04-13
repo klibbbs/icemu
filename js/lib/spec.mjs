@@ -1,7 +1,9 @@
 import { Validator } from './validator.mjs';
+import { Components } from './components.mjs';
 import { Load } from './load.mjs';
 import { Transistor } from './transistor.mjs';
 import { Buffer } from './buffer.mjs';
+import { Function } from './function.mjs';
 
 export class Spec {
 
@@ -9,9 +11,7 @@ export class Spec {
         this.type = Validator.validateEnum('type', spec.type, [
             'device',
             'reduce',
-            'load',
-            'transistor',
-            'buffer',
+            ...Components.getTypes(),
         ]);
 
         // Component info
@@ -127,6 +127,16 @@ export class Spec {
             );
         } else {
             this.buffers = [];
+        }
+
+        if (spec.functions) {
+            this.functions = Validator.validateArray(
+                'functions',
+                spec.functions,
+                Function.validateSpec
+            );
+        } else {
+            this.functions = [];
         }
 
         // Circuits

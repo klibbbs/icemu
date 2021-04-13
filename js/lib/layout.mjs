@@ -63,6 +63,7 @@ export class Layout {
         this.components.addSpecs('load', spec.loads);
         this.components.addSpecs('transistor', spec.transistors);
         this.components.addSpecs('buffer', spec.buffers);
+        this.components.addSpecs('function', spec.functions);
 
         // --- Reduce components ---
 
@@ -101,6 +102,7 @@ export class Layout {
             loads: this.components.getCount('load'),
             transistors: this.components.getCount('transistor'),
             buffers: this.components.getCount('buffer'),
+            functions: this.components.getCount('function'),
         };
 
         // --- Extract components ---
@@ -108,6 +110,7 @@ export class Layout {
         this.loads = this.components.getComponents('load', true);
         this.transistors = this.components.getComponents('transistor', true);
         this.buffers = this.components.getComponents('buffer', true);
+        this.functions = this.components.getComponents('function', true);
     }
 
     reduceCircuit(circuit) {
@@ -343,6 +346,7 @@ export class Layout {
             ...this.components.getComponents('load').map(l => l.getAllNodes()),
             ...this.components.getComponents('transistor').map(t => t.getAllNodes()),
             ...this.components.getComponents('buffer').map(b => b.getAllNodes()),
+            ...this.components.getComponents('function').map(f => f.getAllNodes()),
         ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
 
         if (reduceNodes) {
@@ -366,6 +370,11 @@ export class Layout {
                 b.input = this.nodes[b.input];
                 b.output = this.nodes[b.output];
             });
+
+            this.components.getComponents('function').forEach(f => {
+                f.inputs = f.inputs.map(n => this.nodes[n]);
+                f.output = this.nodes[f.output];
+            });
         } else {
 
             // Leave nodes unchanged
@@ -379,6 +388,7 @@ export class Layout {
         console.log(`Loads:       ${this.counts.loads}`);
         console.log(`Transistors: ${this.counts.transistors}`);
         console.log(`Buffers:     ${this.counts.buffers}`);
+        console.log(`Functions:   ${this.counts.functions}`);
     }
 
     buildSpec() {
@@ -403,6 +413,7 @@ export class Layout {
             loads: this.components.getComponents('load', true).map(l => l.getSpec()),
             transistors: this.components.getComponents('transistor', true).map(t => t.getSpec()),
             buffers: this.components.getComponents('buffer', true).map(b => b.getSpec()),
+            functions: this.components.getComponents('function', true).map(f => f.getSpec()),
         };
     }
 }

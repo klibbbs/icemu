@@ -1,11 +1,13 @@
 import { Load } from './load.mjs';
 import { Transistor } from './transistor.mjs';
 import { Buffer } from './buffer.mjs';
+import { Function } from './function.mjs';
 
 const TYPES = {
     load: Load,
     transistor: Transistor,
     buffer: Buffer,
+    'function': Function,
 };
 
 // --- Private functions ---
@@ -45,6 +47,8 @@ export class Components {
     constructor() {
         this.components = Object.fromEntries(Object.keys(TYPES).map(key => [key, []]));
         this.maps = Object.fromEntries(Object.keys(TYPES).map(key => [key, {}]));
+
+        Components.getTypes().forEach(t => this.rebuildMaps(t));
     }
 
     getCount(type) {
