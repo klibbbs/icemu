@@ -55,14 +55,23 @@ bit_t bit_default(bit_t bit) {
     return map[(unsigned char)bit];
 }
 
+bit_t bit_invert(bit_t bit) {
+    bit_t map[4] = {BIT_ONE, BIT_ZERO, BIT_Z, BIT_META};
+
+    return map[(unsigned char)bit];
+}
+
 level_t bit_level(bit_t bit, logic_t logic) {
     switch (bit) {
         case BIT_ZERO:
             return logic == LOGIC_PMOS ? LEVEL_LOAD : LEVEL_POWER;
         case BIT_ONE:
             return logic == LOGIC_NMOS ? LEVEL_LOAD : LEVEL_POWER;
+        case BIT_META:
+            return LEVEL_POWER;
+        case BIT_Z:
         default:
-            return (logic == LOGIC_NMOS || logic == LOGIC_PMOS) ? LEVEL_LOAD : LEVEL_POWER;
+            return LEVEL_FLOAT;
     }
 }
 
@@ -363,7 +372,7 @@ void icemu_resolve(icemu_t * ic) {
         /* Reset resolution flag */
         resolved = true;
 
-        /* Resolve dirty transistors and propagate changes to affected nodes */
+        /* Resolve dirty components and propagate changes to affected nodes */
         for (t = 0; t < ic->transistors_count; t++) {
             if (ic->transistors[t].dirty) {
                 icemu_transistor_resolve(ic, t);
@@ -371,7 +380,6 @@ void icemu_resolve(icemu_t * ic) {
             }
         }
 
-        /* Resolve dirty buffers and propagate changes to affected nodes */
         for (b = 0; b < ic->buffers_count; b++) {
             if (ic->buffers[b].dirty) {
                 icemu_buffer_resolve(ic, b);
@@ -379,7 +387,6 @@ void icemu_resolve(icemu_t * ic) {
             }
         }
 
-        /* Resolve dirty functions and propagate changes to affected nodes */
         for (f = 0; f < ic->functions_count; f++) {
             if (ic->functions[f].dirty) {
                 icemu_function_resolve(ic, f);
@@ -656,7 +663,7 @@ bit_t icemu_buffer_output(icemu_t * ic, bx_t b) {
     bit_t input = bit_default(ic->nodes[buffer->input].state);
 
     if (buffer->inverting) {
-        return !input;
+        return bit_invert(input);
     } else {
         return input;
     }
