@@ -1,3 +1,4 @@
+import { Util } from './util.mjs';
 import { Validator } from './validator.mjs';
 
 const MAX_GROUPS = 1;
@@ -121,16 +122,7 @@ export class Function {
     static compare(a, b) {
         return a.logic.localeCompare(b.logic) ||
             a.expr.localeCompare(b.expr) ||
-            a.inputs.length - b.inputs.length ||
-            (function (a, b) {
-                for (let i = 0; i < a.length; i++) {
-                    if (a !== b) {
-                        return a - b;
-                    }
-                }
-
-                return 0;
-            }(a.inputs, b.inputs)) ||
+            Util.compareArrays(a.inputs, b.inputs) ||
             a.output - b.output;
     }
 
