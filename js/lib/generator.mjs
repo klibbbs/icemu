@@ -63,6 +63,14 @@ export class Generator {
                         throw new TypeError(`Unsupported transistor type '${type}'`);
                 }
             },
+            getCellEnum: (type) => {
+                switch (type) {
+                    case 'd_latch':
+                        return 'CELL_D_LATCH';
+                    default:
+                        throw new TypeError(`Unsupported cell type '${type}'`);
+                }
+            },
             getLogicEnum: (logic) => {
                 switch (logic) {
                     case 'nmos':
@@ -251,7 +259,9 @@ function generateC_device_c(C, spec, layout) {
             layout.buffers.length ? `${C.device_caps}_BUFFER_DEFS,` : 'NULL,',
             `${C.device_caps}_BUFFER_COUNT,`,
             layout.functions.length ? `${C.device_caps}_FUNCTION_DEFS,` : 'NULL,',
-            `${C.device_caps}_FUNCTION_COUNT`,
+            `${C.device_caps}_FUNCTION_COUNT,`,
+            layout.cells.length ? `${C.device_caps}_CELL_DEFS,` : 'NULL,',
+            `${C.device_caps}_CELL_COUNT`,
         ]),
         tab(1, '};'),
         '',
@@ -969,6 +979,7 @@ function generateC_layout_h(C, spec, layout) {
         `const size_t ${C.device_caps}_TRANSISTOR_COUNT = ${layout.counts.transistors};`,
         `const size_t ${C.device_caps}_BUFFER_COUNT = ${layout.counts.buffers};`,
         `const size_t ${C.device_caps}_FUNCTION_COUNT = ${layout.counts.functions};`,
+        `const size_t ${C.device_caps}_CELL_COUNT = ${layout.counts.cells};`,
         '',
         ...(layout.functions.length ? [
             comment('Function definitions', 2),
@@ -1013,6 +1024,20 @@ function generateC_layout_h(C, spec, layout) {
                     '{' + f.inputs.join(', ') + '}, ' +
                     `${f.inputs.length}, ` +
                     `${f.output}}`
+            )).join(",\n")),
+            '};',
+            '',
+        ] : []),
+        ...(layout.cells.length ? [
+            `const cell_t ${C.device_caps}_CELL_DEFS[] = {`,
+            tab(1, layout.cells.map((c, i) => (
+                '{' +
+                    `${C.getLogicEnum(c.logic)}, ` +
+                    `${C.getCellEnum(c.type)}, ` +
+                    `{${c.inputs.join(', ')}}, ${c.inputs.length}, ` +
+                    `{${c.outputs.join(', ')}}, ${c.outputs.length}, ` +
+                    `{${c.writes.length ? c.writes.join(', ') : 0}}, ${c.writes.length}, ` +
+                    `{${c.reads.length ? c.reads.join(', ') : 0}}, ${c.reads.length}}`
             )).join(",\n")),
             '};',
             '',

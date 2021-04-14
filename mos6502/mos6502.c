@@ -22,7 +22,9 @@ mos6502_t * mos6502_init() {
         MOS6502_BUFFER_DEFS,
         MOS6502_BUFFER_COUNT,
         MOS6502_FUNCTION_DEFS,
-        MOS6502_FUNCTION_COUNT
+        MOS6502_FUNCTION_COUNT,
+        NULL,
+        MOS6502_CELL_COUNT
     };
 
     /* Initialize new IC emulator */

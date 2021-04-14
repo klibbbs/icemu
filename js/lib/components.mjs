@@ -2,12 +2,14 @@ import { Load } from './load.mjs';
 import { Transistor } from './transistor.mjs';
 import { Buffer } from './buffer.mjs';
 import { Function } from './function.mjs';
+import { Cell } from './cell.mjs';
 
 const TYPES = {
     load: Load,
     transistor: Transistor,
     buffer: Buffer,
     'function': Function,
+    cell: Cell,
 };
 
 // --- Private functions ---

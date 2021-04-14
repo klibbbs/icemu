@@ -4,6 +4,7 @@ import { Load } from './load.mjs';
 import { Transistor } from './transistor.mjs';
 import { Buffer } from './buffer.mjs';
 import { Function } from './function.mjs';
+import { Cell } from './cell.mjs';
 
 export class Spec {
 
@@ -139,6 +140,16 @@ export class Spec {
             this.functions = [];
         }
 
+        if (spec.cells) {
+            this.cells = Validator.validateArray(
+                'cells',
+                spec.cells,
+                Cell.validateSpec
+            );
+        } else {
+            this.cells = [];
+        }
+
         // Circuits
         if (spec.circuits) {
             this.circuits = Validator.validateArray('circuits', spec.circuits, (field, val) => {
@@ -167,5 +178,7 @@ export class Spec {
         console.log(`Loads:       ${this.loads.length}`);
         console.log(`Transistors: ${this.transistors.length}`);
         console.log(`Buffers:     ${this.buffers.length}`);
+        console.log(`Functions:   ${this.functions.length}`);
+        console.log(`Cells:       ${this.cells.length}`);
     }
 }

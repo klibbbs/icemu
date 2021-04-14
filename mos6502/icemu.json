@@ -54,29 +54,6 @@
             ]
         },
         {
-            "id": "nand2",
-            "name": "Two-input NAND Gate",
-            "type": "function",
-            "enabled": true,
-            "args": ["nmos", "nand(x1,x2)", ["$x1", "$x2"], "$out"],
-            "nodes": {
-                "x1": 0,
-                "x2": 1,
-                "out": 4,
-                "vss": 2
-            },
-            "off": "vss",
-            "inputs": ["x1", "x2"],
-            "outputs": ["out"],
-            "loads": [
-                ["on", 4]
-            ],
-            "transistors": [
-                ["nmos", 0, 2, 3],
-                ["nmos", 1, 3, 4]
-            ]
-        },
-        {
             "id": "inverter",
             "name": "Inverting Buffer",
             "type": "buffer",
@@ -95,6 +72,42 @@
             ],
             "transistors": [
                 ["nmos", 0, 1, 2]
+            ]
+        },
+        {
+            "id": "latched_output",
+            "name": "Latched TTL Output Driver",
+            "type": "cell",
+            "enabled": false,
+            "args": ["ttl", "d_latch", ["$data"], ["$w1", "$w2"], ["$out"]],
+            "nodes": {
+                "data": 0,
+                "w1": 1,
+                "w2": 2,
+                "clk": 3,
+                "out": 4,
+                "vcc": 5,
+                "vss": 6
+            },
+            "on": "vcc",
+            "off": "vss",
+            "inputs": ["data", "w1", "w2", "clk"],
+            "outputs": ["out"],
+            "transistors": [
+                ["nmos", 1, 7, 8],
+                ["nmos", 2, 8, 9],
+                ["nmos", 10, 5, 13],
+                ["nmos", 10, 11, 6],
+                ["nmos", 12, 13, 6],
+                ["nmos", 12, 5, 11],
+                ["nmos", 13, 5, 4],
+                ["nmos", 11, 4, 6],
+                ["nmos", 3, 9, 11]
+            ],
+            "buffers": [
+                ["nmos", true, 0, 7],
+                ["nmos", true, 9, 10],
+                ["nmos", true, 10, 12]
             ]
         },
         {
@@ -137,6 +150,29 @@
             "buffers": [
                 ["nmos", true, 0, 1],
                 ["nmos", true, 1, 2]
+            ]
+        },
+        {
+            "id": "nand2",
+            "name": "Two-input NAND Gate",
+            "type": "function",
+            "enabled": true,
+            "args": ["nmos", "nand(x1,x2)", ["$x1", "$x2"], "$out"],
+            "nodes": {
+                "x1": 0,
+                "x2": 1,
+                "out": 4,
+                "vss": 2
+            },
+            "off": "vss",
+            "inputs": ["x1", "x2"],
+            "outputs": ["out"],
+            "loads": [
+                ["on", 4]
+            ],
+            "transistors": [
+                ["nmos", 0, 2, 3],
+                ["nmos", 1, 3, 4]
             ]
         }
     ],
