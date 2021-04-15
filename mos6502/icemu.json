@@ -78,8 +78,8 @@
             "id": "latched_output",
             "name": "Latched TTL Output Driver",
             "type": "cell",
-            "enabled": false,
-            "args": ["ttl", "d_latch", ["$data"], ["$w1", "$w2"], ["$out"]],
+            "enabled": true,
+            "args": ["ttl", "d_latch", ["$data"], ["$out"], ["$w1", "$w2"]],
             "nodes": {
                 "data": 0,
                 "w1": 1,

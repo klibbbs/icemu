@@ -26,6 +26,10 @@ static void icemu_function_init(icemu_t * ic, fx_t f, const function_t * layout)
 static void icemu_function_resolve(icemu_t * ic, fx_t f);
 static bit_t icemu_function_output(icemu_t * ic, fx_t f);
 
+static void icemu_cell_init(icemu_t * ic, cx_t c, const cell_t * layout);
+static void icemu_cell_resolve(icemu_t * ic, cx_t c);
+static bit_t icemu_cell_output(icemu_t * ic, cx_t c);
+
 /* =========== */
 /*    Types    */
 /* =========== */
@@ -93,6 +97,7 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
     tx_t t, tcur;
     bx_t b, bcur;
     fx_t f, fcur;
+    cx_t c, ccur;
 
     icemu_t * ic = malloc(sizeof(icemu_t));
 
@@ -263,6 +268,59 @@ icemu_t * icemu_init(const icemu_layout_t * layout) {
         }
     }
 
+    /* --- Cells --- */
+
+    /* Initialize cell list */
+    ic->cells_count = layout->cells_count;
+    ic->cells = malloc(sizeof(cell_t) * ic->cells_count);
+
+    for (c = 0; c < ic->cells_count; c++) {
+        icemu_cell_init(ic, c, &layout->cells[c]);
+    }
+
+    /* Map nodes to cell inputs, write enables, and read enables */
+    ic->node_cells        = calloc(ic->nodes_count, sizeof(cx_t *));
+    ic->node_cells_lists  = calloc(ic->cells_count * CELL_TOTAL_INPUTS, sizeof(cx_t));
+    ic->node_cells_counts = calloc(ic->nodes_count, sizeof(size_t));
+
+    for (c = 0; c < ic->cells_count; c++) {
+        for (n = 0; n < ic->cells[c].inputs_count; n++) {
+            ic->node_cells_counts[ic->cells[c].inputs[n]]++;
+        }
+
+        for (n = 0; n < ic->cells[c].writes_count; n++) {
+            ic->node_cells_counts[ic->cells[c].writes[n]]++;
+        }
+
+        for (n = 0; n < ic->cells[c].reads_count; n++) {
+            ic->node_cells_counts[ic->cells[c].reads[n]]++;
+        }
+    }
+
+    for (n = 0, ccur = 0; n < ic->nodes_count; n++) {
+        if (ic->node_cells_counts[n] > 0) {
+            ccur += ic->node_cells_counts[n];
+
+            ic->node_cells[n] = ic->node_cells_lists + ccur;
+        } else {
+            ic->node_cells[n] = NULL;
+        }
+    }
+
+    for (c = 0; c < ic->cells_count; c++) {
+        for (n = 0; n < ic->cells[c].inputs_count; n++) {
+            *(--ic->node_cells[ic->cells[c].inputs[n]]) = c;
+        }
+
+        for (n = 0; n < ic->cells[c].writes_count; n++) {
+            *(--ic->node_cells[ic->cells[c].writes[n]]) = c;
+        }
+
+        for (n = 0; n < ic->cells[c].reads_count; n++) {
+            *(--ic->node_cells[ic->cells[c].reads[n]]) = c;
+        }
+    }
+
     /* --- Network --- */
 
     /* Initialize network state */
@@ -295,6 +353,10 @@ void icemu_destroy(icemu_t * ic) {
     free(ic->node_functions);
     free(ic->node_functions_lists);
     free(ic->node_functions_counts);
+
+    free(ic->node_cells);
+    free(ic->node_cells_lists);
+    free(ic->node_cells_counts);
 
     free(ic->network_nodes);
 
@@ -350,6 +412,7 @@ void icemu_resolve(icemu_t * ic) {
     tx_t t;
     bx_t b;
     fx_t f;
+    cx_t c;
     bool_t resolved;
 
     for (i = 0; i < ICEMU_RESOLVE_LIMIT; i++) {
@@ -390,6 +453,13 @@ void icemu_resolve(icemu_t * ic) {
         for (f = 0; f < ic->functions_count; f++) {
             if (ic->functions[f].dirty) {
                 icemu_function_resolve(ic, f);
+                resolved = false;
+            }
+        }
+
+        for (c = 0; c < ic->cells_count; c++) {
+            if (ic->cells[c].dirty) {
+                icemu_cell_resolve(ic, c);
                 resolved = false;
             }
         }
@@ -488,6 +558,7 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
         tx_t t;
         bx_t b;
         fx_t f;
+        cx_t c;
 
         /* Update dirty flags for affected components if the state changed */
         if (state != ic->nodes[n].state) {
@@ -501,6 +572,10 @@ void icemu_network_resolve(icemu_t * ic, unsigned int iter) {
 
             for (f = 0; f < ic->node_functions_counts[n]; f++) {
                 ic->functions[ic->node_functions[n][f]].dirty = true;
+            }
+
+            for (c = 0; c < ic->node_cells_counts[n]; c++) {
+                ic->cells[ic->node_cells[n][c]].dirty = true;
             }
         }
 
@@ -717,4 +792,116 @@ bit_t icemu_function_output(icemu_t * ic, fx_t f) {
 
     return function->func(bit_default(ic->nodes[function->inputs[0]].state),
                           bit_default(ic->nodes[function->inputs[1]].state));
+}
+
+/* ========== */
+/*    Cell    */
+/* ========== */
+
+void icemu_cell_init(icemu_t * ic, cx_t c, const cell_t * layout) {
+    cell_t * cell = &ic->cells[c];
+    bit_t output = BIT_Z;
+    nx_t n;
+
+    /* Initialize cell properties */
+    cell->logic         = layout->logic;
+    cell->type          = layout->type;
+    cell->inputs_count  = layout->inputs_count;
+    cell->outputs_count = layout->outputs_count;
+    cell->writes_count  = layout->writes_count;
+    cell->reads_count   = layout->reads_count;
+    cell->state         = BIT_Z;
+    cell->dirty         = false;
+
+    for (n = 0; n < cell->inputs_count; n++) {
+        cell->inputs[n] = layout->inputs[n];
+    }
+
+    for (n = 0; n < cell->outputs_count; n++) {
+        cell->outputs[n] = layout->outputs[n];
+    }
+
+    for (n = 0; n < cell->writes_count; n++) {
+        cell->writes[n] = layout->writes[n];
+    }
+
+    for (n = 0; n < cell->reads_count; n++) {
+        cell->reads[n] = layout->reads[n];
+    }
+
+    /* Apply initial load to non-inverting output node */
+    if (cell->outputs_count > 0) {
+        ic->nodes[cell->outputs[0]].level = bit_level(output, cell->logic);
+        ic->nodes[cell->outputs[0]].pull = bit_pull(output);
+    }
+
+    /* Apply initial load to inverting output node */
+    if (cell->outputs_count > 1) {
+        ic->nodes[cell->outputs[1]].level = bit_level(bit_invert(output), cell->logic);
+        ic->nodes[cell->outputs[1]].pull = bit_pull(bit_invert(output));
+    }
+}
+
+void icemu_cell_resolve(icemu_t * ic, cx_t c) {
+    cell_t * cell = &ic->cells[c];
+
+    /* Calculate output value */
+    bit_t output = icemu_cell_output(ic, c);
+
+    /* Apply load and set dirty flag on non-inverting output node */
+    if (cell->outputs_count > 0) {
+        ic->nodes[cell->outputs[0]].level = bit_level(output, cell->logic);
+        ic->nodes[cell->outputs[0]].pull = bit_pull(output);
+        ic->nodes[cell->outputs[0]].dirty = true;
+    }
+
+    /* Apply load and set dirty flag on inverting output node */
+    if (cell->outputs_count > 1) {
+        ic->nodes[cell->outputs[1]].level = bit_level(bit_invert(output), cell->logic);
+        ic->nodes[cell->outputs[1]].pull = bit_pull(bit_invert(output));
+        ic->nodes[cell->outputs[1]].dirty = true;
+    }
+
+    /* Clear cell dirty flag */
+    cell->dirty = false;
+}
+
+bit_t icemu_cell_output(icemu_t * ic, cx_t c) {
+    cell_t * cell = &ic->cells[c];
+    nx_t n;
+    bool_t writable = true, readable = true;
+
+    /* Check if writing is enabled */
+    for (n = 0; n < cell->writes_count; n++) {
+        if (!bit_default(ic->nodes[cell->writes[n]].state)) {
+            writable = false;
+            break;
+        }
+    }
+
+    /* Check if reading is enabled */
+    for (n = 0; n < cell->reads_count; n++) {
+        if (!bit_default(ic->nodes[cell->reads[n]].state)) {
+            readable = false;
+            break;
+        }
+    }
+
+    /* Update cell state from inputs if writable */
+    if (writable) {
+        switch (cell->type) {
+            case CELL_D_LATCH:
+                if (cell->inputs_count > 0) {
+                    cell->state = bit_default(ic->nodes[cell->inputs[0]].state);
+                }
+                break;
+        }
+    }
+
+    /* Output cell state if readable */
+    if (readable) {
+        return cell->state;
+    }
+
+    return BIT_Z;
 }
