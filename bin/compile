@@ -3,4 +3,10 @@
 BASEDIR="$(dirname "$0")/.."
 JSDIR="${BASEDIR}/js"
 
-node "${JSDIR}/compile.mjs" $@
+SCRIPT="${JSDIR}/compile.mjs"
+
+if [ -n "$PROF" ]; then
+    node --prof "${SCRIPT}" $@
+else
+    node "${SCRIPT}" $@
+fi

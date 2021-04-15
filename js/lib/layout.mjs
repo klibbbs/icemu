@@ -436,51 +436,60 @@ class State {
 
         this.circuit = {
             nodes: {},
-            components: Object.fromEntries(types.map(type => [type, {}])),
+            components: {},
         };
 
         this.device = {
             nodes: {},
-            components: Object.fromEntries(types.map(type => [type, {}])),
-        };
-    }
-
-    copy() {
-        let state = new State(this.types);
-
-        state.circuit = {
-            nodes: Object.fromEntries(Object.entries(this.circuit.nodes)),
-            components: Object.fromEntries(this.types.map(type => [
-                type,
-                Object.fromEntries(Object.entries(this.circuit.components[type]))
-            ])),
+            components: {},
         };
 
-        state.device = {
-            nodes: Object.fromEntries(Object.entries(this.device.nodes)),
-            components: Object.fromEntries(this.types.map(type => [
-                type,
-                Object.fromEntries(Object.entries(this.device.components[type]))
-            ])),
-        };
-
-        return state;
+        types.forEach(type => {
+            this.circuit.components[type] = {};
+            this.device.components[type] = {};
+        });
     }
 
     copyWithNode(cx, dx) {
-        let state = this.copy();
+        let copy = new State(this.types);
 
-        state.addNode(cx, dx);
+        // Shallow-copy components
+        copy.circuit.components = this.circuit.components;
+        copy.device.components = this.device.components;
 
-        return state;
+        // Deep-copy nodes
+        Object.entries(this.circuit.nodes).forEach(([cn, dn]) => {
+            copy.circuit.nodes[cn] = dn;
+            copy.device.nodes[dn] = parseInt(cn);
+        });
+
+        // Add node
+        copy.circuit.nodes[cx] = dx;
+        copy.device.nodes[dx] = cx;
+
+        return copy;
     }
 
     copyWithComponent(type, cx, dx) {
-        let state = this.copy();
+        let copy = new State(this.types);
 
-        state.addComponent(type, cx, dx);
+        // Shallow-copy nodes
+        copy.circuit.nodes = this.circuit.nodes;
+        copy.device.nodes = this.device.nodes;
 
-        return state;
+        // Deep-copy components
+        this.types.forEach(type => {
+            Object.entries(this.circuit.components[type]).forEach(([cx, dx]) => {
+                copy.circuit.components[type][cx] = dx;
+                copy.device.components[type][dx] = parseInt(cx);
+            });
+        });
+
+        // Add component
+        copy.circuit.components[type][cx] = dx;
+        copy.device.components[type][dx] = cx;
+
+        return copy;
     }
 
     getCircuitNode(cx) {
@@ -489,16 +498,6 @@ class State {
 
     getDeviceComponents(type) {
         return Object.values(this.circuit.components[type]);
-    }
-
-    addNode(cx, dx) {
-        this.circuit.nodes[cx] = dx;
-        this.device.nodes[dx] = cx;
-    }
-
-    addComponent(type, cx, dx) {
-        this.circuit.components[type][cx] = dx;
-        this.device.components[type][dx] = cx;
     }
 
     doNodesMatch(cx, dx) {

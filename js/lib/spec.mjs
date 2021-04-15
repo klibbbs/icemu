@@ -156,7 +156,11 @@ export class Spec {
                 try {
                     return new Spec(val);
                 } catch (e) {
-                    throw new TypeError(`${e.message} in ${field}`);
+                    if (val.id) {
+                        throw new TypeError(`${e.message} in ${field} with id '${val.id}'`);
+                    } else {
+                        throw new TypeError(`${e.message} in ${field}`);
+                    }
                 }
             });
         } else {

@@ -2,12 +2,13 @@ import { Util } from './util.mjs';
 import { Validator } from './validator.mjs';
 
 const MAX_GROUPS = 1;
-const MAX_PARAMS = 2;
+const MAX_PARAMS = 9;
 
 const PATTERN = /^([a-z]+)\((.*)\)$/;
 
 const OPS = {
-    nand: {},
+    nand: true,
+    nor: true,
 };
 
 function paramToIndex(param) {
@@ -26,7 +27,7 @@ function parseExpression(expr) {
     if (matches) {
         let [, op, args] = matches;
 
-        if (OPS[op] === undefined) {
+        if (!OPS[op]) {
             throw new Error(`Unknown function operation '${op}'`);
         }
 
@@ -91,6 +92,8 @@ function generateCode(func) {
         switch (func.op) {
             case 'nand':
                 return '!(' + args.join(' && ') + ')';
+            case 'nor':
+                return '!(' + args.join(' || ') + ')';
             default:
                 throw new Error(`Cannot generate code for function operation '${op}'`);
         }
