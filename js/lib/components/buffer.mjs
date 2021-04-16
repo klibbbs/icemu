@@ -2,7 +2,8 @@ import { Validator } from '../validator.mjs';
 
 export class Buffer {
 
-    constructor(logic, inverting, input, output) {
+    constructor(idx, logic, inverting, input, output) {
+        this.idx = idx;
         this.logic = logic;
         this.inverting = inverting;
         this.input = input;
@@ -20,10 +21,6 @@ export class Buffer {
         return a.logic === b.logic && a.inverting === b.inverting;
     }
 
-    static fromSpec(spec) {
-        return new Buffer(...spec);
-    }
-
     static validateSpec(field, val) {
         return Validator.validateTuple(field, val, [
             (field, val) => Validator.validateEnum(field, val, ['nmos', 'pmos', 'cmos', 'ttl']),
@@ -33,7 +30,7 @@ export class Buffer {
         ]);
     }
 
-    static getArgs() {
+    static getGroups() {
         return ['input', 'output'];
     }
 
@@ -45,10 +42,10 @@ export class Buffer {
         return [this.input, this.output];
     }
 
-    getArgNodes(arg) {
+    getGroupNodes(group) {
         return {
             input: [this.input],
             output: [this.output],
-        }[arg];
+        }[group];
     }
 }

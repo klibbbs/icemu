@@ -2,7 +2,8 @@ import { Validator } from '../validator.mjs';
 
 export class Load {
 
-    constructor(type, node) {
+    constructor(idx, type, node) {
+        this.idx = idx;
         this.type = type;
         this.node = node;
     }
@@ -15,10 +16,6 @@ export class Load {
         return a.type === b.type;
     }
 
-    static fromSpec(spec) {
-        return new Load(spec[0], spec[1]);
-    }
-
     static validateSpec(field, val) {
         return Validator.validateTuple(field, val, [
             (field, val) => Validator.validateEnum(field, val, ['on', 'off']),
@@ -26,7 +23,7 @@ export class Load {
         ]);
     }
 
-    static getArgs() {
+    static getGroups() {
         return ['node'];
     }
 
@@ -38,9 +35,9 @@ export class Load {
         return [this.node];
     }
 
-    getArgNodes(arg) {
+    getGroupNodes(group) {
         return {
             node: [this.node],
-        }[arg];
+        }[group];
     }
 }

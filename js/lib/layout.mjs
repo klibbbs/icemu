@@ -60,11 +60,11 @@ export class Layout {
 
         this.components = new Components();
 
-        this.components.addSpecs('load', spec.loads);
-        this.components.addSpecs('transistor', spec.transistors);
-        this.components.addSpecs('buffer', spec.buffers);
-        this.components.addSpecs('function', spec.functions);
-        this.components.addSpecs('cell', spec.cells);
+        this.components.addComponents('load', spec.loads);
+        this.components.addComponents('transistor', spec.transistors);
+        this.components.addComponents('buffer', spec.buffers);
+        this.components.addComponents('function', spec.functions);
+        this.components.addComponents('cell', spec.cells);
 
         // --- Reduce components ---
 
@@ -155,9 +155,9 @@ export class Layout {
 
             // Compare component counts
             for (const type of Components.getTypes()) {
-                for (const arg of Components.getArgs(type)) {
-                    const cxs = circuit.components.getComponentsByNode(type, arg, cnx),
-                          dxs = device.components.getComponentsByNode(type, arg, dnx);
+                for (const group of Components.getGroups(type)) {
+                    const cxs = circuit.components.getComponentsByNode(type, group, cnx),
+                          dxs = device.components.getComponentsByNode(type, group, dnx);
 
                     if (cxs && !dxs || cxs && dxs.length < cxs.length) {
                         return false;
@@ -176,9 +176,9 @@ export class Layout {
 
             // Match components
             for (const type of Components.getTypes()) {
-                for (const arg of Components.getArgs(type)) {
-                    const cxs = circuit.components.getComponentsByNode(type, arg, cnx),
-                          dxs = device.components.getComponentsByNode(type, arg, dnx);
+                for (const group of Components.getGroups(type)) {
+                    const cxs = circuit.components.getComponentsByNode(type, group, cnx),
+                          dxs = device.components.getComponentsByNode(type, group, dnx);
 
                     if (cxs) {
                         if (!cxs.every(cx => {
@@ -219,8 +219,8 @@ export class Layout {
             // Match nodes
             state = state.copyWithComponent(type, cx, dx);
 
-            for (const arg of Components.getArgs(type)) {
-                const cnodes = cc.getArgNodes(arg), dnodes = dd.getArgNodes(arg);
+            for (const group of Components.getGroups(type)) {
+                const cnodes = cc.getGroupNodes(group), dnodes = dd.getGroupNodes(group);
 
                 if (cnodes.length !== dnodes.length) {
                     return false;
@@ -235,20 +235,20 @@ export class Layout {
                         return false;
                     }
                 } else if (cnodes.length === 2) {
-                    let argState = false;
+                    let groupState = false;
 
-                    if ((argState = matchNodes(cnodes[0], dnodes[0], state)) &&
-                        (argState = matchNodes(cnodes[1], dnodes[1], argState))) {
+                    if ((groupState = matchNodes(cnodes[0], dnodes[0], state)) &&
+                        (groupState = matchNodes(cnodes[1], dnodes[1], groupState))) {
 
-                        state = argState;
-                    } else if ((argState = matchNodes(cnodes[0], dnodes[1], state)) &&
-                               (argState = matchNodes(cnodes[1], dnodes[0], argState))) {
-                        state = argState;
+                        state = groupState;
+                    } else if ((groupState = matchNodes(cnodes[0], dnodes[1], state)) &&
+                               (groupState = matchNodes(cnodes[1], dnodes[0], groupState))) {
+                        state = groupState;
                     } else {
                         return false;
                     }
                 } else {
-                    throw new Error('Components args with greater than 2 nodes not supported');
+                    throw new Error('Component groups with greater than 2 nodes not supported');
                 }
             }
 
@@ -335,7 +335,7 @@ export class Layout {
         if (circuit.type === 'reduce') {
             // Reduce components only
         } else {
-            device.components.addNewComponent(circuit.type, args);
+            device.components.addComponents(circuit.type, [args]);
         }
 
         return true;

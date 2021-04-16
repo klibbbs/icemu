@@ -2,10 +2,11 @@ import { Validator } from '../validator.mjs';
 
 export class Transistor {
 
-    constructor(type, gate, channel) {
+    constructor(idx, type, gate, drain, source) {
+        this.idx = idx;
         this.type = type;
         this.gate = gate;
-        this.channel = channel.sort((a, b) => a - b);
+        this.channel = [drain, source].sort((a, b) => a - b);
     }
 
     static compare(a, b) {
@@ -19,10 +20,6 @@ export class Transistor {
         return a.type === b.type;
     }
 
-    static fromSpec(spec) {
-        return new Transistor(spec[0], spec[1], [spec[2], spec[3]]);
-    }
-
     static validateSpec(field, val) {
         return Validator.validateTuple(field, val, [
             (field, val) => Validator.validateEnum(field, val, ['nmos', 'pmos']),
@@ -32,7 +29,7 @@ export class Transistor {
         ]);
     }
 
-    static getArgs() {
+    static getGroups() {
         return ['gate', 'channel'];
     }
 
@@ -44,10 +41,10 @@ export class Transistor {
         return [this.gate, this.channel[0], this.channel[1]];
     }
 
-    getArgNodes(arg) {
+    getGroupNodes(group) {
         return {
             gate: [this.gate],
             channel: this.channel,
-        }[arg];
+        }[group];
     }
 }

@@ -102,7 +102,8 @@ function generateCode(func) {
 
 export class Function {
 
-    constructor(logic, expr, inputs, output) {
+    constructor(idx, logic, expr, inputs, output) {
+        this.idx = idx;
         this.logic = logic;
         this.expr = expr;
         this.inputs = inputs;
@@ -133,10 +134,6 @@ export class Function {
         return a.logic === b.logic && a.expr === b.expr;
     }
 
-    static fromSpec(spec) {
-        return new Function(...spec);
-    }
-
     static validateSpec(field, val) {
         return Validator.validateTuple(field, val, [
             (field, val) => Validator.validateEnum(field, val, ['nmos', 'pmos', 'cmos', 'ttl']),
@@ -154,7 +151,7 @@ export class Function {
         ]);
     }
 
-    static getArgs() {
+    static getGroups() {
         return [
             ...[...Array(MAX_GROUPS).keys()].map(k => `group_${k + 1}`),
             'output',
@@ -169,14 +166,14 @@ export class Function {
         return [...this.inputs, this.output];
     }
 
-    getArgNodes(arg) {
-        let argNodes = Object.fromEntries([...Array(MAX_GROUPS).keys()].map(k => [
+    getGroupNodes(group) {
+        let groupNodes = Object.fromEntries([...Array(MAX_GROUPS).keys()].map(k => [
             `group_${k + 1}`,
             this.groups[k].map(p => this.inputs[paramToIndex(p)]),
         ]));
 
-        argNodes.output = [this.output];
+        groupNodes.output = [this.output];
 
-        return argNodes[arg];
+        return groupNodes[group];
     }
 }

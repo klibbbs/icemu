@@ -20,11 +20,11 @@ function validateType(type) {
     }
 }
 
-function validateTypeArg(type, arg) {
+function validateTypeGroup(type, group) {
     validateType(type);
 
-    if (!TYPES[type].getArgs().includes(arg)) {
-        throw new Error(`Component type '${type}' does not have argument '${arg}'`);
+    if (!TYPES[type].getGroups().includes(group)) {
+        throw new Error(`Component type '${type}' does not have node group '${group}'`);
     }
 }
 
@@ -34,10 +34,10 @@ export class Components {
         return Object.keys(TYPES);
     }
 
-    static getArgs(type) {
+    static getGroups(type) {
         validateType(type);
 
-        return TYPES[type].getArgs();
+        return TYPES[type].getGroups();
     }
 
     static areCompatible(type, a, b) {
@@ -74,20 +74,20 @@ export class Components {
         return this.components[type];
     }
 
-    getComponentArgs(type) {
+    getComponentGroups(type) {
         validateType(type);
 
-        return TYPES[type].getArgs();
+        return TYPES[type].getGroups();
     }
 
-    getComponentsByNode(type, arg, node) {
-        validateTypeArg(type, arg);
+    getComponentsByNode(type, group, node) {
+        validateTypeGroup(type, group);
 
-        return this.maps[type][arg][node];
+        return this.maps[type][group][node];
     }
 
     getNodes(type) {
-        validateTypeArg(type);
+        validateTypeGroup(type);
 
         return [].concat(...this.components[type].map(c => c.getAllNodes()));
     }
@@ -104,28 +104,19 @@ export class Components {
         return this.components[type].map(c => c.getSpec());
     }
 
-    addSpecs(type, specs) {
+    addComponents(type, specs) {
         validateType(type);
 
-        this.addComponents(type, specs.map(s => TYPES[type].fromSpec(s)));
-    }
-
-    addComponents(type, components) {
-        validateType(type);
-
-        components = components
+        specs.map(spec => new TYPES[type](-1, ...spec))
             .filter((v, i, a) => a.findIndex(c => TYPES[type].compare(v, c) === 0) === i)
-            .filter(v => this.components[type].every(c => TYPES[type].compare(c, v) !== 0));
-
-        this.components[type].push(...components);
+            .filter(v => this.components[type].every(c => TYPES[type].compare(c, v) !== 0))
+            .forEach(c => {
+                c.idx = this.components[type].length;
+                this.components[type].push(c);
+            });
 
         this.rebuildMaps(type);
-    }
 
-    addNewComponent(type, args) {
-        validateType(type);
-
-        this.addComponents(type, [new TYPES[type](...args)]);
     }
 
     removeComponents(type, indices) {
@@ -143,13 +134,13 @@ export class Components {
     rebuildMaps(type) {
         validateType(type);
 
-        this.maps[type] = Object.fromEntries(TYPES[type].getArgs().map(arg => [
-            arg,
+        this.maps[type] = Object.fromEntries(TYPES[type].getGroups().map(group => [
+            group,
             this.components[type].reduce((map, c, idx) => {
-                const argNodes = c.getArgNodes(arg);
+                const groupNodes = c.getGroupNodes(group);
 
-                if (argNodes) {
-                    argNodes.forEach(n => {
+                if (groupNodes) {
+                    groupNodes.forEach(n => {
                         if (map[n]) {
                             map[n].push(idx);
                         } else {
