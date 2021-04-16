@@ -1,5 +1,5 @@
-import { Util } from './util.mjs';
-import { Validator } from './validator.mjs';
+import { Util } from '../util.mjs';
+import { Validator } from '../validator.mjs';
 
 const MAX_INPUTS = 2;
 const MAX_OUTPUTS = 2;

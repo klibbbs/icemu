@@ -1,8 +1,8 @@
-import { Load } from './load.mjs';
-import { Transistor } from './transistor.mjs';
-import { Buffer } from './buffer.mjs';
-import { Function } from './function.mjs';
-import { Cell } from './cell.mjs';
+import { Load } from './components/load.mjs';
+import { Transistor } from './components/transistor.mjs';
+import { Buffer } from './components/buffer.mjs';
+import { Function } from './components/function.mjs';
+import { Cell } from './components/cell.mjs';
 
 const TYPES = {
     load: Load,

@@ -1,5 +1,5 @@
-import { Util } from './util.mjs';
-import { Validator } from './validator.mjs';
+import { Util } from '../util.mjs';
+import { Validator } from '../validator.mjs';
 
 const MAX_GROUPS = 1;
 const MAX_PARAMS = 9;
