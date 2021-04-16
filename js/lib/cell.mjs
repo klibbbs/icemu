@@ -6,6 +6,13 @@ const MAX_OUTPUTS = 2;
 const MAX_WRITES = 2;
 const MAX_READS = 2;
 
+const ARGS = [
+    ...[...Array(MAX_INPUTS).keys()].map(k => `input_${k + 1}`),
+    ...[...Array(MAX_OUTPUTS).keys()].map(k => `output_${k + 1}`),
+    ...[...Array(MAX_WRITES).keys()].map(k => `write_${k + 1}`),
+    ...[...Array(MAX_READS).keys()].map(k => `read_${k + 1}`),
+];
+
 const TYPES = {
     d_latch: {
         inputs: 1,
@@ -77,12 +84,7 @@ export class Cell {
     }
 
     static getArgs() {
-        return [
-            ...[...Array(MAX_INPUTS).keys()].map(k => `input_${k + 1}`),
-            ...[...Array(MAX_OUTPUTS).keys()].map(k => `output_${k + 1}`),
-            ...[...Array(MAX_WRITES).keys()].map(k => `write_${k + 1}`),
-            ...[...Array(MAX_READS).keys()].map(k => `read_${k + 1}`),
-        ];
+        return ARGS;
     }
 
     getSpec() {
