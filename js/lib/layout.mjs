@@ -109,11 +109,11 @@ export class Layout {
 
         // --- Extract components ---
 
-        this.loads = this.components.getComponents('load', true);
-        this.transistors = this.components.getComponents('transistor', true);
-        this.buffers = this.components.getComponents('buffer', true);
-        this.functions = this.components.getComponents('function', true);
-        this.cells = this.components.getComponents('cell', true);
+        this.loads = this.components.getComponents('load');
+        this.transistors = this.components.getComponents('transistor');
+        this.buffers = this.components.getComponents('buffer');
+        this.functions = this.components.getComponents('function');
+        this.cells = this.components.getComponents('cell');
     }
 
     reduceCircuit(circuit) {
@@ -284,7 +284,7 @@ export class Layout {
 
         // Reduce all device components that matched the circuit
         for (const type of Components.getTypes()) {
-            device.components.removeComponents(type, state.getDeviceComponents(type));
+            device.components.reduceComponents(type, state.getDeviceComponents(type));
         }
 
         // Create a new component
@@ -344,11 +344,11 @@ export class Layout {
         // Find all nodes in use
         const nodes = [].concat(
             ...this.pins.map(p => p.getAllNodes()),
-            ...this.components.getComponents('load').map(l => l.getAllNodes()),
-            ...this.components.getComponents('transistor').map(t => t.getAllNodes()),
-            ...this.components.getComponents('buffer').map(b => b.getAllNodes()),
-            ...this.components.getComponents('function').map(f => f.getAllNodes()),
-            ...this.components.getComponents('cell').map(c => c.getAllNodes()),
+            ...this.components.getAllNodes('load'),
+            ...this.components.getAllNodes('transistor'),
+            ...this.components.getAllNodes('buffer'),
+            ...this.components.getAllNodes('function'),
+            ...this.components.getAllNodes('cell'),
         ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
 
         if (reduceNodes) {
@@ -418,11 +418,11 @@ export class Layout {
             registers: this.spec.registers,
             flags: this.spec.flags,
             circuits: this.circuits ? this.circuits.map(c => c.buildSpec()) : undefined,
-            loads: this.components.getComponents('load', true).map(l => l.getSpec()),
-            transistors: this.components.getComponents('transistor', true).map(t => t.getSpec()),
-            buffers: this.components.getComponents('buffer', true).map(b => b.getSpec()),
-            functions: this.components.getComponents('function', true).map(f => f.getSpec()),
-            cells: this.components.getComponents('cell', true).map(c => c.getSpec()),
+            loads: this.components.getComponents('load').map(l => l.getSpec()),
+            transistors: this.components.getComponents('transistor').map(t => t.getSpec()),
+            buffers: this.components.getComponents('buffer').map(b => b.getSpec()),
+            functions: this.components.getComponents('function').map(f => f.getSpec()),
+            cells: this.components.getComponents('cell').map(c => c.getSpec()),
         };
     }
 }

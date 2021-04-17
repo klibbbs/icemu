@@ -2,7 +2,7 @@ import { Util } from '../util.mjs';
 import { Validator } from '../validator.mjs';
 
 const MAX_GROUPS = 1;
-const MAX_PARAMS = 9;
+const MAX_PARAMS = 2;
 
 const PATTERN = /^([a-z]+)\((.*)\)$/;
 
@@ -138,7 +138,7 @@ export class Function {
         return Validator.validateTuple(field, val, [
             (field, val) => Validator.validateEnum(field, val, ['nmos', 'pmos', 'cmos', 'ttl']),
             (field, val) => {
-                const expr = validateString(field, val);
+                const expr = Validator.validateString(field, val);
 
                 try {
                     parseExpression(expr);

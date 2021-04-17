@@ -40,24 +40,21 @@ export class Components {
     // --- Accessors ---
 
     getCount(type) {
-        return this.components[type].length;
+        return this.getComponents(type).length;
     }
 
     getComponent(type, idx) {
-        return this.getComponents(type)[idx];
+        const c = this.components[type][idx];
+
+        return (c && !c.__reduce) ? c : null;
     }
 
-    getComponents(type, sort) {
-        if (sort) {
-            this.components[type].sort(TYPES[type].compare);
-            this.rebuildMaps(type);
-        }
-
-        return this.components[type];
+    getComponents(type) {
+        return this.components[type].filter(c => !c.__reduce).sort(TYPES[type].compare);
     }
 
-    getComponentGroups(type) {
-        return TYPES[type].getGroups();
+    getIndices(type) {
+        return this.getComponents(type).map(c => c.idx);
     }
 
     getIndicesByNode(type, group, node) {
@@ -66,59 +63,69 @@ export class Components {
         return idxs ? idxs : [];
     }
 
-    getNodes(type) {
-        return [].concat(...this.components[type].map(c => c.getAllNodes()));
-    }
-
-    getIndices(type) {
-        return Array.from(this.components[type].keys());
+    getAllNodes(type) {
+        return [].concat(...this.getComponents(type).map(c => c.getAllNodes()));
     }
 
     getSpecs(type) {
-        return this.components[type].map(c => c.getSpec());
+        return this.getComponents(type).map(c => c.getSpec());
     }
 
     addComponents(type, specs) {
-        specs.map(spec => new TYPES[type](-1, ...spec))
-            .filter((v, i, a) => a.findIndex(c => TYPES[type].compare(v, c) === 0) === i)
-            .filter(v => this.components[type].every(c => TYPES[type].compare(c, v) !== 0))
-            .forEach(c => {
-                c.idx = this.components[type].length;
-                this.components[type].push(c);
-            });
+        let components = specs.map(spec => new TYPES[type](-1, ...spec));
 
-        this.rebuildMaps(type);
+        components.forEach((c, i) => {
 
-    }
+            // Assign the next available index
+            c.idx = this.components[type].length;
 
-    removeComponents(type, indices) {
-        indices.forEach(idx => {
-            this.components[type][idx].__remove__ = true;
+            // Reduce duplicates
+            if (components.findIndex(cc => TYPES[type].compare(c, cc) === 0) !== i ||
+                this.components[type].some(cc => TYPES[type].compare(c, cc) === 0)) {
+
+                c.__reduce = true;
+            }
+
+            // Add to component list
+            this.components[type].push(c);
+
+            // Add unreduced components to node maps
+            if (!c.__reduce) {
+                Components.getGroups(type).forEach(group => {
+                    const groupNodes = c.getGroupNodes(group);
+
+                    if (groupNodes) {
+                        groupNodes.forEach(n => {
+                            if (this.maps[type][group][n]) {
+                                this.maps[type][group][n].push(c.idx);
+                            } else {
+                                this.maps[type][group][n] = [c.idx];
+                            }
+                        });
+                    }
+                });
+            }
         });
-
-        this.components[type] = this.components[type].filter(c => !c.__remove__);
-
-        this.rebuildMaps(type);
     }
 
-    rebuildMaps(type) {
-        this.maps[type] = Object.fromEntries(TYPES[type].getGroups().map(group => [
-            group,
-            this.components[type].reduce((map, c, idx) => {
+    reduceComponents(type, indices) {
+        indices.forEach(idx => {
+            let c = this.components[type][idx];
+
+            // Flag component as reduced
+            c.__reduce = true;
+
+            // Remove from node maps
+            Components.getGroups(type).forEach(group => {
                 const groupNodes = c.getGroupNodes(group);
 
                 if (groupNodes) {
                     groupNodes.forEach(n => {
-                        if (map[n]) {
-                            map[n].push(idx);
-                        } else {
-                            map[n] = [idx];
-                        }
+                        this.maps[type][group][n] =
+                            this.maps[type][group][n].filter(i => i !== idx);
                     });
                 }
-
-                return map;
-            }, {})
-        ]));
+            });
+        });
     }
 }

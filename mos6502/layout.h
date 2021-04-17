@@ -137,7 +137,7 @@ const size_t MOS6502_CELL_COUNT = 16;
 
 /* --- Function definitions --- */
 
-static bit_t __mos6502_func_0(bit_t x1, bit_t x2, bit_t x3, bit_t x4, bit_t x5, bit_t x6, bit_t x7, bit_t x8, bit_t x9) {
+static bit_t __mos6502_func_0(bit_t x1, bit_t x2) {
     return !(x1 && x2);
 }
 
@@ -2115,6 +2115,7 @@ const buffer_t MOS6502_BUFFER_DEFS[] = {
     {LOGIC_NMOS, false, 843, 1251},
     {LOGIC_NMOS, false, 857, 385},
     {LOGIC_NMOS, false, 858, 831},
+    {LOGIC_NMOS, false, 943, 962},
     {LOGIC_NMOS, false, 948, 83},
     {LOGIC_NMOS, false, 958, 944},
     {LOGIC_NMOS, false, 978, 1618},
@@ -2134,7 +2135,6 @@ const buffer_t MOS6502_BUFFER_DEFS[] = {
     {LOGIC_NMOS, false, 1427, 1619},
     {LOGIC_NMOS, false, 1536, 638},
     {LOGIC_NMOS, false, 1551, 1488},
-    {LOGIC_NMOS, false, 1585, 1035},
     {LOGIC_NMOS, false, 1623, 1689},
     {LOGIC_NMOS, false, 1648, 242},
     {LOGIC_NMOS, false, 1653, 1592},
@@ -2503,12 +2503,12 @@ const buffer_t MOS6502_BUFFER_DEFS[] = {
     {LOGIC_NMOS, true, 934, 139},
     {LOGIC_NMOS, true, 943, 133},
     {LOGIC_NMOS, true, 943, 525},
-    {LOGIC_NMOS, true, 943, 1585},
     {LOGIC_NMOS, true, 945, 111},
     {LOGIC_NMOS, true, 945, 1199},
     {LOGIC_NMOS, true, 946, 384},
     {LOGIC_NMOS, true, 955, 1671},
     {LOGIC_NMOS, true, 960, 1178},
+    {LOGIC_NMOS, true, 962, 1035},
     {LOGIC_NMOS, true, 967, 104},
     {LOGIC_NMOS, true, 967, 1347},
     {LOGIC_NMOS, true, 968, 1093},

@@ -789,9 +789,13 @@ void icemu_function_resolve(icemu_t * ic, fx_t f) {
 
 bit_t icemu_function_output(icemu_t * ic, fx_t f) {
     function_t * function = &ic->functions[f];
+    size_t count = function->inputs_count;
 
-    return function->func(bit_default(ic->nodes[function->inputs[0]].state),
-                          bit_default(ic->nodes[function->inputs[1]].state));
+    /* Fetch function arguments from input nodes */
+    bit_t arg1 = count > 0 ? bit_default(ic->nodes[function->inputs[0]].state) : BIT_ZERO;
+    bit_t arg2 = count > 1 ? bit_default(ic->nodes[function->inputs[1]].state) : BIT_ZERO;
+
+    return function->func(arg1, arg2);
 }
 
 /* ========== */

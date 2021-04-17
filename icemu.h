@@ -95,7 +95,7 @@ typedef size_t fx_t;
 
 typedef bit_t (* function_func_t)(bit_t, bit_t);
 
-enum { FUNCTION_INPUTS = 9 };
+enum { FUNCTION_INPUTS = 2 };
 
 typedef struct {
     logic_t logic;
