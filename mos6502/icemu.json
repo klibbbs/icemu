@@ -122,7 +122,7 @@
             "id": "nor4",
             "name": "Four-input NOR Gate",
             "type": "function",
-            "enabled": false,
+            "enabled": true,
             "args": ["nmos", "nor(x1,x2,x3,x4)", ["$x1", "$x2", "$x3", "$x4"], "$out"],
             "nodes": {
                 "out": 0,
@@ -149,7 +149,7 @@
             "id": "nor3",
             "name": "Three-input NOR Gate",
             "type": "function",
-            "enabled": false,
+            "enabled": true,
             "args": ["nmos", "nor(x1,x2,x3)", ["$x1", "$x2", "$x3"], "$out"],
             "nodes": {
                 "out": 0,
@@ -174,7 +174,7 @@
             "id": "nor2",
             "name": "Two-input NOR Gate",
             "type": "function",
-            "enabled": false,
+            "enabled": true,
             "args": ["nmos", "nor(x1,x2)", ["$x1", "$x2"], "$out"],
             "nodes": {
                 "out": 0,

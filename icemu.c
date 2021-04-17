@@ -794,8 +794,10 @@ bit_t icemu_function_output(icemu_t * ic, fx_t f) {
     /* Fetch function arguments from input nodes */
     bit_t arg1 = count > 0 ? bit_default(ic->nodes[function->inputs[0]].state) : BIT_ZERO;
     bit_t arg2 = count > 1 ? bit_default(ic->nodes[function->inputs[1]].state) : BIT_ZERO;
+    bit_t arg3 = count > 2 ? bit_default(ic->nodes[function->inputs[2]].state) : BIT_ZERO;
+    bit_t arg4 = count > 3 ? bit_default(ic->nodes[function->inputs[3]].state) : BIT_ZERO;
 
-    return function->func(arg1, arg2);
+    return function->func(arg1, arg2, arg3, arg4);
 }
 
 /* ========== */
