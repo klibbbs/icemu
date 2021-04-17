@@ -1,5 +1,6 @@
 import { Pin } from './pin.mjs';
 import { Components } from './components.mjs';
+import { Cache } from './layout/cache.mjs';
 
 export class Layout {
 
@@ -79,7 +80,11 @@ export class Layout {
 
                 process.stdout.write(`Reducing circuit '${circuit.spec.id}'...`);
 
-                while (count < limit && this.reduceCircuit(circuit)) {
+                // Cache known mis-matches
+                let cache = new Cache();
+
+                // Iteratively reduce one circuit instance at a time
+                while (count < limit && this.reduceCircuit(circuit, cache)) {
                     count++;
 
                     if (count % 10 === 0) {
@@ -116,7 +121,7 @@ export class Layout {
         this.cells = this.components.getComponents('cell');
     }
 
-    reduceCircuit(circuit) {
+    reduceCircuit(circuit, cache) {
         const device = this;
 
         // Component matchers
@@ -256,10 +261,21 @@ export class Layout {
         // Component finders
         function findComponent(type, cx, dxs, state) {
             for (const dx of dxs) {
+
+                // Short-circuit if this is a known mis-match
+                if (cache.hasMismatch(type, cx, dx)) {
+                    continue;
+                }
+
                 let newState = matchComponents(type, cx, dx, state);
 
                 if (newState) {
                     return newState;
+                }
+
+                // If the search state is empty, this match fails unconditionally
+                if (state.isEmpty()) {
+                    cache.cacheMismatch(type, cx, dx);
                 }
             }
 
@@ -269,7 +285,7 @@ export class Layout {
         // Initialize search state
         let state = new State(Components.getTypes());
 
-        // Match
+        // Match all components
         for (const type of Components.getTypes()) {
             if (!circuit.components.getIndices(type).every(cx => {
                 if (state = findComponent(type, cx, device.components.getIndices(type), state)) {
@@ -431,6 +447,20 @@ class State {
             this.circuit.components[type] = {};
             this.device.components[type] = {};
         });
+    }
+
+    isEmpty() {
+        if (Object.keys(this.circuit.nodes).length > 0) {
+            return false;
+        }
+
+        this.types.forEach(type => {
+            if (Object.keys(this.circuit.components[type]).length > 0) {
+                return false;
+            }
+        });
+
+        return true;
     }
 
     copyWithNode(cx, dx) {
