@@ -381,6 +381,8 @@ export class Layout {
             this.components.getComponents('cell').forEach(c => {
                 c.inputs = c.inputs.map(n => this.nodes[n]);
                 c.outputs = c.outputs.map(n => this.nodes[n]);
+                c.writes = c.writes.map(n => this.nodes[n]);
+                c.reads = c.reads.map(n => this.nodes[n]);
             });
         } else {
 
