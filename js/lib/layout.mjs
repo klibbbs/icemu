@@ -156,15 +156,15 @@ export class Layout {
             // Compare component counts
             for (const type of Components.getTypes()) {
                 for (const group of Components.getGroups(type)) {
-                    const cxs = circuit.components.getComponentsByNode(type, group, cnx),
-                          dxs = device.components.getComponentsByNode(type, group, dnx);
-
-                    if (cxs && !dxs || cxs && dxs.length < cxs.length) {
-                        return false;
-                    }
+                    const cxs = circuit.components.getIndicesByNode(type, group, cnx),
+                          dxs = device.components.getIndicesByNode(type, group, dnx);
 
                     if (internal) {
-                        if (!cxs && dxs || cxs && dxs.length !== cxs.length) {
+                        if (dxs.length !== cxs.length) {
+                            return false;
+                        }
+                    } else {
+                        if (dxs.length < cxs.length) {
                             return false;
                         }
                     }
@@ -177,19 +177,17 @@ export class Layout {
             // Match components
             for (const type of Components.getTypes()) {
                 for (const group of Components.getGroups(type)) {
-                    const cxs = circuit.components.getComponentsByNode(type, group, cnx),
-                          dxs = device.components.getComponentsByNode(type, group, dnx);
+                    const cxs = circuit.components.getIndicesByNode(type, group, cnx),
+                          dxs = device.components.getIndicesByNode(type, group, dnx);
 
-                    if (cxs) {
-                        if (!cxs.every(cx => {
-                            if (state = findComponent(type, cx, dxs, state)) {
-                                return true;
-                            } else {
-                                return false;
-                            }
-                        })) {
+                    if (!cxs.every(cx => {
+                        if (state = findComponent(type, cx, dxs, state)) {
+                            return true;
+                        } else {
                             return false;
                         }
+                    })) {
+                        return false;
                     }
                 }
             }
@@ -273,7 +271,7 @@ export class Layout {
 
         // Match
         for (const type of Components.getTypes()) {
-            if (!circuit.components.getComponents(type).every((cc, cx) => {
+            if (!circuit.components.getIndices(type).every(cx => {
                 if (state = findComponent(type, cx, device.components.getIndices(type), state)) {
                     return true;
                 } else {

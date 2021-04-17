@@ -12,22 +12,6 @@ const TYPES = {
     cell: Cell,
 };
 
-// --- Private functions ---
-
-function validateType(type) {
-    if (TYPES[type] === undefined) {
-        throw new Error(`Unsupported component type '${type}'`);
-    }
-}
-
-function validateTypeGroup(type, group) {
-    validateType(type);
-
-    if (!TYPES[type].getGroups().includes(group)) {
-        throw new Error(`Component type '${type}' does not have node group '${group}'`);
-    }
-}
-
 export class Components {
 
     static getTypes() {
@@ -35,14 +19,10 @@ export class Components {
     }
 
     static getGroups(type) {
-        validateType(type);
-
         return TYPES[type].getGroups();
     }
 
     static areCompatible(type, a, b) {
-        validateType(type);
-
         return TYPES[type].compatible(a, b);
     }
 
@@ -50,12 +30,16 @@ export class Components {
         this.components = Object.fromEntries(Object.keys(TYPES).map(key => [key, []]));
         this.maps = Object.fromEntries(Object.keys(TYPES).map(key => [key, {}]));
 
-        Components.getTypes().forEach(t => this.rebuildMaps(t));
+        Components.getTypes().forEach(type => {
+            Components.getGroups(type).forEach(group => {
+                this.maps[type][group] = {};
+            });
+        });
     }
 
-    getCount(type) {
-        validateType(type);
+    // --- Accessors ---
 
+    getCount(type) {
         return this.components[type].length;
     }
 
@@ -64,8 +48,6 @@ export class Components {
     }
 
     getComponents(type, sort) {
-        validateType(type);
-
         if (sort) {
             this.components[type].sort(TYPES[type].compare);
             this.rebuildMaps(type);
@@ -75,38 +57,28 @@ export class Components {
     }
 
     getComponentGroups(type) {
-        validateType(type);
-
         return TYPES[type].getGroups();
     }
 
-    getComponentsByNode(type, group, node) {
-        validateTypeGroup(type, group);
+    getIndicesByNode(type, group, node) {
+        const idxs = this.maps[type][group][node];
 
-        return this.maps[type][group][node];
+        return idxs ? idxs : [];
     }
 
     getNodes(type) {
-        validateTypeGroup(type);
-
         return [].concat(...this.components[type].map(c => c.getAllNodes()));
     }
 
     getIndices(type) {
-        validateType(type);
-
         return Array.from(this.components[type].keys());
     }
 
     getSpecs(type) {
-        validateType(type);
-
         return this.components[type].map(c => c.getSpec());
     }
 
     addComponents(type, specs) {
-        validateType(type);
-
         specs.map(spec => new TYPES[type](-1, ...spec))
             .filter((v, i, a) => a.findIndex(c => TYPES[type].compare(v, c) === 0) === i)
             .filter(v => this.components[type].every(c => TYPES[type].compare(c, v) !== 0))
@@ -120,8 +92,6 @@ export class Components {
     }
 
     removeComponents(type, indices) {
-        validateType(type);
-
         indices.forEach(idx => {
             this.components[type][idx].__remove__ = true;
         });
@@ -132,8 +102,6 @@ export class Components {
     }
 
     rebuildMaps(type) {
-        validateType(type);
-
         this.maps[type] = Object.fromEntries(TYPES[type].getGroups().map(group => [
             group,
             this.components[type].reduce((map, c, idx) => {
