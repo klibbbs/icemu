@@ -129,4 +129,11 @@ export class Cell {
 
         return groupNodes[group];
     }
+
+    remapNodes(map) {
+        this.inputs = this.inputs.map(n => map[n]);
+        this.outputs = this.outputs.map(n => map[n]);
+        this.writes = this.writes.map(n => map[n]);
+        this.reads = this.reads.map(n => map[n]);
+    }
 }

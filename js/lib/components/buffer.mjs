@@ -48,4 +48,9 @@ export class Buffer {
             output: [this.output],
         }[group];
     }
+
+    remapNodes(map) {
+        this.input = map[this.input];
+        this.output = map[this.output];
+    }
 }

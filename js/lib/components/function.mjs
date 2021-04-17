@@ -176,4 +176,9 @@ export class Function {
 
         return groupNodes[group];
     }
+
+    remapNodes(map) {
+        this.inputs = this.inputs.map(n => map[n]);
+        this.output = map[this.output];
+    }
 }

@@ -352,6 +352,7 @@ export class Layout {
         ).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
 
         if (reduceNodes) {
+            process.stdout.write(`Reducing nodes...`);
 
             // Map nodes to unique indices
             this.nodes = Object.fromEntries(nodes.map((node, idx) => [node, idx]));
@@ -359,31 +360,13 @@ export class Layout {
             // Replace nodes with unique indices in each component
             this.pins.forEach(p => { p.nodes = p.nodes.map(n => this.nodes[n]) });
 
-            this.components.getComponents('load').forEach(l => {
-                l.node = this.nodes[l.node];
-            });
+            this.components.getComponents('load').forEach(l => l.remapNodes(this.nodes));
+            this.components.getComponents('transistor').forEach(t => t.remapNodes(this.nodes));
+            this.components.getComponents('buffer').forEach(b => b.remapNodes(this.nodes));
+            this.components.getComponents('function').forEach(f => f.remapNodes(this.nodes));
+            this.components.getComponents('cell').forEach(c => c.remapNodes(this.nodes));
 
-            this.components.getComponents('transistor').forEach(t => {
-                t.gate = this.nodes[t.gate];
-                t.channel = t.channel.map(n => this.nodes[n]);
-            });
-
-            this.components.getComponents('buffer').forEach(b => {
-                b.input = this.nodes[b.input];
-                b.output = this.nodes[b.output];
-            });
-
-            this.components.getComponents('function').forEach(f => {
-                f.inputs = f.inputs.map(n => this.nodes[n]);
-                f.output = this.nodes[f.output];
-            });
-
-            this.components.getComponents('cell').forEach(c => {
-                c.inputs = c.inputs.map(n => this.nodes[n]);
-                c.outputs = c.outputs.map(n => this.nodes[n]);
-                c.writes = c.writes.map(n => this.nodes[n]);
-                c.reads = c.reads.map(n => this.nodes[n]);
-            });
+            console.log('done');
         } else {
 
             // Leave nodes unchanged

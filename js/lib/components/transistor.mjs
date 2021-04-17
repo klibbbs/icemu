@@ -47,4 +47,9 @@ export class Transistor {
             channel: this.channel,
         }[group];
     }
+
+    remapNodes(map) {
+        this.gate = map[this.gate];
+        this.channel = this.channel.map(n => map[n]);
+    }
 }

@@ -40,4 +40,8 @@ export class Load {
             node: [this.node],
         }[group];
     }
+
+    remapNodes(map) {
+        this.node = map[this.node];
+    }
 }
