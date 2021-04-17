@@ -796,8 +796,13 @@ bit_t icemu_function_output(icemu_t * ic, fx_t f) {
     bit_t arg2 = count > 1 ? bit_default(ic->nodes[function->inputs[1]].state) : BIT_ZERO;
     bit_t arg3 = count > 2 ? bit_default(ic->nodes[function->inputs[2]].state) : BIT_ZERO;
     bit_t arg4 = count > 3 ? bit_default(ic->nodes[function->inputs[3]].state) : BIT_ZERO;
+    bit_t arg5 = count > 4 ? bit_default(ic->nodes[function->inputs[4]].state) : BIT_ZERO;
+    bit_t arg6 = count > 5 ? bit_default(ic->nodes[function->inputs[5]].state) : BIT_ZERO;
+    bit_t arg7 = count > 6 ? bit_default(ic->nodes[function->inputs[6]].state) : BIT_ZERO;
+    bit_t arg8 = count > 7 ? bit_default(ic->nodes[function->inputs[7]].state) : BIT_ZERO;
+    bit_t arg9 = count > 8 ? bit_default(ic->nodes[function->inputs[8]].state) : BIT_ZERO;
 
-    return function->func(arg1, arg2, arg3, arg4);
+    return function->func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
 }
 
 /* ========== */

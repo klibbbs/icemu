@@ -55,7 +55,7 @@
         },
         {
             "id": "nand2",
-            "name": "Two-input NAND Gate",
+            "name": "2-input NAND Gate",
             "type": "function",
             "enabled": true,
             "args": ["nmos", "nand(x1,x2)", ["$x1", "$x2"], "$out"],
@@ -78,9 +78,9 @@
         },
         {
             "id": "nor9",
-            "name": "Nine-input NOR Gate",
+            "name": "9-input NOR Gate",
             "type": "function",
-            "enabled": false,
+            "enabled": true,
             "args": [
                 "nmos",
                 "nor(x1,x2,x3,x4,x5,x6,x7,x8,x9)",
@@ -119,8 +119,156 @@
             ]
         },
         {
+            "id": "nor8",
+            "name": "8-input NOR Gate",
+            "type": "function",
+            "enabled": true,
+            "args": [
+                "nmos",
+                "nor(x1,x2,x3,x4,x5,x6,x7,x8)",
+                ["$x1", "$x2", "$x3", "$x4", "$x5", "$x6", "$x7", "$x8"],
+                "$out"
+            ],
+            "nodes": {
+                "out": 0,
+                "vss": 1,
+                "x1": 2,
+                "x2": 3,
+                "x3": 4,
+                "x4": 5,
+                "x5": 6,
+                "x6": 7,
+                "x7": 8,
+                "x8": 9
+            },
+            "off": "vss",
+            "inputs": ["x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8"],
+            "outputs": ["out"],
+            "loads": [
+                ["on", 0]
+            ],
+            "transistors": [
+                ["nmos", 2, 0, 1],
+                ["nmos", 3, 0, 1],
+                ["nmos", 4, 0, 1],
+                ["nmos", 5, 0, 1],
+                ["nmos", 6, 0, 1],
+                ["nmos", 7, 0, 1],
+                ["nmos", 8, 0, 1],
+                ["nmos", 9, 0, 1]
+            ]
+        },
+        {
+            "id": "nor7",
+            "name": "7-input NOR Gate",
+            "type": "function",
+            "enabled": true,
+            "args": [
+                "nmos",
+                "nor(x1,x2,x3,x4,x5,x6,x7)",
+                ["$x1", "$x2", "$x3", "$x4", "$x5", "$x6", "$x7"],
+                "$out"
+            ],
+            "nodes": {
+                "out": 0,
+                "vss": 1,
+                "x1": 2,
+                "x2": 3,
+                "x3": 4,
+                "x4": 5,
+                "x5": 6,
+                "x6": 7,
+                "x7": 8
+            },
+            "off": "vss",
+            "inputs": ["x1", "x2", "x3", "x4", "x5", "x6", "x7"],
+            "outputs": ["out"],
+            "loads": [
+                ["on", 0]
+            ],
+            "transistors": [
+                ["nmos", 2, 0, 1],
+                ["nmos", 3, 0, 1],
+                ["nmos", 4, 0, 1],
+                ["nmos", 5, 0, 1],
+                ["nmos", 6, 0, 1],
+                ["nmos", 7, 0, 1],
+                ["nmos", 8, 0, 1]
+            ]
+        },
+        {
+            "id": "nor6",
+            "name": "6-input NOR Gate",
+            "type": "function",
+            "enabled": true,
+            "args": [
+                "nmos",
+                "nor(x1,x2,x3,x4,x5,x6)",
+                ["$x1", "$x2", "$x3", "$x4", "$x5", "$x6"],
+                "$out"
+            ],
+            "nodes": {
+                "out": 0,
+                "vss": 1,
+                "x1": 2,
+                "x2": 3,
+                "x3": 4,
+                "x4": 5,
+                "x5": 6,
+                "x6": 7
+            },
+            "off": "vss",
+            "inputs": ["x1", "x2", "x3", "x4", "x5", "x6"],
+            "outputs": ["out"],
+            "loads": [
+                ["on", 0]
+            ],
+            "transistors": [
+                ["nmos", 2, 0, 1],
+                ["nmos", 3, 0, 1],
+                ["nmos", 4, 0, 1],
+                ["nmos", 5, 0, 1],
+                ["nmos", 6, 0, 1],
+                ["nmos", 7, 0, 1]
+            ]
+        },
+        {
+            "id": "nor5",
+            "name": "5-input NOR Gate",
+            "type": "function",
+            "enabled": true,
+            "args": [
+                "nmos",
+                "nor(x1,x2,x3,x4,x5)",
+                ["$x1", "$x2", "$x3", "$x4", "$x5"],
+                "$out"
+            ],
+            "nodes": {
+                "out": 0,
+                "vss": 1,
+                "x1": 2,
+                "x2": 3,
+                "x3": 4,
+                "x4": 5,
+                "x5": 6
+            },
+            "off": "vss",
+            "inputs": ["x1", "x2", "x3", "x4", "x5"],
+            "outputs": ["out"],
+            "loads": [
+                ["on", 0]
+            ],
+            "transistors": [
+                ["nmos", 2, 0, 1],
+                ["nmos", 3, 0, 1],
+                ["nmos", 4, 0, 1],
+                ["nmos", 5, 0, 1],
+                ["nmos", 6, 0, 1]
+            ]
+        },
+        {
             "id": "nor4",
-            "name": "Four-input NOR Gate",
+            "name": "4-input NOR Gate",
             "type": "function",
             "enabled": true,
             "args": ["nmos", "nor(x1,x2,x3,x4)", ["$x1", "$x2", "$x3", "$x4"], "$out"],
@@ -147,7 +295,7 @@
         },
         {
             "id": "nor3",
-            "name": "Three-input NOR Gate",
+            "name": "3-input NOR Gate",
             "type": "function",
             "enabled": true,
             "args": ["nmos", "nor(x1,x2,x3)", ["$x1", "$x2", "$x3"], "$out"],
@@ -172,7 +320,7 @@
         },
         {
             "id": "nor2",
-            "name": "Two-input NOR Gate",
+            "name": "2-input NOR Gate",
             "type": "function",
             "enabled": true,
             "args": ["nmos", "nor(x1,x2)", ["$x1", "$x2"], "$out"],

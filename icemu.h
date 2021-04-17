@@ -93,9 +93,9 @@ typedef struct {
 
 typedef size_t fx_t;
 
-typedef bit_t (* function_func_t)(bit_t, bit_t, bit_t, bit_t);
+typedef bit_t (* function_func_t)(bit_t, bit_t, bit_t, bit_t, bit_t, bit_t, bit_t, bit_t, bit_t);
 
-enum { FUNCTION_INPUTS = 4 };
+enum { FUNCTION_INPUTS = 9 };
 
 typedef struct {
     logic_t logic;
