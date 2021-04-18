@@ -7,20 +7,54 @@ import { Generator } from './lib/generator.mjs';
 const STYLE_BOLD = '\x1B[0;1m';
 const STYLE_NONE = '\x1B[0;0m';
 
-// TODO: Parse command-line options
+// Default options
 const options = {
+    deviceDir: '',
     reduceNodes: false,
     reduceCircuits: true,
     cacheLayout: false,
 }
 
+// Parse command-line options
+const argv = process.argv.slice(2);
+
+for (const arg of argv) {
+    if (arg[0] === '-') {
+        switch (arg) {
+            case '--reduce':
+                options.reduceNodes = true;
+                break;
+            case '--no-reduce':
+                options.reduceNodes = false;
+                break;
+            case '--circuits':
+                options.reduceCircuits = true;
+                break;
+            case '--no-circuits':
+                options.reduceCircuits = false;
+                break;
+            case '--cache':
+                options.cacheLayout = true;
+                break;
+            case '--no-cache':
+                options.cacheLayout = false;
+                break;
+            default:
+                throw new Error(`Unrecognized flag '${arg}'`);
+        }
+    } else {
+        options.deviceDir = arg;
+        break;
+    }
+}
+
 // Find spec file to use
-const dir = (process.argv.length > 2 ? process.argv[2] + '/' : '').replace(/\/+$/, '/');
+options.deviceDir = (options.deviceDir + '/').replace(/\/+$/, '/');
 
 const specFile = 'icemu.json',
-      specPath = `${dir}${specFile}`,
+      specPath = `${options.deviceDir}${specFile}`,
       cacheFile = 'icemu.cache.json',
-      cachePath = `${dir}${cacheFile}`;
+      cachePath = `${options.deviceDir}${cacheFile}`;
 
 if (!fs.existsSync(specPath)) {
     console.error(`Error: Could not find file '${specPath}'`);
@@ -86,7 +120,7 @@ console.log(`${STYLE_BOLD}Generating source code...${STYLE_NONE}`);
 try {
     var generator = new Generator(newSpec, layout);
 
-    generator.generateAll(dir);
+    generator.generateAll(options.deviceDir);
 } catch (e) {
     console.error(`Error generating source code: ${e.message}`);
     process.exit(1);
