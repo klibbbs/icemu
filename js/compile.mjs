@@ -43,8 +43,11 @@ for (const arg of argv) {
                 throw new Error(`Unrecognized flag '${arg}'`);
         }
     } else {
+        if (options.deviceDir) {
+            throw new Error(`Unexpected argument '${arg}'`);
+        }
+
         options.deviceDir = arg;
-        break;
     }
 }
 
