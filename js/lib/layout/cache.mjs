@@ -5,24 +5,16 @@ export class Cache {
     }
 
     hasMismatch(type, cx, dx) {
-        return this.cache[type] && this.cache[type][cx] && this.cache[type][cx][dx];
+        return this.cache[buildKey(type, cx, dx)] ? true : false;
     }
 
     cacheMismatch(type, cx, dx) {
-        if (this.cache[type]) {
-            if (this.cache[type][cx]) {
-                this.cache[type][cx][dx] = true;
-            } else {
-                this.cache[type][cx] = {
-                    [dx]: true
-                }
-            }
-        } else {
-            this.cache[type] = {
-                [cx]: {
-                    [dx]: true
-                }
-            };
-        }
+        this.cache[buildKey(type, cx, dx)] = true;
     }
+}
+
+// --- Private ---
+
+function buildKey(type, cx, dx) {
+    return `${type}|${cx}|${dx}`;
 }
