@@ -3,6 +3,9 @@ export class State {
     constructor(types) {
         this.types = types;
 
+        this.numNodes = 0;
+        this.numComponents = 0;
+
         this.circuit = {
             nodes: {},
             components: {},
@@ -20,17 +23,7 @@ export class State {
     }
 
     isEmpty() {
-        if (Object.keys(this.circuit.nodes).length > 0) {
-            return false;
-        }
-
-        this.types.forEach(type => {
-            if (Object.keys(this.circuit.components[type]).length > 0) {
-                return false;
-            }
-        });
-
-        return true;
+        return this.numNodes === 0 && this.numComponents === 0;
     }
 
     copyWithNode(cx, dx) {
@@ -39,6 +32,7 @@ export class State {
         // Use existing component maps
         copy.circuit.components = this.circuit.components;
         copy.device.components = this.device.components;
+        copy.numComponents = this.numComponents;
 
         // Copy node maps
         copy.circuit.nodes = {...this.circuit.nodes};
@@ -47,6 +41,7 @@ export class State {
         // Add node
         copy.circuit.nodes[cx] = dx;
         copy.device.nodes[dx] = cx;
+        copy.numNodes = this.numNodes + 1;
 
         return copy;
     }
@@ -57,6 +52,7 @@ export class State {
         // Use existing node maps
         copy.circuit.nodes = this.circuit.nodes;
         copy.device.nodes = this.device.nodes;
+        copy.numNodes = this.numNodes;
 
         // Copy component maps
         this.types.forEach(type => {
@@ -67,6 +63,7 @@ export class State {
         // Add component
         copy.circuit.components[type][cx] = dx;
         copy.device.components[type][dx] = cx;
+        copy.numComponents = this.numComponents + 1;
 
         return copy;
     }

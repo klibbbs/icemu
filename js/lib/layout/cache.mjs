@@ -4,12 +4,14 @@ export class Cache {
         this.cache = {};
     }
 
-    hasMismatch(type, cx, dx) {
+    hasMismatch(type, cx, dx, state) {
         return this.cache[buildKey(type, cx, dx)] ? true : false;
     }
 
-    cacheMismatch(type, cx, dx) {
-        this.cache[buildKey(type, cx, dx)] = true;
+    cacheMismatch(type, cx, dx, state) {
+        if (state.isEmpty()) {
+            this.cache[buildKey(type, cx, dx)] = true;
+        }
     }
 }
 

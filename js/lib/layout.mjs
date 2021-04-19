@@ -264,7 +264,7 @@ export class Layout {
             for (const dx of dxs) {
 
                 // Short-circuit if this is a known mis-match
-                if (cache.hasMismatch(type, cx, dx)) {
+                if (cache.hasMismatch(type, cx, dx, state)) {
                     continue;
                 }
 
@@ -274,10 +274,8 @@ export class Layout {
                     return newState;
                 }
 
-                // If the search state is empty, this match fails unconditionally
-                if (state.isEmpty()) {
-                    cache.cacheMismatch(type, cx, dx);
-                }
+                // Cache this mis-match for future searches
+                cache.cacheMismatch(type, cx, dx, state);
             }
 
             return false;
