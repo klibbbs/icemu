@@ -21,7 +21,7 @@ _I'm writing this after several years, so my memory is fuzzy; what follows is me
 
 ### Emulation
 
-The [/icemu.h] header provides the interface via which the low-level emulator (`icemu_t`) for any device is constructed from its netlist (`icemu_layout_t`). At this level of emulation, the only possible actions are writing a bit to a node, reading a bit from a node, and synchronizing circuit to account for any writes.
+The [icemu.h](/icemu.h) header provides the interface via which the low-level emulator (`icemu_t`) for any device is constructed from its netlist (`icemu_layout_t`). At this level of emulation, the only possible actions are writing a bit to a node, reading a bit from a node, and synchronizing circuit to account for any writes.
 
 Each emulated device must define an _adapter_ that is returned by an [externally linked function](https://github.com/klibbbs/icemu/blob/0c1910aa6bcc3c7627b4cfea167de8cdcd92ffcb/mos6502/adapter.h#L6) matching the `adapter_func` declaration in [/runtime.h]. The emulated device is compiled into a shared object that can then be loaded dynamically by the runtime application with the `.device` command.
 
