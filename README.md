@@ -1,6 +1,6 @@
 # ICEMU
 
-ICEMU is a transistor-accurate IC emulator.
+ICEMU is a transistor-accurate IC emulator, [heavily influenced by the perfect6502 and visual6502 projects](#credits).
 
 # Credits
 
