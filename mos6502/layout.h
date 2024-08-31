@@ -1,3 +1,19 @@
+/*
+ The original source of this MOS 6502 transistor netlist (before consolidation) comes from
+ the Visual 6502 project (www.visual6502.org), licensed below.
+*/
+
+/*
+ Copyright (c) 2010 Greg James, Brian Silverman, Barry Silverman
+
+ The following is provided under terms of the Creative Commons
+ Attribution-NonCommercial-ShareAlike 3.0 Unported license:
+ http://creativecommons.org/licenses/by-nc-sa/3.0/
+
+ Specify the original author as Greg James and the following URL
+ for original source material:  www.visual6502.org
+*/
+
 #ifndef INCLUDE_MOS6502_LAYOUT_H
 #define INCLUDE_MOS6502_LAYOUT_H
 
