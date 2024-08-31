@@ -13,7 +13,7 @@ typedef struct {
 
 /* --- Emulator --- */
 
-mos6502_t * mos6502_init();
+mos6502_t * mos6502_init(void);
 void mos6502_destroy(mos6502_t * mos6502);
 void mos6502_sync(mos6502_t * mos6502);
 

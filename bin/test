@@ -9,7 +9,7 @@ if [[ ! -f "$RUNTIME" ]]; then
 fi
 
 if [[ ! -x "$RUNTIME" ]]; then
-    echo "Error: file '$UNTIME' is not executable"
+    echo "Error: file '$RUNTIME' is not executable"
     exit 1
 fi
 

@@ -20,7 +20,7 @@ typedef struct {
     const size_t mem_word_width;
 
     /* Functions */
-    void * (* init)();
+    void * (* init)(void);
     void (* destroy)(void * instance);
     void (* reset)(void * instance);
     void (* step)(void * instance);
@@ -35,6 +35,6 @@ typedef struct {
 
 /* --- Function types --- */
 
-typedef const adapter_t * (* adapter_func)();
+typedef const adapter_t * (* adapter_func)(void);
 
 #endif /* INCLUDE_RUNTIME_H */

@@ -3,6 +3,6 @@
 
 #include "../runtime.h"
 
-const adapter_t * mos6502_adapter();
+const adapter_t * mos6502_adapter(void);
 
 #endif /* INCLUDE_MOS6502_ADAPTER_H */

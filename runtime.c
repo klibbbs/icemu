@@ -86,7 +86,7 @@ typedef struct {
     size_t mem_offset;
 } env_t;
 
-static state_t runtime_exec_repl();
+static state_t runtime_exec_repl(void);
 static state_t runtime_exec_file(const char * file);
 static state_t runtime_exec_stream(env_t * env, FILE * stream);
 static state_t runtime_exec_line(env_t * env, char * buf, state_t state);
@@ -144,10 +144,10 @@ static void runtime_print_test_hex(const env_t * env, style_t style, test_t test
 static void runtime_print_test_bin(const env_t * env, style_t style, test_t test);
 static void runtime_print_test_dec(const env_t * env, style_t style, test_t test);
 
-static device_t * runtime_device_init();
+static device_t * runtime_device_init(const char * file, const char * id);
 static void runtime_device_destroy(device_t * device);
 
-static env_t * runtime_env_init();
+static env_t * runtime_env_init(const char * file);
 static void runtime_env_destroy(env_t * env);
 
 /* --- Main --- */
@@ -179,7 +179,7 @@ int main (int argc, char * argv[]) {
 
 /* --- Private functions --- */
 
-state_t runtime_exec_repl() {
+state_t runtime_exec_repl(void) {
 
     /* Initialize environment */
     env_t * env = runtime_env_init("shell");

@@ -2,7 +2,7 @@
 
 #include <stdlib.h>
 
-mos6502_memory_t * mos6502_memory_init() {
+mos6502_memory_t * mos6502_memory_init(void) {
     return (mos6502_memory_t *)calloc(1, sizeof(mos6502_memory_t));
 }
 

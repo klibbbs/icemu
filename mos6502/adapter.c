@@ -72,7 +72,7 @@ typedef struct {
     mos6502_memory_t * memory;
 } mos6502_instance_t;
 
-static void * adapter_instance_init();
+static void * adapter_instance_init(void);
 static void adapter_instance_destroy(void * instance);
 static void adapter_instance_reset(void * instance);
 static void adapter_instance_step(void * instance);
@@ -106,13 +106,13 @@ static const adapter_t MOS6502_ADAPTER = {
 
 /* --- Public functions --- */
 
-const adapter_t * mos6502_adapter() {
+const adapter_t * mos6502_adapter(void) {
     return &MOS6502_ADAPTER;
 }
 
 /* --- Adapter functions --- */
 
-void * adapter_instance_init() {
+void * adapter_instance_init(void) {
     mos6502_instance_t * mos6502_instance = malloc(sizeof(mos6502_instance_t));
 
     mos6502_instance->mos6502 = mos6502_init();

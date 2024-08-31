@@ -10,7 +10,7 @@ typedef struct {
     size_t debug_nodes_count;
 } icemu_debug_t;
 
-icemu_debug_t * debug_instance();
+icemu_debug_t * debug_instance(void);
 
 bool_t debug_test_node(nx_t n);
 bool_t debug_test_network(const icemu_t * ic);

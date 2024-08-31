@@ -20,7 +20,7 @@ PERFECT6502_LIB  = perfect6502/perfect6502.so
 PERFECT6502_OBJS = ../perfect6502/perfect6502.o ../perfect6502/netlist_sim.o perfect6502/memory.o perfect6502/controller.o perfect6502/adapter.o
 PERFECT6502_DEPS = perfect6502/*.h
 
-DEVICE_LIBS = $(MOS6502_LIB) $(PERFECT6502_LIB)
+DEVICE_LIBS = $(MOS6502_LIB) # $(PERFECT6502_LIB)
 
 # Testing
 TEST_CMD = bin/test

@@ -8,7 +8,7 @@
 
 /* --- Emulator --- */
 
-mos6502_t * mos6502_init() {
+mos6502_t * mos6502_init(void) {
 
     /* Construct IC layout */
     const icemu_layout_t layout = {

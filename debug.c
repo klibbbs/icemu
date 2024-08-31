@@ -10,7 +10,7 @@ static int debug_comp_int(const void * a, const void * b);
 
 /* --- Public functions --- */
 
-icemu_debug_t * debug_instance() {
+icemu_debug_t * debug_instance(void) {
     static icemu_debug_t * debug = NULL;
 
     /* Initialize singleton debug info */
